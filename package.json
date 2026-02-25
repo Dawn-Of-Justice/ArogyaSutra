@@ -1,0 +1,47 @@
+{
+  "name": "temp-init",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "@aws-sdk/client-bedrock-runtime": "^3.996.0",
+    "@aws-sdk/client-cognito-identity-provider": "^3.996.0",
+    "@aws-sdk/client-comprehendmedical": "^3.996.0",
+    "@aws-sdk/client-dynamodb": "^3.996.0",
+    "@aws-sdk/client-kms": "^3.996.0",
+    "@aws-sdk/client-s3": "^3.996.0",
+    "@aws-sdk/client-sns": "^3.996.0",
+    "@aws-sdk/client-textract": "^3.996.0",
+    "@aws-sdk/lib-dynamodb": "^3.996.0",
+    "@react-three/drei": "^10.7.7",
+    "@react-three/fiber": "^9.5.0",
+    "aws-amplify": "^6.16.2",
+    "idb": "^8.0.3",
+    "next": "16.1.6",
+    "next-pwa": "^5.6.0",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "three": "^0.183.1",
+    "uuid": "^13.0.0"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@types/three": "^0.183.1",
+    "@types/uuid": "^10.0.0",
+    "eslint": "^9",
+    "eslint-config-next": "16.1.6",
+    "fast-check": "^4.5.3",
+    "jest": "^30.2.0",
+    "ts-jest": "^29.4.6",
+    "typescript": "^5"
+  }
+}

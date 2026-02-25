@@ -1,0 +1,334 @@
+/* ======================================================
+   Admin Dashboard — Premium dark UI
+   ====================================================== */
+
+.container {
+    min-height: 100vh;
+    background: var(--color-bg-primary);
+    padding: var(--space-4);
+}
+
+/* ---- Login Screen ---- */
+.loginContainer {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-bg-primary);
+    padding: var(--space-4);
+}
+
+.loginCard {
+    background: var(--glass-bg);
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-2xl);
+    padding: var(--space-8) var(--space-6);
+    width: 100%;
+    max-width: 400px;
+    box-shadow: var(--shadow-xl);
+    animation: fadeIn 0.5s ease-out;
+}
+
+.loginTitle {
+    text-align: center;
+    font-size: var(--text-2xl);
+    font-weight: var(--font-bold);
+    color: var(--color-text-primary);
+    margin: 0 0 var(--space-1);
+}
+
+.loginSubtitle {
+    text-align: center;
+    font-size: var(--text-sm);
+    color: var(--color-text-tertiary);
+    margin: 0 0 var(--space-6);
+}
+
+.loginForm {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+}
+
+.loginInput {
+    width: 100%;
+    padding: var(--space-4);
+    border: 2px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-bg-secondary);
+    color: var(--color-text-primary);
+    font-size: var(--text-base);
+    text-align: center;
+    font-family: var(--font-mono);
+    letter-spacing: 2px;
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.loginInput::placeholder {
+    color: var(--color-text-tertiary);
+    letter-spacing: 0;
+    font-family: var(--font-sans);
+}
+
+.loginInput:focus {
+    outline: none;
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 4px var(--color-accent-glow);
+}
+
+.loginButton {
+    width: 100%;
+    padding: var(--space-4);
+    border: none;
+    border-radius: var(--radius-lg);
+    background: linear-gradient(135deg, var(--color-accent), var(--color-accent-dark));
+    color: white;
+    font-size: var(--text-base);
+    font-weight: var(--font-semibold);
+    cursor: pointer;
+    transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.loginButton:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px var(--color-accent-glow);
+}
+
+.loginError {
+    background: rgba(239, 68, 68, 0.08);
+    border: 1px solid rgba(239, 68, 68, 0.25);
+    border-radius: var(--radius-lg);
+    padding: var(--space-3);
+    color: var(--color-danger);
+    font-size: var(--text-sm);
+    text-align: center;
+}
+
+/* ---- Dashboard Header ---- */
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-4) 0;
+    margin-bottom: var(--space-6);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.headerTitle {
+    font-size: var(--text-2xl);
+    font-weight: var(--font-bold);
+    color: var(--color-text-primary);
+    margin: 0;
+}
+
+.headerSub {
+    font-size: var(--text-sm);
+    color: var(--color-text-tertiary);
+    margin: var(--space-1) 0 0;
+}
+
+.logoutButton {
+    padding: var(--space-2) var(--space-4);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-bg-secondary);
+    color: var(--color-text-secondary);
+    font-size: var(--text-sm);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.logoutButton:hover {
+    background: var(--color-bg-tertiary);
+    color: var(--color-text-primary);
+}
+
+/* ---- Tabs ---- */
+.tabs {
+    display: flex;
+    gap: var(--space-2);
+    margin-bottom: var(--space-6);
+}
+
+.tab {
+    padding: var(--space-2) var(--space-4);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-full);
+    background: var(--color-bg-secondary);
+    color: var(--color-text-tertiary);
+    font-size: var(--text-sm);
+    font-weight: var(--font-medium);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.tabActive {
+    background: var(--color-accent);
+    color: var(--color-text-inverse);
+    border-color: var(--color-accent);
+}
+
+/* ---- Form Card ---- */
+.formCard {
+    background: var(--glass-bg);
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-xl);
+    padding: var(--space-6);
+    max-width: 560px;
+    box-shadow: var(--shadow-lg);
+    animation: fadeIn 0.3s ease-out;
+}
+
+.formTitle {
+    font-size: var(--text-xl);
+    font-weight: var(--font-semibold);
+    color: var(--color-text-primary);
+    margin: 0 0 var(--space-6);
+}
+
+.form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+}
+
+.fieldGroup {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+}
+
+.label {
+    font-size: var(--text-sm);
+    font-weight: var(--font-semibold);
+    color: var(--color-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-wide);
+}
+
+.input {
+    width: 100%;
+    padding: var(--space-3) var(--space-4);
+    border: 2px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-bg-secondary);
+    color: var(--color-text-primary);
+    font-size: var(--text-base);
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.input::placeholder {
+    color: var(--color-text-tertiary);
+}
+
+.input:focus {
+    outline: none;
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 4px var(--color-accent-glow);
+}
+
+.row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-4);
+}
+
+.submitButton {
+    width: 100%;
+    padding: var(--space-4);
+    border: none;
+    border-radius: var(--radius-lg);
+    background: linear-gradient(135deg, var(--color-accent), var(--color-accent-dark));
+    color: white;
+    font-size: var(--text-base);
+    font-weight: var(--font-semibold);
+    cursor: pointer;
+    transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+    margin-top: var(--space-2);
+}
+
+.submitButton:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px var(--color-accent-glow);
+}
+
+.submitButton:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* ---- Success Card ---- */
+.successCard {
+    margin-top: var(--space-6);
+    padding: var(--space-4) var(--space-5);
+    background: rgba(16, 185, 129, 0.08);
+    border: 1px solid rgba(16, 185, 129, 0.25);
+    border-radius: var(--radius-xl);
+    animation: fadeIn 0.3s ease-out;
+}
+
+.successTitle {
+    font-size: var(--text-base);
+    font-weight: var(--font-semibold);
+    color: var(--color-accent);
+    margin: 0 0 var(--space-3);
+}
+
+.successRow {
+    display: flex;
+    justify-content: space-between;
+    padding: var(--space-2) 0;
+    border-bottom: 1px solid rgba(16, 185, 129, 0.1);
+}
+
+.successRow:last-child {
+    border-bottom: none;
+}
+
+.successLabel {
+    font-size: var(--text-sm);
+    color: var(--color-text-tertiary);
+}
+
+.successValue {
+    font-size: var(--text-sm);
+    font-weight: var(--font-semibold);
+    color: var(--color-text-primary);
+    font-family: var(--font-mono);
+}
+
+.cardIdHighlight {
+    font-size: var(--text-lg);
+    font-weight: var(--font-bold);
+    color: var(--color-accent);
+    font-family: var(--font-mono);
+    letter-spacing: 2px;
+}
+
+/* ---- Error ---- */
+.error {
+    background: rgba(239, 68, 68, 0.08);
+    border: 1px solid rgba(239, 68, 68, 0.25);
+    border-radius: var(--radius-lg);
+    padding: var(--space-3) var(--space-4);
+    color: var(--color-danger);
+    font-size: var(--text-sm);
+    text-align: center;
+}
+
+/* ---- Animations ---- */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}

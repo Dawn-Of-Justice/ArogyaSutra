@@ -1,0 +1,625 @@
+/* ======================================================
+   Dashboard — Patient Home (Redesigned)
+   Two-column: health overview + profile panel
+   ====================================================== */
+
+/* ---- Layout ---- */
+.dashboard {
+    display: grid;
+    grid-template-columns: 1fr 360px;
+    gap: var(--space-6);
+    min-height: calc(100vh - 64px - var(--space-6) * 2);
+}
+
+/* ---- Left Column: Health Overview ---- */
+.main {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+}
+
+/* Greeting */
+.greeting {
+    margin: 0 0 var(--space-1);
+}
+
+.greetingLabel {
+    font-size: var(--text-sm);
+    color: var(--color-text-tertiary);
+    display: block;
+    margin-bottom: 2px;
+}
+
+.greetingName {
+    font-size: var(--text-2xl);
+    font-weight: var(--font-bold);
+    color: var(--color-text-primary);
+    letter-spacing: var(--tracking-tight);
+}
+
+/* Quick Actions */
+.quickActions {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--space-3);
+}
+
+.actionCard {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-5) var(--space-3);
+    background: var(--glass-bg);
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-xl);
+    cursor: pointer;
+    transition: transform var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast);
+}
+
+.actionCard:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+    border-color: var(--color-border-focus);
+}
+
+.actionIcon {
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-lg);
+    font-size: 22px;
+}
+
+.actionIconScan {
+    background: rgba(59, 130, 246, 0.15);
+}
+
+.actionIconAI {
+    background: rgba(139, 92, 246, 0.15);
+}
+
+.actionIconShare {
+    background: rgba(16, 185, 129, 0.15);
+}
+
+.actionIconEmergency {
+    background: rgba(239, 68, 68, 0.15);
+}
+
+.actionLabel {
+    font-size: var(--text-sm);
+    font-weight: var(--font-semibold);
+    color: var(--color-text-primary);
+    text-align: center;
+}
+
+.actionHint {
+    font-size: var(--text-xs);
+    color: var(--color-text-tertiary);
+}
+
+/* Vitals Row */
+.vitalsSection {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+.sectionHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.sectionTitle {
+    font-size: var(--text-lg);
+    font-weight: var(--font-semibold);
+    color: var(--color-text-primary);
+    margin: 0;
+}
+
+.seeAll {
+    background: none;
+    border: none;
+    color: var(--color-accent);
+    font-size: var(--text-sm);
+    cursor: pointer;
+    font-weight: var(--font-medium);
+    transition: color var(--transition-fast);
+}
+
+.seeAll:hover {
+    color: var(--color-accent-light);
+}
+
+.vitalsGrid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--space-3);
+}
+
+.vitalCard {
+    padding: var(--space-4);
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-xl);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    transition: border-color var(--transition-fast);
+}
+
+.vitalCard:hover {
+    border-color: var(--color-border-focus);
+}
+
+.vitalIcon {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+}
+
+.vitalIconBP {
+    background: rgba(239, 68, 68, 0.12);
+}
+
+.vitalIconHR {
+    background: rgba(236, 72, 153, 0.12);
+}
+
+.vitalIconSPO2 {
+    background: rgba(59, 130, 246, 0.12);
+}
+
+.vitalIconWeight {
+    background: rgba(245, 158, 11, 0.12);
+}
+
+.vitalLabel {
+    font-size: var(--text-xs);
+    color: var(--color-text-tertiary);
+    font-weight: var(--font-medium);
+}
+
+.vitalValueRow {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-1);
+}
+
+.vitalValue {
+    font-size: var(--text-xl);
+    font-weight: var(--font-bold);
+    color: var(--color-text-primary);
+    font-family: var(--font-mono);
+}
+
+.vitalUnit {
+    font-size: var(--text-xs);
+    color: var(--color-text-tertiary);
+}
+
+/* Records Section */
+.recordsSection {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+.entryList {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.entryCard {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    cursor: pointer;
+    transition: background var(--transition-fast), border-color var(--transition-fast), transform var(--transition-fast);
+}
+
+.entryCard:hover {
+    background: var(--color-bg-tertiary);
+    border-color: var(--color-border-focus);
+    transform: translateX(4px);
+}
+
+.entryTypeIcon {
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+}
+
+.entryIconRX {
+    background: rgba(59, 130, 246, 0.12);
+    color: var(--color-tag-rx);
+}
+
+.entryIconLab {
+    background: rgba(139, 92, 246, 0.12);
+    color: var(--color-tag-lab);
+}
+
+.entryIconH {
+    background: rgba(245, 158, 11, 0.12);
+    color: var(--color-tag-hospital);
+}
+
+.entryIconConsult {
+    background: rgba(16, 185, 129, 0.12);
+    color: var(--color-tag-consultation);
+}
+
+.entryIconImaging {
+    background: rgba(236, 72, 153, 0.12);
+    color: var(--color-tag-imaging);
+}
+
+.entryIconOther {
+    background: rgba(100, 116, 139, 0.12);
+    color: var(--color-text-tertiary);
+}
+
+.entryInfo {
+    flex: 1;
+    min-width: 0;
+}
+
+.entryTitle {
+    font-size: var(--text-sm);
+    font-weight: var(--font-semibold);
+    color: var(--color-text-primary);
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.entryInstitution {
+    font-size: var(--text-xs);
+    color: var(--color-text-tertiary);
+    margin: 2px 0 0;
+}
+
+.entryMeta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+    flex-shrink: 0;
+}
+
+.entryDate {
+    font-size: var(--text-xs);
+    color: var(--color-text-tertiary);
+    font-family: var(--font-mono);
+}
+
+.docTag {
+    font-size: 9px;
+    font-weight: var(--font-bold);
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.tagRX {
+    background: rgba(59, 130, 246, 0.15);
+    color: var(--color-tag-rx);
+}
+
+.tagLab {
+    background: rgba(139, 92, 246, 0.15);
+    color: var(--color-tag-lab);
+}
+
+.tagH {
+    background: rgba(245, 158, 11, 0.15);
+    color: var(--color-tag-hospital);
+}
+
+.tagConsult {
+    background: rgba(16, 185, 129, 0.15);
+    color: var(--color-tag-consultation);
+}
+
+.tagImaging {
+    background: rgba(236, 72, 153, 0.15);
+    color: var(--color-tag-imaging);
+}
+
+.tagOther {
+    background: rgba(100, 116, 139, 0.15);
+    color: var(--color-text-tertiary);
+}
+
+.entryChevron {
+    color: var(--color-text-tertiary);
+    font-size: 14px;
+}
+
+/* Empty State */
+.emptyState {
+    text-align: center;
+    padding: var(--space-8) var(--space-4);
+    color: var(--color-text-tertiary);
+    background: var(--color-bg-secondary);
+    border: 1px dashed var(--color-border);
+    border-radius: var(--radius-xl);
+}
+
+.emptyIcon {
+    font-size: 48px;
+    display: block;
+    margin-bottom: var(--space-3);
+}
+
+.emptyText {
+    font-size: var(--text-sm);
+    margin: 0;
+}
+
+/* Skeleton */
+.skeleton {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.skeletonLine {
+    height: 56px;
+    border-radius: var(--radius-lg);
+    background: var(--color-bg-secondary);
+    animation: skeleton 1.5s infinite;
+}
+
+/* ---- Right Column: Profile Panel ---- */
+.aside {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+}
+
+/* Patient Info Card */
+.profileCard {
+    padding: var(--space-5);
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-xl);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-4);
+}
+
+.avatarLarge {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--color-accent), var(--color-accent-dark));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: var(--text-2xl);
+    font-weight: var(--font-bold);
+    color: white;
+    box-shadow: 0 4px 20px var(--color-accent-glow);
+}
+
+.profileDetails {
+    text-align: center;
+    width: 100%;
+}
+
+.profileName {
+    font-size: var(--text-lg);
+    font-weight: var(--font-bold);
+    color: var(--color-text-primary);
+    margin: 0;
+}
+
+.profileCardId {
+    font-size: var(--text-xs);
+    color: var(--color-accent);
+    font-family: var(--font-mono);
+    margin: var(--space-1) 0 0;
+}
+
+.profileBadges {
+    display: flex;
+    justify-content: center;
+    gap: var(--space-2);
+    margin-top: var(--space-3);
+}
+
+.badge {
+    font-size: var(--text-xs);
+    font-weight: var(--font-semibold);
+    padding: 4px 12px;
+    border-radius: var(--radius-full);
+    background: var(--color-bg-tertiary);
+    color: var(--color-text-secondary);
+    border: 1px solid var(--color-border);
+}
+
+.profileFields {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    margin-top: var(--space-2);
+}
+
+.fieldRow {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-2) 0;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.fieldRow:last-child {
+    border-bottom: none;
+}
+
+.fieldLabel {
+    font-size: var(--text-xs);
+    color: var(--color-text-tertiary);
+    font-weight: var(--font-medium);
+}
+
+.fieldValue {
+    font-size: var(--text-sm);
+    color: var(--color-text-primary);
+    font-weight: var(--font-medium);
+}
+
+/* Upcoming Card */
+.upcomingCard {
+    padding: var(--space-4);
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-xl);
+}
+
+.upcomingTitle {
+    font-size: var(--text-sm);
+    font-weight: var(--font-semibold);
+    color: var(--color-text-primary);
+    margin: 0 0 var(--space-3);
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.upcomingEmpty {
+    text-align: center;
+    padding: var(--space-4);
+    color: var(--color-text-tertiary);
+    font-size: var(--text-xs);
+}
+
+/* Encryption Badge */
+.encryptionCard {
+    padding: var(--space-4);
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(16, 185, 129, 0.02));
+    border: 1px solid rgba(16, 185, 129, 0.2);
+    border-radius: var(--radius-xl);
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+}
+
+.encryptionIcon {
+    font-size: 24px;
+    flex-shrink: 0;
+}
+
+.encryptionInfo {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.encryptionLabel {
+    font-size: var(--text-xs);
+    font-weight: var(--font-semibold);
+    color: var(--color-accent);
+}
+
+.encryptionText {
+    font-size: 11px;
+    color: var(--color-text-tertiary);
+    line-height: var(--leading-normal);
+}
+
+/* ---- Animations ---- */
+@keyframes skeleton {
+
+    0%,
+    100% {
+        opacity: 0.4;
+    }
+
+    50% {
+        opacity: 0.8;
+    }
+}
+
+/* ---- Responsive ---- */
+@media (max-width: 1024px) {
+    .dashboard {
+        grid-template-columns: 1fr 300px;
+    }
+
+    .quickActions {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .vitalsGrid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 768px) {
+    .dashboard {
+        grid-template-columns: 1fr;
+    }
+
+    .aside {
+        order: -1;
+    }
+
+    .profileCard {
+        flex-direction: row;
+        align-items: center;
+        gap: var(--space-4);
+    }
+
+    .avatarLarge {
+        width: 56px;
+        height: 56px;
+        font-size: var(--text-lg);
+    }
+
+    .profileDetails {
+        text-align: left;
+    }
+
+    .profileBadges {
+        justify-content: flex-start;
+    }
+
+    .profileFields {
+        display: none;
+    }
+
+    .quickActions {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .vitalsGrid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}

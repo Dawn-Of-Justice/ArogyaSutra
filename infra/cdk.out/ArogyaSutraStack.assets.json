@@ -1,0 +1,66 @@
+{
+  "version": "50.0.0",
+  "files": {
+    "6bb840c4291f090df43a7e18f9897a0a7252d6963d5f4973b14b644394235e6e": {
+      "displayName": "DefineAuthChallenge/Code",
+      "source": {
+        "path": "asset.6bb840c4291f090df43a7e18f9897a0a7252d6963d5f4973b14b644394235e6e",
+        "packaging": "zip"
+      },
+      "destinations": {
+        "573263824787-ap-south-1-b67719b0": {
+          "bucketName": "cdk-hnb659fds-assets-573263824787-ap-south-1",
+          "objectKey": "6bb840c4291f090df43a7e18f9897a0a7252d6963d5f4973b14b644394235e6e.zip",
+          "region": "ap-south-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::573263824787:role/cdk-hnb659fds-file-publishing-role-573263824787-ap-south-1"
+        }
+      }
+    },
+    "f020bbf7f576240cbb803fd11db9c9a024d0ad2d14bbb0d826630f7ac853f30b": {
+      "displayName": "CreateAuthChallenge/Code",
+      "source": {
+        "path": "asset.f020bbf7f576240cbb803fd11db9c9a024d0ad2d14bbb0d826630f7ac853f30b",
+        "packaging": "zip"
+      },
+      "destinations": {
+        "573263824787-ap-south-1-ba105598": {
+          "bucketName": "cdk-hnb659fds-assets-573263824787-ap-south-1",
+          "objectKey": "f020bbf7f576240cbb803fd11db9c9a024d0ad2d14bbb0d826630f7ac853f30b.zip",
+          "region": "ap-south-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::573263824787:role/cdk-hnb659fds-file-publishing-role-573263824787-ap-south-1"
+        }
+      }
+    },
+    "77a47a1de80f9423ff1b60b781f278011f584b0e17e30a6e6337b3bebb42415e": {
+      "displayName": "VerifyAuthChallenge/Code",
+      "source": {
+        "path": "asset.77a47a1de80f9423ff1b60b781f278011f584b0e17e30a6e6337b3bebb42415e",
+        "packaging": "zip"
+      },
+      "destinations": {
+        "573263824787-ap-south-1-94986401": {
+          "bucketName": "cdk-hnb659fds-assets-573263824787-ap-south-1",
+          "objectKey": "77a47a1de80f9423ff1b60b781f278011f584b0e17e30a6e6337b3bebb42415e.zip",
+          "region": "ap-south-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::573263824787:role/cdk-hnb659fds-file-publishing-role-573263824787-ap-south-1"
+        }
+      }
+    },
+    "8fb942a6daa1421141685f335efcc31590cd880ea988e3bd5f375bf1c1ae4b4b": {
+      "displayName": "ArogyaSutraStack Template",
+      "source": {
+        "path": "ArogyaSutraStack.template.json",
+        "packaging": "file"
+      },
+      "destinations": {
+        "573263824787-ap-south-1-d57549da": {
+          "bucketName": "cdk-hnb659fds-assets-573263824787-ap-south-1",
+          "objectKey": "8fb942a6daa1421141685f335efcc31590cd880ea988e3bd5f375bf1c1ae4b4b.json",
+          "region": "ap-south-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::573263824787:role/cdk-hnb659fds-file-publishing-role-573263824787-ap-south-1"
+        }
+      }
+    }
+  },
+  "dockerImages": {}
+}

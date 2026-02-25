@@ -1,0 +1,160 @@
+// ============================================================
+// RAG Clinical Assistant Screen
+// Chat interface with medical context
+// ============================================================
+
+"use client";
+
+import React, { useState, useRef, useEffect } from "react";
+import { useAuth } from "../../hooks/useAuth";
+import * as ragService from "../../lib/services/rag.service";
+import type { RAGResponse, ChatMessage } from "../../lib/types/rag";
+import styles from "./AssistantScreen.module.css";
+
+interface AssistantScreenProps {
+    onNavigate: (screen: string) => void;
+}
+
+export default function AssistantScreen({ onNavigate }: AssistantScreenProps) {
+    const { patient } = useAuth();
+    const [messages, setMessages] = useState<ChatMessage[]>([]);
+    const [input, setInput] = useState("");
+    const [isLoading, setIsLoading] = useState(false);
+    const [conversationId, setConversationId] = useState<string | undefined>();
+    const messagesEndRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, [messages]);
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!input.trim() || !patient || isLoading) return;
+
+        const userMsg: ChatMessage = {
+            messageId: `msg-${Date.now()}`,
+            role: "user",
+            content: input,
+            timestamp: new Date().toISOString(),
+        };
+        setMessages((prev) => [...prev, userMsg]);
+        setInput("");
+        setIsLoading(true);
+
+        try {
+            const response: RAGResponse = await ragService.query({
+                queryText: input,
+                patientId: patient.patientId,
+                queryBy: "PATIENT",
+                queryByUserId: patient.patientId,
+                conversationId,
+            });
+
+            if (!conversationId) setConversationId(response.conversationId);
+
+            const assistantMsg: ChatMessage = {
+                messageId: `msg-${Date.now()}-resp`,
+                role: "assistant",
+                content: response.answer,
+                citations: response.citations,
+                timestamp: response.generatedAt,
+            };
+            setMessages((prev) => [...prev, assistantMsg]);
+        } catch {
+            const errorMsg: ChatMessage = {
+                messageId: `msg-${Date.now()}-err`,
+                role: "assistant",
+                content: "I apologize, but I encountered an error processing your query. Please try again.",
+                timestamp: new Date().toISOString(),
+            };
+            setMessages((prev) => [...prev, errorMsg]);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const suggestedQuestions = [
+        "What medications am I currently on?",
+        "Summarize my recent lab results",
+        "Are there any drug interactions?",
+        "When was my last checkup?",
+    ];
+
+    return (
+        <div className={styles.container}>
+            <header className={styles.header}>
+                <button className={styles.backButton} onClick={() => onNavigate("dashboard")}>←</button>
+                <div className={styles.headerInfo}>
+                    <h1 className={styles.title}>AI Health Assistant</h1>
+                    <span className={styles.subtitle}>Powered by Amazon Bedrock</span>
+                </div>
+            </header>
+
+            <div className={styles.chatArea}>
+                {messages.length === 0 ? (
+                    <div className={styles.welcome}>
+                        <span className={styles.welcomeIcon}>🤖</span>
+                        <h2>Hello! I&apos;m your health assistant.</h2>
+                        <p>Ask me anything about your medical history. I&apos;ll cite sources from your records.</p>
+                        <div className={styles.suggestions}>
+                            {suggestedQuestions.map((q, i) => (
+                                <button key={i} className={styles.suggestion} onClick={() => setInput(q)}>
+                                    {q}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                ) : (
+                    <div className={styles.messages}>
+                        {messages.map((msg) => (
+                            <div key={msg.messageId} className={`${styles.message} ${styles[msg.role]}`}>
+                                <div className={styles.messageContent}>
+                                    <p className={styles.messageText}>{msg.content}</p>
+                                    {msg.citations && msg.citations.length > 0 && (
+                                        <div className={styles.citations}>
+                                            <span className={styles.citationLabel}>📎 Sources:</span>
+                                            {msg.citations.map((c, i) => (
+                                                <button key={i} className={styles.citation} onClick={() => onNavigate(`entry/${c.entryId}`)}>
+                                                    {c.entryTitle} ({c.date?.slice(0, 10)})
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                                <span className={styles.messageTime}>
+                                    {new Date(msg.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                                </span>
+                            </div>
+                        ))}
+                        {isLoading && (
+                            <div className={`${styles.message} ${styles.assistant}`}>
+                                <div className={styles.typing}>
+                                    <span /><span /><span />
+                                </div>
+                            </div>
+                        )}
+                        <div ref={messagesEndRef} />
+                    </div>
+                )}
+            </div>
+
+            <div className={styles.disclaimer}>
+                ⚕️ AI-generated, not medical advice. Always consult a healthcare professional.
+            </div>
+
+            <form className={styles.inputArea} onSubmit={handleSubmit}>
+                <input
+                    type="text"
+                    className={styles.input}
+                    placeholder="Ask about your health..."
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    disabled={isLoading}
+                />
+                <button type="submit" className={styles.sendButton} disabled={!input.trim() || isLoading}>
+                    ↑
+                </button>
+            </form>
+        </div>
+    );
+}

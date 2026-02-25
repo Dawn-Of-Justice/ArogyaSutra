@@ -1,0 +1,726 @@
+/* ======================================================
+   Doctor Dashboard — Light mode UI
+   Matches reference: soft blue/white, glassmorphic panels
+   ====================================================== */
+
+/* ---- Light Theme Override ---- */
+.doctorDashboard {
+    --dd-bg: #EEF2F7;
+    --dd-bg-card: #FFFFFF;
+    --dd-bg-card-alt: #F7F9FC;
+    --dd-text-primary: #1A202C;
+    --dd-text-secondary: #4A5568;
+    --dd-text-tertiary: #718096;
+    --dd-text-muted: #A0AEC0;
+    --dd-border: #E2E8F0;
+    --dd-border-light: #EDF2F7;
+    --dd-accent: #4A90D9;
+    --dd-accent-light: #EBF4FF;
+    --dd-accent-dark: #2B6CB0;
+    --dd-danger: #E53E3E;
+    --dd-success: #38A169;
+    --dd-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+    --dd-shadow-lg: 0 4px 20px rgba(0, 0, 0, 0.08);
+
+    display: grid;
+    grid-template-columns: 1fr 400px;
+    gap: var(--space-5);
+    height: 100%;
+    padding: var(--space-4);
+    background: var(--dd-bg);
+    border-radius: var(--radius-xl);
+    color: var(--dd-text-primary);
+    overflow-y: auto;
+}
+
+/* ---- Left Column: Body Model ---- */
+.leftColumn {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    min-height: 0;
+}
+
+.bodyModelArea {
+    flex: 1;
+    min-height: 500px;
+    background: linear-gradient(180deg, #FAFBFE 0%, #EEF2F7 100%);
+    border-radius: var(--radius-xl);
+    border: 1px solid var(--dd-border-light);
+    box-shadow: var(--dd-shadow);
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.bodyModelPlaceholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-3);
+    color: var(--dd-text-muted);
+    font-size: var(--text-sm);
+}
+
+.bodyModelPlaceholder span:first-child {
+    font-size: 64px;
+    opacity: 0.4;
+}
+
+/* Floating annotation card on body model */
+.annotationCard {
+    position: absolute;
+    bottom: 80px;
+    left: 20px;
+    background: var(--dd-bg-card);
+    border-radius: var(--radius-lg);
+    padding: var(--space-3);
+    box-shadow: var(--dd-shadow-lg);
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    max-width: 200px;
+    border: 1px solid var(--dd-border-light);
+}
+
+.annotationThumb {
+    width: 48px;
+    height: 48px;
+    border-radius: var(--radius-md);
+    background: var(--dd-bg-card-alt);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    flex-shrink: 0;
+}
+
+.annotationText {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.annotationText strong {
+    font-size: var(--text-sm);
+    font-weight: var(--font-semibold);
+    color: var(--dd-text-primary);
+}
+
+.annotationText span {
+    font-size: var(--text-xs);
+    color: var(--dd-text-muted);
+}
+
+/* Model nav arrows */
+.modelNav {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.modelNavBtn {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 1px solid var(--dd-border);
+    background: var(--dd-bg-card);
+    color: var(--dd-text-secondary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: var(--text-sm);
+    transition: all var(--transition-fast);
+    box-shadow: var(--dd-shadow);
+}
+
+.modelNavBtn:hover {
+    background: var(--dd-accent-light);
+    border-color: var(--dd-accent);
+    color: var(--dd-accent);
+}
+
+/* Side tool buttons (on the body model) */
+.modelTools {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.modelToolBtn {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--dd-border-light);
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(8px);
+    color: var(--dd-text-secondary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    transition: all var(--transition-fast);
+}
+
+.modelToolBtn:hover {
+    background: var(--dd-bg-card);
+    border-color: var(--dd-accent);
+    color: var(--dd-accent);
+}
+
+/* ---- Right Column: Patient Info ---- */
+.rightColumn {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    min-height: 0;
+    overflow-y: auto;
+}
+
+/* Patient info panel */
+.patientPanel {
+    background: var(--dd-bg-card);
+    border-radius: var(--radius-xl);
+    padding: var(--space-5);
+    box-shadow: var(--dd-shadow);
+    border: 1px solid var(--dd-border-light);
+}
+
+.patientPanelHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--space-4);
+}
+
+.patientPanelHeader h2 {
+    font-size: var(--text-lg);
+    font-weight: var(--font-bold);
+    color: var(--dd-text-primary);
+}
+
+.moreBtn {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: none;
+    background: transparent;
+    color: var(--dd-text-muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+}
+
+.moreBtn:hover {
+    background: var(--dd-bg-card-alt);
+}
+
+/* Patient profile row */
+.patientProfile {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    margin-bottom: var(--space-5);
+}
+
+.patientAvatar {
+    width: 72px;
+    height: 72px;
+    border-radius: var(--radius-xl);
+    background: linear-gradient(135deg, #E0F2FE, #BFDBFE);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    flex-shrink: 0;
+    border: 2px solid var(--dd-border-light);
+}
+
+.patientMeta {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+}
+
+.patientName {
+    font-size: var(--text-lg);
+    font-weight: var(--font-bold);
+    color: var(--dd-text-primary);
+}
+
+.patientTags {
+    display: flex;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+}
+
+.tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 10px;
+    border-radius: var(--radius-full);
+    font-size: var(--text-xs);
+    font-weight: var(--font-semibold);
+    background: var(--dd-bg-card-alt);
+    color: var(--dd-text-secondary);
+    border: 1px solid var(--dd-border);
+}
+
+.tagAccent {
+    background: var(--dd-accent-light);
+    color: var(--dd-accent-dark);
+    border-color: transparent;
+}
+
+.patientSubMeta {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--text-sm);
+    color: var(--dd-text-tertiary);
+}
+
+.diagnosisLabel {
+    font-size: var(--text-xs);
+    color: var(--dd-text-muted);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-wide);
+}
+
+.diagnosisValue {
+    font-size: var(--text-base);
+    font-weight: var(--font-semibold);
+    color: var(--dd-text-primary);
+}
+
+/* Vitals row */
+.vitalsRow {
+    display: flex;
+    gap: var(--space-3);
+    margin-bottom: var(--space-5);
+}
+
+.vitalCard {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-3);
+    background: var(--dd-bg-card-alt);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--dd-border-light);
+}
+
+.vitalIcon {
+    font-size: 20px;
+    opacity: 0.7;
+}
+
+.vitalData {
+    display: flex;
+    flex-direction: column;
+}
+
+.vitalLabel {
+    font-size: var(--text-xs);
+    color: var(--dd-text-muted);
+}
+
+.vitalValue {
+    font-size: var(--text-sm);
+    font-weight: var(--font-bold);
+    color: var(--dd-text-primary);
+}
+
+.vitalUnit {
+    font-size: var(--text-xs);
+    color: var(--dd-text-muted);
+    font-weight: var(--font-regular);
+    margin-left: 2px;
+}
+
+/* Medical history and X-ray columns */
+.twoColumns {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-4);
+    margin-bottom: var(--space-5);
+}
+
+.sectionTitle {
+    font-size: var(--text-base);
+    font-weight: var(--font-bold);
+    color: var(--dd-text-primary);
+    margin-bottom: var(--space-3);
+}
+
+/* Medical history list */
+.historyList {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.historyItem {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-lg);
+    cursor: pointer;
+    transition: background var(--transition-fast);
+}
+
+.historyItem:hover {
+    background: var(--dd-bg-card-alt);
+}
+
+.historyItemActive {
+    background: var(--dd-accent-light);
+    border: 1px solid rgba(74, 144, 217, 0.15);
+}
+
+.historyIcon {
+    font-size: 18px;
+    flex-shrink: 0;
+}
+
+.historyMeta {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.historyLabel {
+    font-size: var(--text-sm);
+    font-weight: var(--font-semibold);
+    color: var(--dd-text-primary);
+}
+
+.historyDate {
+    font-size: var(--text-xs);
+    color: var(--dd-text-muted);
+}
+
+.historyArrow {
+    color: var(--dd-text-muted);
+    font-size: var(--text-sm);
+}
+
+/* X-Ray docs */
+.xrayArea {
+    position: relative;
+}
+
+.xrayImageBox {
+    width: 100%;
+    height: 160px;
+    border-radius: var(--radius-lg);
+    background: var(--dd-bg-card-alt);
+    border: 1px solid var(--dd-border-light);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 48px;
+    opacity: 0.4;
+    position: relative;
+    overflow: hidden;
+}
+
+.xrayCaption {
+    font-size: var(--text-xs);
+    color: var(--dd-text-muted);
+    margin-top: var(--space-2);
+    text-align: center;
+}
+
+/* Action buttons bar */
+.actionBar {
+    display: flex;
+    gap: var(--space-3);
+}
+
+.actionBtn {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-4);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--dd-border);
+    background: var(--dd-bg-card);
+    color: var(--dd-text-secondary);
+    font-size: var(--text-sm);
+    font-weight: var(--font-medium);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.actionBtn:hover {
+    background: var(--dd-bg-card-alt);
+    border-color: var(--dd-accent);
+    color: var(--dd-accent);
+}
+
+.actionBtnPrimary {
+    background: var(--dd-accent);
+    border-color: var(--dd-accent);
+    color: white;
+}
+
+.actionBtnPrimary:hover {
+    background: var(--dd-accent-dark);
+    border-color: var(--dd-accent-dark);
+    color: white;
+}
+
+/* ---- Empty State (Patient verification) ---- */
+.emptyState {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: var(--space-8);
+    gap: var(--space-4);
+}
+
+.emptyIcon {
+    font-size: 48px;
+    opacity: 0.35;
+}
+
+.emptyTitle {
+    font-size: var(--text-lg);
+    font-weight: var(--font-semibold);
+    color: var(--dd-text-primary);
+}
+
+.emptySubtitle {
+    font-size: var(--text-sm);
+    color: var(--dd-text-muted);
+    max-width: 320px;
+    line-height: var(--leading-relaxed);
+}
+
+/* ---- Patient Verification Form ---- */
+.verifyPanel {
+    background: var(--dd-bg-card);
+    border-radius: var(--radius-xl);
+    padding: var(--space-6);
+    box-shadow: var(--dd-shadow);
+    border: 1px solid var(--dd-border-light);
+}
+
+.verifyTitle {
+    font-size: var(--text-lg);
+    font-weight: var(--font-bold);
+    color: var(--dd-text-primary);
+    margin-bottom: var(--space-2);
+}
+
+.verifySubtitle {
+    font-size: var(--text-sm);
+    color: var(--dd-text-muted);
+    margin-bottom: var(--space-5);
+}
+
+/* Steps indicator in verification */
+.verifySteps {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    margin-bottom: var(--space-6);
+}
+
+.verifyStep {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-1);
+    opacity: 0.35;
+    transition: opacity var(--transition-normal);
+}
+
+.verifyStepActive {
+    opacity: 1;
+}
+
+.verifyStepNum {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--dd-bg-card-alt);
+    border: 2px solid var(--dd-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: var(--text-xs);
+    font-weight: var(--font-semibold);
+    color: var(--dd-text-secondary);
+}
+
+.verifyStepActive .verifyStepNum {
+    background: var(--dd-accent);
+    border-color: var(--dd-accent);
+    color: white;
+}
+
+.verifyStepLabel {
+    font-size: 10px;
+    color: var(--dd-text-muted);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-wide);
+    font-weight: var(--font-medium);
+}
+
+.verifyStepLine {
+    width: 40px;
+    height: 2px;
+    background: var(--dd-border);
+    margin: 0 var(--space-2);
+    margin-bottom: var(--space-4);
+}
+
+.verifyForm {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+}
+
+.verifyLabel {
+    font-size: var(--text-sm);
+    font-weight: var(--font-medium);
+    color: var(--dd-text-secondary);
+    margin-bottom: var(--space-1);
+}
+
+.verifyInput {
+    width: 100%;
+    padding: var(--space-3) var(--space-4);
+    border: 2px solid var(--dd-border);
+    border-radius: var(--radius-lg);
+    background: var(--dd-bg-card-alt);
+    color: var(--dd-text-primary);
+    font-size: var(--text-base);
+    font-family: var(--font-mono);
+    text-align: center;
+    letter-spacing: 2px;
+    transition: border-color var(--transition-fast);
+}
+
+.verifyInput::placeholder {
+    color: var(--dd-text-muted);
+    letter-spacing: 2px;
+}
+
+.verifyInput:focus {
+    outline: none;
+    border-color: var(--dd-accent);
+    box-shadow: 0 0 0 3px rgba(74, 144, 217, 0.15);
+}
+
+.verifyInputNormal {
+    font-family: var(--font-sans);
+    letter-spacing: 0;
+    text-align: left;
+}
+
+.verifyInputNormal::placeholder {
+    letter-spacing: 0;
+}
+
+.verifyBtn {
+    width: 100%;
+    padding: var(--space-3);
+    border: none;
+    border-radius: var(--radius-lg);
+    background: var(--dd-accent);
+    color: white;
+    font-size: var(--text-sm);
+    font-weight: var(--font-semibold);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.verifyBtn:hover:not(:disabled) {
+    background: var(--dd-accent-dark);
+}
+
+.verifyBtn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.verifyHint {
+    font-size: var(--text-xs);
+    color: var(--dd-text-muted);
+    text-align: center;
+}
+
+.verifyError {
+    background: #FEF2F2;
+    border: 1px solid #FECACA;
+    border-radius: var(--radius-lg);
+    padding: var(--space-3);
+    color: var(--dd-danger);
+    font-size: var(--text-sm);
+    text-align: center;
+}
+
+/* OTP input row */
+.otpRow {
+    display: flex;
+    gap: var(--space-2);
+    justify-content: center;
+}
+
+.otpDigit {
+    width: 44px;
+    height: 52px;
+    border: 2px solid var(--dd-border);
+    border-radius: var(--radius-lg);
+    background: var(--dd-bg-card-alt);
+    color: var(--dd-text-primary);
+    font-size: var(--text-lg);
+    font-family: var(--font-mono);
+    font-weight: var(--font-semibold);
+    text-align: center;
+    transition: border-color var(--transition-fast);
+}
+
+.otpDigit:focus {
+    outline: none;
+    border-color: var(--dd-accent);
+    box-shadow: 0 0 0 3px rgba(74, 144, 217, 0.15);
+}
+
+/* ---- Responsive ---- */
+@media (max-width: 900px) {
+    .doctorDashboard {
+        grid-template-columns: 1fr;
+    }
+
+    .bodyModelArea {
+        min-height: 350px;
+    }
+
+    .twoColumns {
+        grid-template-columns: 1fr;
+    }
+}

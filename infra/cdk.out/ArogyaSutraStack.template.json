@@ -1,0 +1,1539 @@
+{
+ "Description": "ArogyaSutra PHR Platform — Zero-Knowledge encrypted health records",
+ "Resources": {
+  "MasterKey0175C9E2": {
+   "Type": "AWS::KMS::Key",
+   "Properties": {
+    "Description": "ArogyaSutra root encryption key for envelope encryption",
+    "EnableKeyRotation": true,
+    "KeyPolicy": {
+     "Statement": [
+      {
+       "Action": "kms:*",
+       "Effect": "Allow",
+       "Principal": {
+        "AWS": {
+         "Fn::Join": [
+          "",
+          [
+           "arn:",
+           {
+            "Ref": "AWS::Partition"
+           },
+           ":iam::573263824787:root"
+          ]
+         ]
+        }
+       },
+       "Resource": "*"
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PendingWindowInDays": 30
+   },
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "ArogyaSutraStack/MasterKey/Resource"
+   }
+  },
+  "MasterKeyAlias9C01E073": {
+   "Type": "AWS::KMS::Alias",
+   "Properties": {
+    "AliasName": "alias/arogyasutra-master-key",
+    "TargetKeyId": {
+     "Fn::GetAtt": [
+      "MasterKey0175C9E2",
+      "Arn"
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ArogyaSutraStack/MasterKey/Alias/Resource"
+   }
+  },
+  "HealthRecordsBucket28A5ADA9": {
+   "Type": "AWS::S3::Bucket",
+   "Properties": {
+    "BucketEncryption": {
+     "ServerSideEncryptionConfiguration": [
+      {
+       "ServerSideEncryptionByDefault": {
+        "KMSMasterKeyID": {
+         "Fn::GetAtt": [
+          "MasterKey0175C9E2",
+          "Arn"
+         ]
+        },
+        "SSEAlgorithm": "aws:kms"
+       }
+      }
+     ]
+    },
+    "CorsConfiguration": {
+     "CorsRules": [
+      {
+       "AllowedHeaders": [
+        "*"
+       ],
+       "AllowedMethods": [
+        "GET",
+        "PUT",
+        "POST"
+       ],
+       "AllowedOrigins": [
+        "http://localhost:3000",
+        "https://*.amplifyapp.com"
+       ],
+       "MaxAge": 3600
+      }
+     ]
+    },
+    "LifecycleConfiguration": {
+     "Rules": [
+      {
+       "Id": "move-to-ia",
+       "Status": "Enabled",
+       "Transitions": [
+        {
+         "StorageClass": "STANDARD_IA",
+         "TransitionInDays": 90
+        },
+        {
+         "StorageClass": "GLACIER",
+         "TransitionInDays": 365
+        }
+       ]
+      }
+     ]
+    },
+    "PublicAccessBlockConfiguration": {
+     "BlockPublicAcls": true,
+     "BlockPublicPolicy": true,
+     "IgnorePublicAcls": true,
+     "RestrictPublicBuckets": true
+    },
+    "VersioningConfiguration": {
+     "Status": "Enabled"
+    }
+   },
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "ArogyaSutraStack/HealthRecordsBucket/Resource"
+   }
+  },
+  "HealthRecordsBucketPolicy4D686535": {
+   "Type": "AWS::S3::BucketPolicy",
+   "Properties": {
+    "Bucket": {
+     "Ref": "HealthRecordsBucket28A5ADA9"
+    },
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": "s3:*",
+       "Condition": {
+        "Bool": {
+         "aws:SecureTransport": "false"
+        }
+       },
+       "Effect": "Deny",
+       "Principal": {
+        "AWS": "*"
+       },
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "HealthRecordsBucket28A5ADA9",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "HealthRecordsBucket28A5ADA9",
+             "Arn"
+            ]
+           },
+           "/*"
+          ]
+         ]
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ArogyaSutraStack/HealthRecordsBucket/Policy/Resource"
+   }
+  },
+  "AuditLogsTable7D096F6F": {
+   "Type": "AWS::DynamoDB::Table",
+   "Properties": {
+    "AttributeDefinitions": [
+     {
+      "AttributeName": "patientId",
+      "AttributeType": "S"
+     },
+     {
+      "AttributeName": "timestamp",
+      "AttributeType": "S"
+     },
+     {
+      "AttributeName": "action",
+      "AttributeType": "S"
+     }
+    ],
+    "BillingMode": "PAY_PER_REQUEST",
+    "GlobalSecondaryIndexes": [
+     {
+      "IndexName": "by-action",
+      "KeySchema": [
+       {
+        "AttributeName": "action",
+        "KeyType": "HASH"
+       },
+       {
+        "AttributeName": "timestamp",
+        "KeyType": "RANGE"
+       }
+      ],
+      "Projection": {
+       "ProjectionType": "ALL"
+      }
+     }
+    ],
+    "KeySchema": [
+     {
+      "AttributeName": "patientId",
+      "KeyType": "HASH"
+     },
+     {
+      "AttributeName": "timestamp",
+      "KeyType": "RANGE"
+     }
+    ],
+    "PointInTimeRecoverySpecification": {
+     "PointInTimeRecoveryEnabled": true
+    },
+    "SSESpecification": {
+     "SSEEnabled": true
+    }
+   },
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "ArogyaSutraStack/AuditLogsTable/Resource"
+   }
+  },
+  "AccessGrantsTableFFA0880B": {
+   "Type": "AWS::DynamoDB::Table",
+   "Properties": {
+    "AttributeDefinitions": [
+     {
+      "AttributeName": "patientId",
+      "AttributeType": "S"
+     },
+     {
+      "AttributeName": "doctorId",
+      "AttributeType": "S"
+     }
+    ],
+    "BillingMode": "PAY_PER_REQUEST",
+    "KeySchema": [
+     {
+      "AttributeName": "patientId",
+      "KeyType": "HASH"
+     },
+     {
+      "AttributeName": "doctorId",
+      "KeyType": "RANGE"
+     }
+    ],
+    "SSESpecification": {
+     "SSEEnabled": true
+    },
+    "TimeToLiveSpecification": {
+     "AttributeName": "expiresAt",
+     "Enabled": true
+    }
+   },
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "ArogyaSutraStack/AccessGrantsTable/Resource"
+   }
+  },
+  "SessionsTable7C302024": {
+   "Type": "AWS::DynamoDB::Table",
+   "Properties": {
+    "AttributeDefinitions": [
+     {
+      "AttributeName": "sessionId",
+      "AttributeType": "S"
+     },
+     {
+      "AttributeName": "patientId",
+      "AttributeType": "S"
+     },
+     {
+      "AttributeName": "startedAt",
+      "AttributeType": "S"
+     }
+    ],
+    "BillingMode": "PAY_PER_REQUEST",
+    "GlobalSecondaryIndexes": [
+     {
+      "IndexName": "by-patient",
+      "KeySchema": [
+       {
+        "AttributeName": "patientId",
+        "KeyType": "HASH"
+       },
+       {
+        "AttributeName": "startedAt",
+        "KeyType": "RANGE"
+       }
+      ],
+      "Projection": {
+       "ProjectionType": "ALL"
+      }
+     }
+    ],
+    "KeySchema": [
+     {
+      "AttributeName": "sessionId",
+      "KeyType": "HASH"
+     }
+    ],
+    "SSESpecification": {
+     "SSEEnabled": true
+    },
+    "TimeToLiveSpecification": {
+     "AttributeName": "expiresAt",
+     "Enabled": true
+    }
+   },
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "ArogyaSutraStack/SessionsTable/Resource"
+   }
+  },
+  "NotificationsTopicE4AF40A8": {
+   "Type": "AWS::SNS::Topic",
+   "Properties": {
+    "DisplayName": "ArogyaSutra Patient Notifications",
+    "TopicName": "arogyasutra-notifications"
+   },
+   "Metadata": {
+    "aws:cdk:path": "ArogyaSutraStack/NotificationsTopic/Resource"
+   }
+  },
+  "DefineAuthChallengeServiceRole1D83696B": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "ArogyaSutraStack/DefineAuthChallenge/ServiceRole/Resource"
+   }
+  },
+  "DefineAuthChallengeE7E3BC7B": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-573263824787-ap-south-1",
+     "S3Key": "6bb840c4291f090df43a7e18f9897a0a7252d6963d5f4973b14b644394235e6e.zip"
+    },
+    "FunctionName": "arogyasutra-define-auth",
+    "Handler": "index.handler",
+    "MemorySize": 128,
+    "Role": {
+     "Fn::GetAtt": [
+      "DefineAuthChallengeServiceRole1D83696B",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs20.x",
+    "Timeout": 10
+   },
+   "DependsOn": [
+    "DefineAuthChallengeServiceRole1D83696B"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "ArogyaSutraStack/DefineAuthChallenge/Resource",
+    "aws:asset:path": "asset.6bb840c4291f090df43a7e18f9897a0a7252d6963d5f4973b14b644394235e6e",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
+  "CreateAuthChallengeServiceRoleCE50EC04": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "ArogyaSutraStack/CreateAuthChallenge/ServiceRole/Resource"
+   }
+  },
+  "CreateAuthChallengeServiceRoleDefaultPolicy637265A4": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sns:Publish",
+       "Effect": "Allow",
+       "Resource": {
+        "Ref": "NotificationsTopicE4AF40A8"
+       }
+      },
+      {
+       "Action": "sns:Publish",
+       "Effect": "Allow",
+       "Resource": "*"
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "CreateAuthChallengeServiceRoleDefaultPolicy637265A4",
+    "Roles": [
+     {
+      "Ref": "CreateAuthChallengeServiceRoleCE50EC04"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "ArogyaSutraStack/CreateAuthChallenge/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "CreateAuthChallengeB2F8D873": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-573263824787-ap-south-1",
+     "S3Key": "f020bbf7f576240cbb803fd11db9c9a024d0ad2d14bbb0d826630f7ac853f30b.zip"
+    },
+    "Environment": {
+     "Variables": {
+      "AWS_SNS_REGION": "ap-south-1"
+     }
+    },
+    "FunctionName": "arogyasutra-create-auth",
+    "Handler": "index.handler",
+    "MemorySize": 128,
+    "Role": {
+     "Fn::GetAtt": [
+      "CreateAuthChallengeServiceRoleCE50EC04",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs20.x",
+    "Timeout": 10
+   },
+   "DependsOn": [
+    "CreateAuthChallengeServiceRoleDefaultPolicy637265A4",
+    "CreateAuthChallengeServiceRoleCE50EC04"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "ArogyaSutraStack/CreateAuthChallenge/Resource",
+    "aws:asset:path": "asset.f020bbf7f576240cbb803fd11db9c9a024d0ad2d14bbb0d826630f7ac853f30b",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
+  "VerifyAuthChallengeServiceRole0AEAA465": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "ArogyaSutraStack/VerifyAuthChallenge/ServiceRole/Resource"
+   }
+  },
+  "VerifyAuthChallenge610ED36B": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-573263824787-ap-south-1",
+     "S3Key": "77a47a1de80f9423ff1b60b781f278011f584b0e17e30a6e6337b3bebb42415e.zip"
+    },
+    "FunctionName": "arogyasutra-verify-auth",
+    "Handler": "index.handler",
+    "MemorySize": 128,
+    "Role": {
+     "Fn::GetAtt": [
+      "VerifyAuthChallengeServiceRole0AEAA465",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs20.x",
+    "Timeout": 10
+   },
+   "DependsOn": [
+    "VerifyAuthChallengeServiceRole0AEAA465"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "ArogyaSutraStack/VerifyAuthChallenge/Resource",
+    "aws:asset:path": "asset.77a47a1de80f9423ff1b60b781f278011f584b0e17e30a6e6337b3bebb42415e",
+    "aws:asset:is-bundled": true,
+    "aws:asset:property": "Code"
+   }
+  },
+  "PatientUserPoolDefineAuthChallengeCognito39A614EB": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "DefineAuthChallengeE7E3BC7B",
+      "Arn"
+     ]
+    },
+    "Principal": "cognito-idp.amazonaws.com",
+    "SourceArn": {
+     "Fn::GetAtt": [
+      "PatientUserPool12075B47",
+      "Arn"
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ArogyaSutraStack/PatientUserPool/DefineAuthChallengeCognito"
+   }
+  },
+  "PatientUserPoolCreateAuthChallengeCognito9B721A73": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "CreateAuthChallengeB2F8D873",
+      "Arn"
+     ]
+    },
+    "Principal": "cognito-idp.amazonaws.com",
+    "SourceArn": {
+     "Fn::GetAtt": [
+      "PatientUserPool12075B47",
+      "Arn"
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ArogyaSutraStack/PatientUserPool/CreateAuthChallengeCognito"
+   }
+  },
+  "PatientUserPoolVerifyAuthChallengeResponseCognito0F4A5B72": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "VerifyAuthChallenge610ED36B",
+      "Arn"
+     ]
+    },
+    "Principal": "cognito-idp.amazonaws.com",
+    "SourceArn": {
+     "Fn::GetAtt": [
+      "PatientUserPool12075B47",
+      "Arn"
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ArogyaSutraStack/PatientUserPool/VerifyAuthChallengeResponseCognito"
+   }
+  },
+  "PatientUserPool12075B47": {
+   "Type": "AWS::Cognito::UserPool",
+   "Properties": {
+    "AccountRecoverySetting": {
+     "RecoveryMechanisms": [
+      {
+       "Name": "verified_phone_number",
+       "Priority": 1
+      }
+     ]
+    },
+    "AdminCreateUserConfig": {
+     "AllowAdminCreateUserOnly": true
+    },
+    "EmailVerificationMessage": "The verification code to your new account is {####}",
+    "EmailVerificationSubject": "Verify your new account",
+    "LambdaConfig": {
+     "CreateAuthChallenge": {
+      "Fn::GetAtt": [
+       "CreateAuthChallengeB2F8D873",
+       "Arn"
+      ]
+     },
+     "DefineAuthChallenge": {
+      "Fn::GetAtt": [
+       "DefineAuthChallengeE7E3BC7B",
+       "Arn"
+      ]
+     },
+     "VerifyAuthChallengeResponse": {
+      "Fn::GetAtt": [
+       "VerifyAuthChallenge610ED36B",
+       "Arn"
+      ]
+     }
+    },
+    "Policies": {
+     "PasswordPolicy": {
+      "MinimumLength": 12,
+      "RequireNumbers": true,
+      "RequireSymbols": true,
+      "RequireUppercase": true,
+      "TemporaryPasswordValidityDays": 1
+     }
+    },
+    "Schema": [
+     {
+      "Mutable": true,
+      "Name": "phone_number",
+      "Required": true
+     },
+     {
+      "Mutable": false,
+      "Name": "birthdate",
+      "Required": true
+     },
+     {
+      "Mutable": true,
+      "Name": "name",
+      "Required": true
+     },
+     {
+      "AttributeDataType": "String",
+      "Mutable": false,
+      "Name": "card_id",
+      "StringAttributeConstraints": {
+       "MaxLength": "12",
+       "MinLength": "12"
+      }
+     },
+     {
+      "AttributeDataType": "String",
+      "Mutable": false,
+      "Name": "dob"
+     }
+    ],
+    "SmsVerificationMessage": "The verification code to your new account is {####}",
+    "UserPoolName": "arogyasutra-patients",
+    "VerificationMessageTemplate": {
+     "DefaultEmailOption": "CONFIRM_WITH_CODE",
+     "EmailMessage": "The verification code to your new account is {####}",
+     "EmailSubject": "Verify your new account",
+     "SmsMessage": "The verification code to your new account is {####}"
+    }
+   },
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "ArogyaSutraStack/PatientUserPool/Resource"
+   }
+  },
+  "PatientUserPoolPatientAppClientD7CFCFCC": {
+   "Type": "AWS::Cognito::UserPoolClient",
+   "Properties": {
+    "AccessTokenValidity": 60,
+    "AllowedOAuthFlows": [
+     "implicit",
+     "code"
+    ],
+    "AllowedOAuthFlowsUserPoolClient": true,
+    "AllowedOAuthScopes": [
+     "profile",
+     "phone",
+     "email",
+     "openid",
+     "aws.cognito.signin.user.admin"
+    ],
+    "CallbackURLs": [
+     "https://example.com"
+    ],
+    "ClientName": "arogyasutra-patient-web",
+    "ExplicitAuthFlows": [
+     "ALLOW_CUSTOM_AUTH",
+     "ALLOW_REFRESH_TOKEN_AUTH"
+    ],
+    "IdTokenValidity": 60,
+    "PreventUserExistenceErrors": "ENABLED",
+    "RefreshTokenValidity": 43200,
+    "SupportedIdentityProviders": [
+     "COGNITO"
+    ],
+    "TokenValidityUnits": {
+     "AccessToken": "minutes",
+     "IdToken": "minutes",
+     "RefreshToken": "minutes"
+    },
+    "UserPoolId": {
+     "Ref": "PatientUserPool12075B47"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ArogyaSutraStack/PatientUserPool/PatientAppClient/Resource"
+   }
+  },
+  "DoctorUserPoolCA56D27E": {
+   "Type": "AWS::Cognito::UserPool",
+   "Properties": {
+    "AccountRecoverySetting": {
+     "RecoveryMechanisms": [
+      {
+       "Name": "verified_phone_number",
+       "Priority": 1
+      },
+      {
+       "Name": "verified_email",
+       "Priority": 2
+      }
+     ]
+    },
+    "AdminCreateUserConfig": {
+     "AllowAdminCreateUserOnly": true
+    },
+    "AliasAttributes": [
+     "email"
+    ],
+    "AutoVerifiedAttributes": [
+     "email"
+    ],
+    "EmailVerificationMessage": "The verification code to your new account is {####}",
+    "EmailVerificationSubject": "Verify your new account",
+    "Policies": {
+     "PasswordPolicy": {
+      "MinimumLength": 12,
+      "RequireNumbers": true,
+      "RequireSymbols": true,
+      "RequireUppercase": true
+     }
+    },
+    "Schema": [
+     {
+      "Mutable": true,
+      "Name": "email",
+      "Required": true
+     },
+     {
+      "Mutable": true,
+      "Name": "name",
+      "Required": true
+     },
+     {
+      "Mutable": true,
+      "Name": "phone_number",
+      "Required": true
+     },
+     {
+      "AttributeDataType": "String",
+      "Mutable": false,
+      "Name": "mci_number",
+      "StringAttributeConstraints": {
+       "MaxLength": "20",
+       "MinLength": "5"
+      }
+     },
+     {
+      "AttributeDataType": "String",
+      "Mutable": true,
+      "Name": "institution"
+     },
+     {
+      "AttributeDataType": "String",
+      "Mutable": true,
+      "Name": "designation"
+     }
+    ],
+    "SmsVerificationMessage": "The verification code to your new account is {####}",
+    "UserPoolName": "arogyasutra-doctors",
+    "VerificationMessageTemplate": {
+     "DefaultEmailOption": "CONFIRM_WITH_CODE",
+     "EmailMessage": "The verification code to your new account is {####}",
+     "EmailSubject": "Verify your new account",
+     "SmsMessage": "The verification code to your new account is {####}"
+    }
+   },
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "ArogyaSutraStack/DoctorUserPool/Resource"
+   }
+  },
+  "DoctorUserPoolDoctorAppClient1F1CAC42": {
+   "Type": "AWS::Cognito::UserPoolClient",
+   "Properties": {
+    "AccessTokenValidity": 60,
+    "AllowedOAuthFlows": [
+     "implicit",
+     "code"
+    ],
+    "AllowedOAuthFlowsUserPoolClient": true,
+    "AllowedOAuthScopes": [
+     "profile",
+     "phone",
+     "email",
+     "openid",
+     "aws.cognito.signin.user.admin"
+    ],
+    "CallbackURLs": [
+     "https://example.com"
+    ],
+    "ClientName": "arogyasutra-doctor-web",
+    "ExplicitAuthFlows": [
+     "ALLOW_ADMIN_USER_PASSWORD_AUTH",
+     "ALLOW_USER_SRP_AUTH",
+     "ALLOW_REFRESH_TOKEN_AUTH"
+    ],
+    "IdTokenValidity": 60,
+    "PreventUserExistenceErrors": "ENABLED",
+    "RefreshTokenValidity": 10080,
+    "SupportedIdentityProviders": [
+     "COGNITO"
+    ],
+    "TokenValidityUnits": {
+     "AccessToken": "minutes",
+     "IdToken": "minutes",
+     "RefreshToken": "minutes"
+    },
+    "UserPoolId": {
+     "Ref": "DoctorUserPoolCA56D27E"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ArogyaSutraStack/DoctorUserPool/DoctorAppClient/Resource"
+   }
+  },
+  "AppBackendRoleC81DE21A": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      },
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "amplify.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "RoleName": "arogyasutra-app-backend"
+   },
+   "Metadata": {
+    "aws:cdk:path": "ArogyaSutraStack/AppBackendRole/Resource"
+   }
+  },
+  "AppBackendRoleDefaultPolicy6EA40799": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "s3:GetObject*",
+        "s3:GetBucket*",
+        "s3:List*",
+        "s3:DeleteObject*",
+        "s3:PutObject",
+        "s3:PutObjectLegalHold",
+        "s3:PutObjectRetention",
+        "s3:PutObjectTagging",
+        "s3:PutObjectVersionTagging",
+        "s3:Abort*"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "HealthRecordsBucket28A5ADA9",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "HealthRecordsBucket28A5ADA9",
+             "Arn"
+            ]
+           },
+           "/*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": [
+        "kms:Decrypt",
+        "kms:DescribeKey",
+        "kms:Encrypt",
+        "kms:ReEncrypt*",
+        "kms:GenerateDataKey*"
+       ],
+       "Effect": "Allow",
+       "Resource": {
+        "Fn::GetAtt": [
+         "MasterKey0175C9E2",
+         "Arn"
+        ]
+       }
+      },
+      {
+       "Action": [
+        "kms:Decrypt",
+        "kms:Encrypt",
+        "kms:ReEncrypt*",
+        "kms:GenerateDataKey*"
+       ],
+       "Effect": "Allow",
+       "Resource": {
+        "Fn::GetAtt": [
+         "MasterKey0175C9E2",
+         "Arn"
+        ]
+       }
+      },
+      {
+       "Action": [
+        "dynamodb:BatchGetItem",
+        "dynamodb:Query",
+        "dynamodb:GetItem",
+        "dynamodb:Scan",
+        "dynamodb:ConditionCheckItem",
+        "dynamodb:BatchWriteItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:DescribeTable"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "AuditLogsTable7D096F6F",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "AuditLogsTable7D096F6F",
+             "Arn"
+            ]
+           },
+           "/index/*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": [
+        "dynamodb:GetRecords",
+        "dynamodb:GetShardIterator"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "AuditLogsTable7D096F6F",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "AuditLogsTable7D096F6F",
+             "Arn"
+            ]
+           },
+           "/index/*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": [
+        "dynamodb:BatchGetItem",
+        "dynamodb:Query",
+        "dynamodb:GetItem",
+        "dynamodb:Scan",
+        "dynamodb:ConditionCheckItem",
+        "dynamodb:BatchWriteItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:DescribeTable"
+       ],
+       "Effect": "Allow",
+       "Resource": {
+        "Fn::GetAtt": [
+         "AccessGrantsTableFFA0880B",
+         "Arn"
+        ]
+       }
+      },
+      {
+       "Action": [
+        "dynamodb:GetRecords",
+        "dynamodb:GetShardIterator"
+       ],
+       "Effect": "Allow",
+       "Resource": {
+        "Fn::GetAtt": [
+         "AccessGrantsTableFFA0880B",
+         "Arn"
+        ]
+       }
+      },
+      {
+       "Action": [
+        "dynamodb:BatchGetItem",
+        "dynamodb:Query",
+        "dynamodb:GetItem",
+        "dynamodb:Scan",
+        "dynamodb:ConditionCheckItem",
+        "dynamodb:BatchWriteItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:DescribeTable"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "SessionsTable7C302024",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "SessionsTable7C302024",
+             "Arn"
+            ]
+           },
+           "/index/*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": [
+        "dynamodb:GetRecords",
+        "dynamodb:GetShardIterator"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "SessionsTable7C302024",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "SessionsTable7C302024",
+             "Arn"
+            ]
+           },
+           "/index/*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": "sns:Publish",
+       "Effect": "Allow",
+       "Resource": {
+        "Ref": "NotificationsTopicE4AF40A8"
+       }
+      },
+      {
+       "Action": [
+        "textract:AnalyzeDocument",
+        "textract:DetectDocumentText"
+       ],
+       "Effect": "Allow",
+       "Resource": "*",
+       "Sid": "TextractAccess"
+      },
+      {
+       "Action": [
+        "comprehendmedical:DetectEntitiesV2",
+        "comprehendmedical:InferICD10CM",
+        "comprehendmedical:InferRxNorm"
+       ],
+       "Effect": "Allow",
+       "Resource": "*",
+       "Sid": "ComprehendMedicalAccess"
+      },
+      {
+       "Action": [
+        "bedrock:InvokeModel",
+        "bedrock:InvokeModelWithResponseStream"
+       ],
+       "Effect": "Allow",
+       "Resource": "*",
+       "Sid": "BedrockAccess"
+      },
+      {
+       "Action": [
+        "healthlake:CreateResource",
+        "healthlake:ReadResource",
+        "healthlake:UpdateResource",
+        "healthlake:SearchWithGet",
+        "healthlake:SearchWithPost"
+       ],
+       "Effect": "Allow",
+       "Resource": "*",
+       "Sid": "HealthLakeAccess"
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "AppBackendRoleDefaultPolicy6EA40799",
+    "Roles": [
+     {
+      "Ref": "AppBackendRoleC81DE21A"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "ArogyaSutraStack/AppBackendRole/DefaultPolicy/Resource"
+   }
+  },
+  "IdentityPool": {
+   "Type": "AWS::Cognito::IdentityPool",
+   "Properties": {
+    "AllowUnauthenticatedIdentities": false,
+    "CognitoIdentityProviders": [
+     {
+      "ClientId": {
+       "Ref": "PatientUserPoolPatientAppClientD7CFCFCC"
+      },
+      "ProviderName": {
+       "Fn::GetAtt": [
+        "PatientUserPool12075B47",
+        "ProviderName"
+       ]
+      }
+     },
+     {
+      "ClientId": {
+       "Ref": "DoctorUserPoolDoctorAppClient1F1CAC42"
+      },
+      "ProviderName": {
+       "Fn::GetAtt": [
+        "DoctorUserPoolCA56D27E",
+        "ProviderName"
+       ]
+      }
+     }
+    ],
+    "IdentityPoolName": "arogyasutra_identity_pool"
+   },
+   "Metadata": {
+    "aws:cdk:path": "ArogyaSutraStack/IdentityPool"
+   }
+  },
+  "CognitoAuthRole7B7E27C0": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRoleWithWebIdentity",
+       "Condition": {
+        "StringEquals": {
+         "cognito-identity.amazonaws.com:aud": {
+          "Ref": "IdentityPool"
+         }
+        },
+        "ForAnyValue:StringLike": {
+         "cognito-identity.amazonaws.com:amr": "authenticated"
+        }
+       },
+       "Effect": "Allow",
+       "Principal": {
+        "Federated": "cognito-identity.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "RoleName": "arogyasutra-cognito-authenticated"
+   },
+   "Metadata": {
+    "aws:cdk:path": "ArogyaSutraStack/CognitoAuthRole/Resource"
+   }
+  },
+  "CognitoAuthRoleDefaultPolicy942426C8": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "s3:GetObject*",
+        "s3:GetBucket*",
+        "s3:List*",
+        "s3:DeleteObject*",
+        "s3:PutObject",
+        "s3:PutObjectLegalHold",
+        "s3:PutObjectRetention",
+        "s3:PutObjectTagging",
+        "s3:PutObjectVersionTagging",
+        "s3:Abort*"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "HealthRecordsBucket28A5ADA9",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "HealthRecordsBucket28A5ADA9",
+             "Arn"
+            ]
+           },
+           "/patients/${cognito-identity.amazonaws.com:sub}/*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": [
+        "kms:Decrypt",
+        "kms:DescribeKey",
+        "kms:Encrypt",
+        "kms:ReEncrypt*",
+        "kms:GenerateDataKey*"
+       ],
+       "Effect": "Allow",
+       "Resource": {
+        "Fn::GetAtt": [
+         "MasterKey0175C9E2",
+         "Arn"
+        ]
+       }
+      },
+      {
+       "Action": [
+        "kms:Decrypt",
+        "kms:Encrypt",
+        "kms:ReEncrypt*",
+        "kms:GenerateDataKey*"
+       ],
+       "Effect": "Allow",
+       "Resource": {
+        "Fn::GetAtt": [
+         "MasterKey0175C9E2",
+         "Arn"
+        ]
+       }
+      },
+      {
+       "Action": [
+        "textract:AnalyzeDocument",
+        "textract:DetectDocumentText"
+       ],
+       "Effect": "Allow",
+       "Resource": "*",
+       "Sid": "TextractForPatient"
+      },
+      {
+       "Action": [
+        "comprehendmedical:DetectEntitiesV2",
+        "comprehendmedical:InferICD10CM"
+       ],
+       "Effect": "Allow",
+       "Resource": "*",
+       "Sid": "ComprehendMedicalForPatient"
+      },
+      {
+       "Action": "bedrock:InvokeModel",
+       "Effect": "Allow",
+       "Resource": "*",
+       "Sid": "BedrockForPatient"
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "CognitoAuthRoleDefaultPolicy942426C8",
+    "Roles": [
+     {
+      "Ref": "CognitoAuthRole7B7E27C0"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "ArogyaSutraStack/CognitoAuthRole/DefaultPolicy/Resource"
+   }
+  },
+  "IdentityPoolRoles": {
+   "Type": "AWS::Cognito::IdentityPoolRoleAttachment",
+   "Properties": {
+    "IdentityPoolId": {
+     "Ref": "IdentityPool"
+    },
+    "Roles": {
+     "authenticated": {
+      "Fn::GetAtt": [
+       "CognitoAuthRole7B7E27C0",
+       "Arn"
+      ]
+     }
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ArogyaSutraStack/IdentityPoolRoles"
+   }
+  },
+  "CDKMetadata": {
+   "Type": "AWS::CDK::Metadata",
+   "Properties": {
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/02P3W7CMAyFn4X74DHgBQBp0jRpQ8CuUZoaME0dVLtDVZR3n9Lyd3W+c2JbJ1OYzicwGdmrjF1ZjT0VELdqXWXsVfaxqgXiF3ZmdeAsC09WsukhGZlBXLauQs3hjQZZB0+ue8Y3P5ilFUym7NjWoSwg7mzhMc/2kIywQNyFC7k+zJCMt3VR2j2HEs8C3718tOyUAhuyNcRNGK70+iwwUG67tyKoAosst4MQVwd+3Mnj2NQkQoGTceHIpAHir2CzDsHngQffYeUJWV+fnslniayk3X351eeeC1XrTjWypmQ2KKFtHJq+4FbtkfiYt35avbSaTP48nOXtbzqH9xlMRmchGjctK9UIm0H/AZFGYe7WAQAA"
+   },
+   "Metadata": {
+    "aws:cdk:path": "ArogyaSutraStack/CDKMetadata/Default"
+   }
+  }
+ },
+ "Outputs": {
+  "KmsKeyId": {
+   "Description": "KMS_KEY_ID",
+   "Value": {
+    "Ref": "MasterKey0175C9E2"
+   }
+  },
+  "S3BucketName": {
+   "Description": "NEXT_PUBLIC_S3_BUCKET",
+   "Value": {
+    "Ref": "HealthRecordsBucket28A5ADA9"
+   }
+  },
+  "PatientPoolId": {
+   "Description": "NEXT_PUBLIC_COGNITO_PATIENT_POOL_ID",
+   "Value": {
+    "Ref": "PatientUserPool12075B47"
+   }
+  },
+  "PatientClientId": {
+   "Description": "NEXT_PUBLIC_COGNITO_PATIENT_CLIENT_ID",
+   "Value": {
+    "Ref": "PatientUserPoolPatientAppClientD7CFCFCC"
+   }
+  },
+  "DoctorPoolId": {
+   "Description": "NEXT_PUBLIC_COGNITO_DOCTOR_POOL_ID",
+   "Value": {
+    "Ref": "DoctorUserPoolCA56D27E"
+   }
+  },
+  "DoctorClientId": {
+   "Description": "NEXT_PUBLIC_COGNITO_DOCTOR_CLIENT_ID",
+   "Value": {
+    "Ref": "DoctorUserPoolDoctorAppClient1F1CAC42"
+   }
+  },
+  "SnsTopicArn": {
+   "Description": "SNS_TOPIC_ARN",
+   "Value": {
+    "Ref": "NotificationsTopicE4AF40A8"
+   }
+  },
+  "AuditTableName": {
+   "Description": "DYNAMODB_AUDIT_TABLE",
+   "Value": {
+    "Ref": "AuditLogsTable7D096F6F"
+   }
+  },
+  "AccessTableName": {
+   "Description": "DYNAMODB_ACCESS_TABLE",
+   "Value": {
+    "Ref": "AccessGrantsTableFFA0880B"
+   }
+  },
+  "SessionTableName": {
+   "Description": "DYNAMODB_SESSION_TABLE",
+   "Value": {
+    "Ref": "SessionsTable7C302024"
+   }
+  },
+  "IdentityPoolId": {
+   "Description": "NEXT_PUBLIC_IDENTITY_POOL_ID",
+   "Value": {
+    "Ref": "IdentityPool"
+   }
+  },
+  "AppBackendRoleArn": {
+   "Description": "App backend role ARN",
+   "Value": {
+    "Fn::GetAtt": [
+     "AppBackendRoleC81DE21A",
+     "Arn"
+    ]
+   }
+  }
+ },
+ "Parameters": {
+  "BootstrapVersion": {
+   "Type": "AWS::SSM::Parameter::Value<String>",
+   "Default": "/cdk-bootstrap/hnb659fds/version",
+   "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]"
+  }
+ },
+ "Rules": {
+  "CheckBootstrapVersion": {
+   "Assertions": [
+    {
+     "Assert": {
+      "Fn::Not": [
+       {
+        "Fn::Contains": [
+         [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5"
+         ],
+         {
+          "Ref": "BootstrapVersion"
+         }
+        ]
+       }
+      ]
+     },
+     "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI."
+    }
+   ]
+  }
+ }
+}

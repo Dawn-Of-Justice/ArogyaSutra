@@ -1,0 +1,242 @@
+/* ======================================================
+   ArogyaSutra Animations
+   Micro-animations for premium feel
+   ====================================================== */
+
+/* ---- Fade In ---- */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+.animate-fade-in {
+    animation: fadeIn var(--transition-normal) ease forwards;
+}
+
+/* ---- Slide Up ---- */
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(12px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.animate-slide-up {
+    animation: slideUp var(--transition-slow) ease forwards;
+}
+
+/* ---- Slide In Right ---- */
+@keyframes slideInRight {
+    from {
+        opacity: 0;
+        transform: translateX(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.animate-slide-right {
+    animation: slideInRight var(--transition-slow) ease forwards;
+}
+
+/* ---- Pulse Glow (Break-Glass button) ---- */
+@keyframes pulseGlow {
+
+    0%,
+    100% {
+        box-shadow: 0 0 8px var(--color-danger-glow);
+    }
+
+    50% {
+        box-shadow: 0 0 24px var(--color-danger-glow),
+            0 0 48px rgba(239, 68, 68, 0.15);
+    }
+}
+
+.animate-pulse-glow {
+    animation: pulseGlow 2s ease-in-out infinite;
+}
+
+/* ---- Accent Pulse (CTA buttons) ---- */
+@keyframes accentPulse {
+
+    0%,
+    100% {
+        box-shadow: 0 0 8px var(--color-accent-glow);
+    }
+
+    50% {
+        box-shadow: 0 0 20px var(--color-accent-glow),
+            0 0 40px rgba(16, 185, 129, 0.12);
+    }
+}
+
+.animate-accent-pulse {
+    animation: accentPulse 2.5s ease-in-out infinite;
+}
+
+/* ---- Skeleton Loader ---- */
+@keyframes skeleton {
+    0% {
+        background-position: -200% 0;
+    }
+
+    100% {
+        background-position: 200% 0;
+    }
+}
+
+.skeleton {
+    background: linear-gradient(90deg,
+            var(--color-bg-tertiary) 25%,
+            rgba(148, 163, 184, 0.08) 50%,
+            var(--color-bg-tertiary) 75%);
+    background-size: 200% 100%;
+    animation: skeleton 1.5s ease-in-out infinite;
+    border-radius: var(--radius-md);
+}
+
+/* ---- Countdown Ring ---- */
+@keyframes countdownRing {
+    from {
+        stroke-dashoffset: 0;
+    }
+
+    to {
+        stroke-dashoffset: 283;
+        /* 2 * PI * 45 (radius) */
+    }
+}
+
+.countdown-ring {
+    animation: countdownRing linear forwards;
+}
+
+/* ---- Spin (loading) ---- */
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.animate-spin {
+    animation: spin 1s linear infinite;
+}
+
+/* ---- Scale In (modal) ---- */
+@keyframes scaleIn {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.animate-scale-in {
+    animation: scaleIn var(--transition-normal) ease forwards;
+}
+
+/* ---- Staggered List Items ---- */
+.stagger-item {
+    opacity: 0;
+    animation: slideUp var(--transition-slow) ease forwards;
+}
+
+.stagger-item:nth-child(1) {
+    animation-delay: 0ms;
+}
+
+.stagger-item:nth-child(2) {
+    animation-delay: 50ms;
+}
+
+.stagger-item:nth-child(3) {
+    animation-delay: 100ms;
+}
+
+.stagger-item:nth-child(4) {
+    animation-delay: 150ms;
+}
+
+.stagger-item:nth-child(5) {
+    animation-delay: 200ms;
+}
+
+.stagger-item:nth-child(6) {
+    animation-delay: 250ms;
+}
+
+.stagger-item:nth-child(7) {
+    animation-delay: 300ms;
+}
+
+.stagger-item:nth-child(8) {
+    animation-delay: 350ms;
+}
+
+.stagger-item:nth-child(9) {
+    animation-delay: 400ms;
+}
+
+.stagger-item:nth-child(10) {
+    animation-delay: 450ms;
+}
+
+/* ---- Confidence Bar Fill ---- */
+@keyframes fillBar {
+    from {
+        width: 0%;
+    }
+
+    to {
+        width: var(--confidence-width, 0%);
+    }
+}
+
+.confidence-bar-fill {
+    animation: fillBar 0.8s ease-out forwards;
+}
+
+/* ---- Network Status Indicator ---- */
+@keyframes statusDot {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.5;
+    }
+}
+
+.status-dot--online {
+    background: var(--color-success);
+    animation: statusDot 2s ease-in-out infinite;
+}
+
+.status-dot--offline {
+    background: var(--color-danger);
+    animation: statusDot 1s ease-in-out infinite;
+}
