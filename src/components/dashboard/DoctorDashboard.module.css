@@ -55,6 +55,15 @@
     overflow: hidden;
 }
 
+.sketchfabEmbed {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: none;
+    border-radius: var(--radius-xl);
+}
+
 .bodyModelPlaceholder {
     display: flex;
     flex-direction: column;
@@ -65,9 +74,19 @@
     font-size: var(--text-sm);
 }
 
-.bodyModelPlaceholder span:first-child {
-    font-size: 64px;
-    opacity: 0.4;
+.bodyModelPlaceholder span {
+    color: var(--dd-text-muted);
+    font-size: var(--text-sm);
+}
+
+.placeholderIcon {
+    color: var(--dd-text-muted);
+    opacity: 0.3;
+}
+
+.placeholderIcon svg {
+    width: 64px;
+    height: 64px;
 }
 
 /* Floating annotation card on body model */
@@ -87,14 +106,14 @@
 }
 
 .annotationThumb {
-    width: 48px;
-    height: 48px;
+    width: 40px;
+    height: 40px;
     border-radius: var(--radius-md);
-    background: var(--dd-bg-card-alt);
+    background: var(--dd-accent-light);
+    color: var(--dd-accent);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 24px;
     flex-shrink: 0;
 }
 
@@ -115,70 +134,7 @@
     color: var(--dd-text-muted);
 }
 
-/* Model nav arrows */
-.modelNav {
-    position: absolute;
-    bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-}
-
-.modelNavBtn {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    border: 1px solid var(--dd-border);
-    background: var(--dd-bg-card);
-    color: var(--dd-text-secondary);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: var(--text-sm);
-    transition: all var(--transition-fast);
-    box-shadow: var(--dd-shadow);
-}
-
-.modelNavBtn:hover {
-    background: var(--dd-accent-light);
-    border-color: var(--dd-accent);
-    color: var(--dd-accent);
-}
-
-/* Side tool buttons (on the body model) */
-.modelTools {
-    position: absolute;
-    top: 20px;
-    right: 20px;
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2);
-}
-
-.modelToolBtn {
-    width: 36px;
-    height: 36px;
-    border-radius: var(--radius-md);
-    border: 1px solid var(--dd-border-light);
-    background: rgba(255, 255, 255, 0.8);
-    backdrop-filter: blur(8px);
-    color: var(--dd-text-secondary);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 16px;
-    transition: all var(--transition-fast);
-}
-
-.modelToolBtn:hover {
-    background: var(--dd-bg-card);
-    border-color: var(--dd-accent);
-    color: var(--dd-accent);
-}
+/* (model tools removed — Sketchfab provides its own controls) */
 
 /* ---- Right Column: Patient Info ---- */
 .rightColumn {
@@ -238,14 +194,14 @@
 }
 
 .patientAvatar {
-    width: 72px;
-    height: 72px;
+    width: 56px;
+    height: 56px;
     border-radius: var(--radius-xl);
     background: linear-gradient(135deg, #E0F2FE, #BFDBFE);
+    color: var(--dd-accent);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 32px;
     flex-shrink: 0;
     border: 2px solid var(--dd-border-light);
 }
@@ -254,13 +210,18 @@
     flex: 1;
     display: flex;
     flex-direction: column;
-    gap: var(--space-1);
+    gap: 4px;
+    min-width: 0;
+    /* Allows text to truncate if needed, prevents pushing layout */
 }
 
 .patientName {
     font-size: var(--text-lg);
     font-weight: var(--font-bold);
     color: var(--dd-text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .patientTags {
@@ -293,6 +254,10 @@
     gap: var(--space-2);
     font-size: var(--text-sm);
     color: var(--dd-text-tertiary);
+    font-weight: var(--font-medium);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .diagnosisLabel {
@@ -306,6 +271,100 @@
     font-size: var(--text-base);
     font-weight: var(--font-semibold);
     color: var(--dd-text-primary);
+}
+
+/* Stats bar: height / weight / blood group + last-updated indicator */
+.statsBar {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    background: var(--dd-bg-card-alt);
+    border: 1px solid var(--dd-border-light);
+    border-radius: var(--radius-lg);
+    padding: var(--space-3) var(--space-4);
+    margin-bottom: var(--space-4);
+}
+
+.statItem {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.statLabel {
+    font-size: 10px;
+    font-weight: var(--font-semibold);
+    color: var(--dd-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.statValue {
+    font-size: var(--text-sm);
+    font-weight: var(--font-bold);
+    color: var(--dd-text-primary);
+}
+
+.statValueAccent {
+    color: var(--dd-accent-dark);
+}
+
+.statDivider {
+    width: 1px;
+    height: 28px;
+    background: var(--dd-border);
+    flex-shrink: 0;
+}
+
+.lastUpdated {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: var(--text-xs);
+    color: var(--dd-text-muted);
+    white-space: nowrap;
+}
+
+.lastUpdatedDot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #22c55e;
+    flex-shrink: 0;
+}
+
+/* Patient identity footer strip */
+.patientFooter {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    margin-top: var(--space-3);
+    background: var(--dd-bg-card-alt);
+    border: 1px solid var(--dd-border-light);
+    border-radius: var(--radius-lg);
+    flex-wrap: wrap;
+}
+
+.patientFooterName {
+    font-size: var(--text-sm);
+    font-weight: var(--font-bold);
+    color: var(--dd-text-primary);
+}
+
+.patientFooterMeta {
+    font-size: var(--text-xs);
+    color: var(--dd-text-muted);
+    font-weight: var(--font-medium);
+}
+
+.patientFooterCard {
+    margin-left: auto;
+    font-size: 10px;
+    font-family: monospace;
+    color: var(--dd-text-tertiary);
+    letter-spacing: 0.04em;
 }
 
 /* Vitals row */
@@ -327,8 +386,11 @@
 }
 
 .vitalIcon {
-    font-size: 20px;
-    opacity: 0.7;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--dd-accent);
+    opacity: 0.8;
 }
 
 .vitalData {
@@ -396,8 +458,13 @@
 }
 
 .historyIcon {
-    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--dd-text-tertiary);
     flex-shrink: 0;
+    width: 24px;
+    height: 24px;
 }
 
 .historyMeta {
@@ -419,7 +486,8 @@
 
 .historyArrow {
     color: var(--dd-text-muted);
-    font-size: var(--text-sm);
+    display: flex;
+    align-items: center;
 }
 
 /* X-Ray docs */
@@ -436,7 +504,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 48px;
+    color: var(--dd-text-muted);
     opacity: 0.4;
     position: relative;
     overflow: hidden;
@@ -680,7 +748,22 @@
     padding: var(--space-3);
     color: var(--dd-danger);
     font-size: var(--text-sm);
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.verifyErrorIcon {
+    display: flex;
+    flex-shrink: 0;
+}
+
+.devOtpHint {
+    color: var(--dd-accent);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
     text-align: center;
+    margin-bottom: 8px;
 }
 
 /* OTP input row */
@@ -708,6 +791,19 @@
     outline: none;
     border-color: var(--dd-accent);
     box-shadow: 0 0 0 3px rgba(74, 144, 217, 0.15);
+}
+
+/* End session button */
+.endSessionBtn {
+    align-self: flex-start;
+    border-color: var(--dd-danger);
+    color: var(--dd-danger);
+}
+
+.endSessionBtn:hover {
+    background: #FEF2F2;
+    border-color: var(--dd-danger);
+    color: var(--dd-danger);
 }
 
 /* ---- Responsive ---- */

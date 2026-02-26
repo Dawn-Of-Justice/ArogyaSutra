@@ -1,12 +1,11 @@
 // ============================================================
 // AppShell — Desktop Layout Shell
 // Sidebar nav + top bar + main content area
-// Supports light theme for doctor mode
 // ============================================================
 
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import styles from "./AppShell.module.css";
 
 interface NavItem {
@@ -22,6 +21,7 @@ interface AppShellProps {
     pageTitle: string;
     userName: string;
     userRole: string;
+    userId?: string;
 }
 
 const PATIENT_NAV: NavItem[] = [
@@ -33,7 +33,6 @@ const PATIENT_NAV: NavItem[] = [
 ];
 
 const PATIENT_NAV_BOTTOM: NavItem[] = [
-    { id: "emergency", icon: "🚨", label: "Emergency" },
     { id: "settings", icon: "⚙️", label: "Settings" },
 ];
 
@@ -54,6 +53,7 @@ export default function AppShell({
     pageTitle,
     userName,
     userRole,
+    userId,
 }: AppShellProps) {
     const isDoctor = userRole === "Doctor";
     const navItems = isDoctor ? DOCTOR_NAV : PATIENT_NAV;
@@ -66,8 +66,16 @@ export default function AppShell({
         .slice(0, 2)
         .toUpperCase() || "?";
 
+    // Read profile photo from localStorage (set by ProfileScreen)
+    const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+    useEffect(() => {
+        if (!userId) return;
+        const cached = localStorage.getItem(`profilePhoto_${userId}`);
+        if (cached) setPhotoUrl(cached);
+    }, [userId]);
+
     return (
-        <div className={`${styles.shell} ${isDoctor ? styles.shellLight : ""}`}>
+        <div className={styles.shell}>
             {/* ---- Sidebar ---- */}
             <aside className={styles.sidebar}>
                 <div className={styles.sidebarLogo}>
@@ -129,7 +137,13 @@ export default function AppShell({
                         className={styles.profilePill}
                         onClick={() => onNavigate("profile")}
                     >
-                        <div className={styles.profileAvatar}>{initials}</div>
+                        <div className={styles.profileAvatar}>
+                            {photoUrl ? (
+                                <img src={photoUrl} alt="Profile" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "inherit" }} />
+                            ) : (
+                                initials
+                            )}
+                        </div>
                         <div className={styles.profileInfo}>
                             <span className={styles.profileName}>{userName}</span>
                             <span className={styles.profileRole}>{userRole}</span>

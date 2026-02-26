@@ -14,6 +14,7 @@ import DoctorDashboard from "../components/dashboard/DoctorDashboard";
 import TimelineScreen from "../components/timeline/TimelineScreen";
 import AssistantScreen from "../components/assistant/AssistantScreen";
 import BreakGlassScreen from "../components/emergency/BreakGlassScreen";
+import ProfileScreen from "../components/profile/ProfileScreen";
 
 const PAGE_TITLES: Record<string, string> = {
   dashboard: "Dashboard",
@@ -30,10 +31,14 @@ const PAGE_TITLES: Record<string, string> = {
 function AppRouter() {
   const { state, patient, doctor, userRole } = useAuth();
   const [screen, setScreen] = useState("dashboard");
+  const [showBreakGlass, setShowBreakGlass] = useState(false);
 
-  // Unauthenticated → show login (no shell)
+  // Unauthenticated → show login (no shell), or break-glass overlay
   if (state !== "AUTHENTICATED") {
-    return <LoginScreen />;
+    if (showBreakGlass) {
+      return <BreakGlassScreen onClose={() => setShowBreakGlass(false)} />;
+    }
+    return <LoginScreen onEmergencyAccess={() => setShowBreakGlass(true)} />;
   }
 
   const isDoctor = userRole === "doctor";
@@ -52,12 +57,12 @@ function AppRouter() {
             doctorName={doctor?.fullName}
           />
         );
+      case "profile":
+        return <ProfileScreen onNavigate={setScreen} />;
       case "timeline":
         return <TimelineScreen onNavigate={setScreen} />;
       case "assistant":
         return <AssistantScreen onNavigate={setScreen} />;
-      case "emergency":
-        return <BreakGlassScreen />;
       default:
         return isDoctor
           ? <DoctorDashboard onNavigate={setScreen} doctorName={doctor?.fullName} />
@@ -76,6 +81,7 @@ function AppRouter() {
       pageTitle={PAGE_TITLES[activeScreen] || "ArogyaSutra"}
       userName={userName}
       userRole={isDoctor ? "Doctor" : "Patient"}
+      userId={isDoctor ? doctor?.doctorId : patient?.patientId}
     >
       {renderScreen()}
     </AppShell>

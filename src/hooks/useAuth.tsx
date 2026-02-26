@@ -6,7 +6,7 @@
 
 "use client";
 
-import React, { createContext, useContext, useState, useCallback, useRef, type ReactNode } from "react";
+import React, { createContext, useContext, useState, useCallback, useRef, useEffect, type ReactNode } from "react";
 import * as authService from "../lib/services/auth.service";
 import type { AuthState, LoginSession, AuthResult, OTPChallenge, LockStatus } from "../lib/types/auth";
 import type { Patient } from "../lib/types/patient";
@@ -49,15 +49,62 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const SESSION_KEY = "arogyasutra_session";
+
+interface PersistedSession {
+    state: AuthState;
+    userRole: UserRole;
+    patient: Patient | null;
+    doctor: DoctorProfile | null;
+}
+
+function loadSession(): PersistedSession | null {
+    // Guard: sessionStorage doesn't exist on the server (SSR)
+    if (typeof window === "undefined") return null;
+    try {
+        const raw = sessionStorage.getItem(SESSION_KEY);
+        return raw ? (JSON.parse(raw) as PersistedSession) : null;
+    } catch {
+        return null;
+    }
+}
+
+function saveSession(s: PersistedSession) {
+    try {
+        sessionStorage.setItem(SESSION_KEY, JSON.stringify(s));
+    } catch { /* ignore quota errors */ }
+}
+
+function clearSession() {
+    try {
+        sessionStorage.removeItem(SESSION_KEY);
+    } catch { /* ignore */ }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-    const [state, setState] = useState<AuthState>("UNAUTHENTICATED");
-    const [patient, setPatient] = useState<Patient | null>(null);
-    const [doctor, setDoctor] = useState<DoctorProfile | null>(null);
-    const [userRole, setUserRole] = useState<UserRole | null>(null);
+    // Lazy initializers — only run once on the client, never during SSR.
+    // A single loadSession() call is used for all state initialisations.
+    const [state, setState] = useState<AuthState>(() => {
+        const s = loadSession();
+        return s?.state ?? "UNAUTHENTICATED";
+    });
+    const [patient, setPatient] = useState<Patient | null>(() => loadSession()?.patient ?? null);
+    const [doctor, setDoctor] = useState<DoctorProfile | null>(() => loadSession()?.doctor ?? null);
+    const [userRole, setUserRole] = useState<UserRole | null>(() => loadSession()?.userRole ?? null);
     const [session, setSession] = useState<LoginSession | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const masterKeyRef = useRef<CryptoKey | null>(null);
+
+    // Auto-sync session to sessionStorage whenever auth state changes.
+    // This is the primary persistence mechanism — belt-and-suspenders over the inline saveSession calls.
+    useEffect(() => {
+        if (state === "AUTHENTICATED" && (patient || doctor)) {
+            saveSession({ state, userRole: userRole!, patient: patient ?? null, doctor: doctor ?? null });
+        } else if (state === "UNAUTHENTICATED") {
+            clearSession();
+        }
+    }, [state, patient, doctor, userRole]);
 
     // ---- Patient Auth ----
     const initiateLogin = useCallback(async (cardId: string) => {
@@ -114,6 +161,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setPatient(result.patient);
             setUserRole("patient");
             setState("AUTHENTICATED");
+            // Persist so new/refreshed tabs restore state automatically
+            saveSession({ state: "AUTHENTICATED", userRole: "patient", patient: result.patient, doctor: null });
             return result;
         } catch (e) {
             setError((e as Error).message);
@@ -143,6 +192,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setDoctor(data.doctor);
             setUserRole("doctor");
             setState("AUTHENTICATED");
+            // Persist so new/refreshed tabs restore state automatically
+            saveSession({ state: "AUTHENTICATED", userRole: "doctor", patient: null, doctor: data.doctor });
         } catch (e) {
             setError((e as Error).message);
             throw e;
@@ -163,6 +214,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(null);
         setState("UNAUTHENTICATED");
         setError(null);
+        clearSession(); // Wipe persisted session
     }, [patient]);
 
     return (

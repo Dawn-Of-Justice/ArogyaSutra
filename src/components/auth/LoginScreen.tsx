@@ -10,9 +10,14 @@ import React, { useState } from "react";
 import { useAuth, type UserRole } from "../../hooks/useAuth";
 import { useCountdown } from "../../hooks/useCountdown";
 import { isValidCardId, normalizeCardInput } from "../../lib/utils/cardId";
+import LogoAnimated from "../common/LogoAnimated";
 import styles from "./LoginScreen.module.css";
 
-export default function LoginScreen() {
+interface LoginScreenProps {
+    onEmergencyAccess?: () => void;
+}
+
+export default function LoginScreen({ onEmergencyAccess }: LoginScreenProps) {
     const {
         state, initiateLogin, verifyDob, verifyOtp,
         doctorLogin, error, isLoading, lockStatus,
@@ -86,13 +91,9 @@ export default function LoginScreen() {
     return (
         <div className={styles.container}>
             <div className={styles.card}>
-                {/* Logo & Branding */}
+                {/* Animated Logo */}
                 <div className={styles.brand}>
-                    <div className={styles.logo}>
-                        <span className={styles.logoIcon}>🛡️</span>
-                    </div>
-                    <h1 className={styles.appName}>ArogyaSutra</h1>
-                    <p className={styles.tagline}>Your Health. Your Control. Zero Knowledge.</p>
+                    <LogoAnimated width={280} background="none" />
                 </div>
 
                 {/* Role Toggle */}
@@ -266,6 +267,25 @@ export default function LoginScreen() {
                     <span className={styles.securityIcon}>🔐</span>
                     <span>End-to-End Encrypted • Zero Knowledge</span>
                 </div>
+
+                {/* Emergency Access — for first responders, prominently placed */}
+                {onEmergencyAccess && (
+                    <div className={styles.emergencySection}>
+                        <div className={styles.emergencyDivider}>
+                            <span>FOR MEDICAL PERSONNEL</span>
+                        </div>
+                        <button
+                            className={styles.emergencyBtn}
+                            onClick={onEmergencyAccess}
+                            type="button"
+                        >
+                            🆘 Emergency Break-Glass Access
+                        </button>
+                        <p className={styles.emergencyHint}>
+                            For first responders — requires MCI credentials and captures location
+                        </p>
+                    </div>
+                )}
             </div>
         </div>
     );

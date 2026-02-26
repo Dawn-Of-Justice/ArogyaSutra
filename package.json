@@ -18,6 +18,7 @@
     "@aws-sdk/client-sns": "^3.996.0",
     "@aws-sdk/client-textract": "^3.996.0",
     "@aws-sdk/lib-dynamodb": "^3.996.0",
+    "@aws-sdk/s3-request-presigner": "^3.997.0",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.5.0",
     "aws-amplify": "^6.16.2",

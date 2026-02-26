@@ -1,33 +1,72 @@
 // ============================================================
 // Break-Glass Emergency Access Screen
-// For emergency personnel to access critical data
+// For Emergency Personnel (first responders) ONLY
+// Accessible from Login screen — no patient auth required
+// Logs access to DynamoDB, notifies patient, timed session
 // ============================================================
 
 "use client";
 
 import React, { useState } from "react";
 import { useCountdown } from "../../hooks/useCountdown";
-import * as accessService from "../../lib/services/access.service";
 import type { BreakGlassResponse, GeoLocation } from "../../lib/types/emergency";
 import styles from "./BreakGlassScreen.module.css";
 
-export default function BreakGlassScreen() {
-    const [step, setStep] = useState<"credentials" | "countdown" | "data">("credentials");
-    const [form, setForm] = useState({ mciNumber: "", name: "", institution: "", patientId: "", reason: "" });
-    const [response, setResponse] = useState<BreakGlassResponse | null>(null);
+interface Props {
+    onClose: () => void;
+}
+
+export default function BreakGlassScreen({ onClose }: Props) {
+    const [step, setStep] = useState<"credentials" | "data">("credentials");
+    const [form, setForm] = useState({
+        mciNumber: "",
+        name: "",
+        institution: "",
+        patientId: "",
+        reason: "",
+    });
+    const [emergencyData, setEmergencyData] = useState<BreakGlassResponse["emergencyData"] | null>(null);
+    const [sessionId, setSessionId] = useState<string>("");
     const [error, setError] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
 
     const countdown = useCountdown({
-        duration: 300, // 5 minutes
+        duration: 300, // 5 minutes per Req 6
         onExpire: () => {
-            if (response) {
-                accessService.endBreakGlassSession(response.sessionId, form.patientId);
-                setStep("credentials");
-                setResponse(null);
-            }
+            // Auto-terminate session
+            endSession();
         },
     });
+
+    const endSession = () => {
+        if (sessionId) {
+            fetch("/api/emergency/end", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ sessionId }),
+            }).catch(() => { /* non-blocking */ });
+        }
+        onClose();
+    };
+
+    const getGeolocation = (): Promise<GeoLocation> =>
+        new Promise((resolve, reject) => {
+            if (!navigator.geolocation) {
+                reject(new Error("Geolocation not supported by this device"));
+                return;
+            }
+            navigator.geolocation.getCurrentPosition(
+                (pos) =>
+                    resolve({
+                        latitude: pos.coords.latitude,
+                        longitude: pos.coords.longitude,
+                        accuracy: pos.coords.accuracy,
+                        timestamp: new Date().toISOString(),
+                    }),
+                () => reject(new Error("Location access is required for emergency access. Please allow location and try again.")),
+                { enableHighAccuracy: true, timeout: 10000 }
+            );
+        });
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -35,99 +74,201 @@ export default function BreakGlassScreen() {
         setError(null);
 
         try {
-            let geo: GeoLocation = { latitude: 0, longitude: 0, accuracy: 0, timestamp: new Date().toISOString() };
-            try {
-                const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
-                    navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true })
-                );
-                geo = { latitude: pos.coords.latitude, longitude: pos.coords.longitude, accuracy: pos.coords.accuracy, timestamp: new Date().toISOString() };
-            } catch {
-                throw new Error("Location access is required for emergency access");
-            }
+            const geo = await getGeolocation();
 
-            const result = await accessService.initiateBreakGlass({
-                patientId: form.patientId,
-                credentials: { mciRegistrationNumber: form.mciNumber, personnelName: form.name, institution: form.institution, designation: "Emergency" },
-                geoLocation: geo,
-                reason: form.reason,
+            const res = await fetch("/api/emergency/access", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    patientId: form.patientId.toUpperCase().trim(),
+                    mciNumber: form.mciNumber.trim(),
+                    personnelName: form.name.trim(),
+                    institution: form.institution.trim(),
+                    reason: form.reason.trim(),
+                    geolocation: geo,
+                }),
             });
 
-            setResponse(result);
-            setStep("countdown");
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "Emergency access denied");
+
+            setEmergencyData(data.emergencyData);
+            setSessionId(data.sessionId);
+            setStep("data");
             countdown.start();
-        } catch (e) {
-            setError((e as Error).message);
+        } catch (err) {
+            setError((err as Error).message);
         } finally {
             setIsLoading(false);
         }
     };
 
+    // Progress bar width from countdown
+    const progressPct = countdown.progress * 100;
+    const isUrgent = countdown.remaining < 60;
+
     return (
-        <div className={styles.container}>
-            <div className={styles.warning}>⚠️ EMERGENCY ACCESS ONLY ⚠️</div>
+        <div className={styles.overlay}>
+            {/* Header bar */}
+            <div className={styles.header}>
+                <span className={styles.headerBadge}>🆘 EMERGENCY ACCESS</span>
+                <button className={styles.closeBtn} onClick={onClose} title="Cancel">✕</button>
+            </div>
 
-            {step === "credentials" && (
-                <div className={styles.card}>
-                    <h1 className={styles.title}>🚨 Break-Glass Protocol</h1>
-                    <p className={styles.subtitle}>This access is logged, time-limited, and notifies the patient.</p>
-                    {error && <div className={styles.error}>{error}</div>}
-                    <form onSubmit={handleSubmit} className={styles.form}>
-                        <input className={styles.input} placeholder="MCI Registration Number" value={form.mciNumber} onChange={(e) => setForm({ ...form, mciNumber: e.target.value })} required />
-                        <input className={styles.input} placeholder="Your Full Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
-                        <input className={styles.input} placeholder="Institution / Hospital" value={form.institution} onChange={(e) => setForm({ ...form, institution: e.target.value })} required />
-                        <input className={styles.input} placeholder="Patient Card ID (AS-XXXX-XXXX)" value={form.patientId} onChange={(e) => setForm({ ...form, patientId: e.target.value })} required />
-                        <textarea className={styles.textarea} placeholder="Emergency reason..." value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} required />
-                        <button type="submit" className={styles.emergencyButton} disabled={isLoading}>
-                            {isLoading ? "Verifying..." : "🔓 Initiate Emergency Access"}
-                        </button>
-                    </form>
-                </div>
-            )}
+            <div className={styles.body}>
+                {step === "credentials" && (
+                    <div className={styles.panel}>
+                        <div className={styles.warningBanner}>
+                            <span className={styles.warningIcon}>⚠️</span>
+                            <div>
+                                <strong>Break-Glass Protocol</strong>
+                                <p>This access is logged, geolocation-stamped, and the patient is notified immediately.</p>
+                            </div>
+                        </div>
 
-            {step === "countdown" && response && (
-                <div className={styles.card}>
-                    <div className={styles.countdownRing}>
-                        <svg viewBox="0 0 120 120" className={styles.countdownSvg}>
-                            <circle cx="60" cy="60" r="54" className={styles.countdownBg} />
-                            <circle cx="60" cy="60" r="54" className={styles.countdownProgress}
-                                style={{ strokeDashoffset: `${339.3 * (1 - countdown.progress)}` }} />
-                        </svg>
-                        <span className={styles.countdownText}>{countdown.formatted}</span>
-                    </div>
-                    <h2 className={styles.title}>Emergency Access Active</h2>
-                    <p className={styles.subtitle}>Critical-Only View • Session expires in {countdown.formatted}</p>
-                    <button className={styles.viewButton} onClick={() => setStep("data")}>View Emergency Data</button>
-                </div>
-            )}
+                        {error && <div className={styles.errorBox}>{error}</div>}
 
-            {step === "data" && response && (
-                <div className={styles.card}>
-                    <div className={styles.timerBar}>{countdown.formatted} remaining</div>
-                    <h2 className={styles.title}>Emergency Health Data</h2>
-                    <div className={styles.dataSection}>
-                        <h3>🩸 Blood Group</h3>
-                        <p className={styles.dataValue}>{response.emergencyData.bloodGroup}</p>
+                        <form onSubmit={handleSubmit} className={styles.form}>
+                            <div className={styles.fieldGroup}>
+                                <label className={styles.label}>Patient ArogyaSutra Card ID</label>
+                                <input
+                                    className={styles.input}
+                                    placeholder="AS-XXXX-XXXX"
+                                    value={form.patientId}
+                                    onChange={(e) => setForm({ ...form, patientId: e.target.value })}
+                                    required
+                                    autoFocus
+                                />
+                            </div>
+                            <div className={styles.row}>
+                                <div className={styles.fieldGroup}>
+                                    <label className={styles.label}>MCI Registration Number</label>
+                                    <input
+                                        className={styles.input}
+                                        placeholder="e.g. KA-28411"
+                                        value={form.mciNumber}
+                                        onChange={(e) => setForm({ ...form, mciNumber: e.target.value })}
+                                        required
+                                    />
+                                </div>
+                                <div className={styles.fieldGroup}>
+                                    <label className={styles.label}>Your Full Name</label>
+                                    <input
+                                        className={styles.input}
+                                        placeholder="Dr. / Paramedic Name"
+                                        value={form.name}
+                                        onChange={(e) => setForm({ ...form, name: e.target.value })}
+                                        required
+                                    />
+                                </div>
+                            </div>
+                            <div className={styles.fieldGroup}>
+                                <label className={styles.label}>Institution / Hospital</label>
+                                <input
+                                    className={styles.input}
+                                    placeholder="e.g. Apollo Hospitals, Bangalore"
+                                    value={form.institution}
+                                    onChange={(e) => setForm({ ...form, institution: e.target.value })}
+                                    required
+                                />
+                            </div>
+                            <div className={styles.fieldGroup}>
+                                <label className={styles.label}>Emergency Reason</label>
+                                <textarea
+                                    className={styles.textarea}
+                                    placeholder="Briefly describe the emergency situation..."
+                                    value={form.reason}
+                                    onChange={(e) => setForm({ ...form, reason: e.target.value })}
+                                    required
+                                    rows={2}
+                                />
+                            </div>
+                            <div className={styles.geoNotice}>
+                                📍 Your location will be captured and logged when you proceed.
+                            </div>
+                            <button
+                                type="submit"
+                                className={styles.accessBtn}
+                                disabled={isLoading}
+                            >
+                                {isLoading ? "Verifying & locating..." : "🔓 Access Emergency Records"}
+                            </button>
+                        </form>
                     </div>
-                    <div className={styles.dataSection}>
-                        <h3>⚠️ Allergies</h3>
-                        {response.emergencyData.allergies.length > 0
-                            ? response.emergencyData.allergies.map((a, i) => <span key={i} className={styles.tag}>{a}</span>)
-                            : <p className={styles.noData}>None recorded</p>}
+                )}
+
+                {step === "data" && emergencyData && (
+                    <div className={styles.panel}>
+                        {/* Countdown strip */}
+                        <div className={`${styles.timerStrip} ${isUrgent ? styles.timerUrgent : ""}`}>
+                            <span className={styles.timerLabel}>
+                                {isUrgent ? "⚠️ Session expiring" : "Session active"}
+                            </span>
+                            <span className={styles.timerValue}>{countdown.formatted} remaining</span>
+                            <button className={styles.endBtn} onClick={endSession}>End Session</button>
+                        </div>
+                        <div className={styles.timerBar}>
+                            <div
+                                className={`${styles.timerFill} ${isUrgent ? styles.timerFillUrgent : ""}`}
+                                style={{ width: `${progressPct}%` }}
+                            />
+                        </div>
+
+                        <h2 className={styles.dataTitle}>Critical Emergency Information</h2>
+                        <p className={styles.dataSubtitle}>Critical-Only View • Audit logged • Patient notified</p>
+
+                        <div className={styles.dataGrid}>
+                            {/* Blood Group — most critical */}
+                            <div className={`${styles.dataCard} ${styles.dataCardBlood}`}>
+                                <span className={styles.dataCardIcon}>🩸</span>
+                                <span className={styles.dataCardLabel}>Blood Group</span>
+                                <span className={styles.dataCardValue}>
+                                    {emergencyData.bloodGroup || "—"}
+                                </span>
+                            </div>
+
+                            {/* Allergies */}
+                            <div className={`${styles.dataCard} ${styles.dataCardAllergy}`}>
+                                <span className={styles.dataCardIcon}>⚠️</span>
+                                <span className={styles.dataCardLabel}>Known Allergies</span>
+                                <div className={styles.tagList}>
+                                    {emergencyData.allergies.length > 0
+                                        ? emergencyData.allergies.map((a, i) => (
+                                            <span key={i} className={`${styles.tag} ${styles.tagAllergy}`}>{a}</span>
+                                        ))
+                                        : <span className={styles.noData}>None on record</span>}
+                                </div>
+                            </div>
+
+                            {/* Critical Medications */}
+                            <div className={styles.dataCard}>
+                                <span className={styles.dataCardIcon}>💊</span>
+                                <span className={styles.dataCardLabel}>Critical Medications</span>
+                                <div className={styles.tagList}>
+                                    {emergencyData.criticalMedications.length > 0
+                                        ? emergencyData.criticalMedications.map((m, i) => (
+                                            <span key={i} className={`${styles.tag} ${styles.tagMed}`}>{m}</span>
+                                        ))
+                                        : <span className={styles.noData}>None on record</span>}
+                                </div>
+                            </div>
+
+                            {/* Active Conditions */}
+                            <div className={styles.dataCard}>
+                                <span className={styles.dataCardIcon}>🏥</span>
+                                <span className={styles.dataCardLabel}>Active Conditions</span>
+                                <div className={styles.tagList}>
+                                    {emergencyData.activeConditions.length > 0
+                                        ? emergencyData.activeConditions.map((c, i) => (
+                                            <span key={i} className={`${styles.tag} ${styles.tagCondition}`}>{c}</span>
+                                        ))
+                                        : <span className={styles.noData}>None on record</span>}
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div className={styles.dataSection}>
-                        <h3>💊 Critical Medications</h3>
-                        {response.emergencyData.criticalMedications.length > 0
-                            ? response.emergencyData.criticalMedications.map((m, i) => <span key={i} className={styles.tag}>{m}</span>)
-                            : <p className={styles.noData}>None recorded</p>}
-                    </div>
-                    <div className={styles.dataSection}>
-                        <h3>🏥 Active Conditions</h3>
-                        {response.emergencyData.activeConditions.length > 0
-                            ? response.emergencyData.activeConditions.map((c, i) => <span key={i} className={styles.tag}>{c}</span>)
-                            : <p className={styles.noData}>None recorded</p>}
-                    </div>
-                </div>
-            )}
+                )}
+            </div>
         </div>
     );
 }
