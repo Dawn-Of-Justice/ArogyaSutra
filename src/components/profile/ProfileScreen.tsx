@@ -101,7 +101,7 @@ function calcAge(dob: string): number {
 }
 
 export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
-    const { patient, doctor, userRole, logout } = useAuth();
+    const { patient, doctor, userRole, logout, updatePatient, updateDoctor } = useAuth();
     const isDoctor = userRole === "doctor";
 
     const userId = isDoctor ? doctor?.doctorId : patient?.patientId;
@@ -116,6 +116,7 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
     const [editing, setEditing] = useState(false);
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
     // Editable fields — synced from auth data via useEffect (handles async load)
     const [editName, setEditName] = useState("");
@@ -125,6 +126,11 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
     const [editPincode, setEditPincode] = useState("");
     const [editLine1, setEditLine1] = useState("");
     const [editLanguage, setEditLanguage] = useState("en");
+    const [editDob, setEditDob] = useState("");
+    const [editGender, setEditGender] = useState("other");
+    const [editHeight, setEditHeight] = useState("");
+    const [editWeight, setEditWeight] = useState("");
+    const [editBloodGroup, setEditBloodGroup] = useState("");
     // Doctor-specific
     const [editInstitution, setEditInstitution] = useState("");
     const [editDesignation, setEditDesignation] = useState("");
@@ -144,6 +150,11 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
             setEditPincode(patient.address?.pincode || "");
             setEditLine1(patient.address?.line1 || "");
             setEditLanguage(patient.language || "en");
+            setEditDob(patient.dateOfBirth || "");
+            setEditGender(patient.gender || "other");
+            setEditHeight(patient.height || "");
+            setEditWeight(patient.weight || "");
+            setEditBloodGroup(patient.bloodGroup || "");
         }
     }, [isDoctor, doctor, patient]);
 
@@ -211,13 +222,68 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
     // ---- Save profile edits ----
     const handleSave = async () => {
         setSaving(true);
-        // TODO: wire to /api/profile/update when Cognito UpdateUserAttributes is implemented
-        // For now, persist locally
-        await new Promise((r) => setTimeout(r, 600));
-        setSaving(false);
-        setSaved(true);
-        setEditing(false);
-        setTimeout(() => setSaved(false), 3000);
+        try {
+            // 1. Update in-context immediately (optimistic UI)
+            if (isDoctor) {
+                updateDoctor({
+                    fullName: editName,
+                    phone: editPhone,
+                    institution: editInstitution,
+                    designation: editDesignation,
+                });
+            } else {
+                updatePatient({
+                    fullName: editName,
+                    phone: editPhone,
+                    language: editLanguage as import("../../lib/types/patient").Language,
+                    dateOfBirth: editDob,
+                    gender: editGender as "male" | "female" | "other",
+                    height: editHeight || undefined,
+                    weight: editWeight || undefined,
+                    bloodGroup: editBloodGroup || undefined,
+                    address: { line1: editLine1, city: editCity, state: editState, pincode: editPincode, country: "IN" as const },
+                });
+            }
+
+            // 2. Persist to Cognito (await so we catch failures)
+            const res = await fetch("/api/profile/update", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    userId: isDoctor ? doctor?.doctorId : patient?.patientId,
+                    role: isDoctor ? "doctor" : "patient",
+                    updates: isDoctor
+                        ? { fullName: editName, phone: editPhone, institution: editInstitution, designation: editDesignation }
+                        : {
+                            fullName: editName,
+                            phone: editPhone,
+                            language: editLanguage,
+                            dateOfBirth: editDob,
+                            gender: editGender,
+                            height: editHeight,
+                            weight: editWeight,
+                            bloodGroup: editBloodGroup,
+                            city: editCity,
+                            state: editState,
+                            pincode: editPincode,
+                            line1: editLine1,
+                        },
+                }),
+            });
+
+            if (!res.ok) {
+                const { error } = await res.json().catch(() => ({ error: "Server error" }));
+                throw new Error(error || `Save failed (${res.status})`);
+            }
+
+            setSaved(true);
+            setEditing(false);
+            setTimeout(() => setSaved(false), 3000);
+        } catch (err) {
+            setError(`Could not save: ${(err as Error).message}`);
+        } finally {
+            setSaving(false);
+        }
     };
 
     // ---- Derived display values ----
@@ -302,7 +368,7 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
                                     )}
                                 </div>
                                 <div className={styles.field}>
-                                    <span className={styles.fieldLabel}>Date of Birth</span>
+                                    <span className={styles.fieldLabel}>Date of Birth <span style={{ fontSize: 11, color: 'var(--brand-coral)', fontWeight: 600 }}></span></span>
                                     <span className={styles.fieldValue}>{formatDate(patient.dateOfBirth)}</span>
                                 </div>
                                 <div className={styles.field}>
@@ -311,7 +377,21 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
                                 </div>
                                 <div className={styles.field}>
                                     <span className={styles.fieldLabel}>Gender</span>
-                                    <span className={styles.fieldValue} style={{ textTransform: "capitalize" }}>{patient.gender}</span>
+                                    {editing ? (
+                                        <select
+                                            className={styles.fieldInput}
+                                            value={editGender}
+                                            onChange={(e) => setEditGender(e.target.value)}
+                                        >
+                                            <option value="male">Male</option>
+                                            <option value="female">Female</option>
+                                            <option value="other">Other / Prefer not to say</option>
+                                        </select>
+                                    ) : (
+                                        <span className={styles.fieldValue} style={{ textTransform: "capitalize" }}>
+                                            {patient.gender}
+                                        </span>
+                                    )}
                                 </div>
                                 <div className={styles.field}>
                                     <span className={styles.fieldLabel}>Language</span>
@@ -332,12 +412,8 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
                             </h2>
                             <div className={styles.fieldGrid}>
                                 <div className={styles.field}>
-                                    <span className={styles.fieldLabel}>Phone</span>
-                                    {editing ? (
-                                        <input className={styles.fieldInput} value={editPhone} onChange={(e) => setEditPhone(e.target.value)} />
-                                    ) : (
-                                        <span className={styles.fieldValue}>{patient.phone || "—"}</span>
-                                    )}
+                                    <span className={styles.fieldLabel}>Phone <span style={{ fontSize: 11, color: 'var(--brand-coral)', fontWeight: 600 }}></span></span>
+                                    <span className={styles.fieldValue}>{patient.phone || "—"}</span>
                                 </div>
                                 <div className={styles.field}>
                                     <span className={styles.fieldLabel}>Address Line 1</span>
@@ -388,6 +464,85 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
                                         <span className={styles.fieldValue} style={{ textTransform: "uppercase" }}>{patient.language || "EN"}</span>
                                     )}
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Health & Vitals */}
+                    <div className={`${styles.card} ${styles.cardFull}`}>
+                        <h2 className={styles.cardTitle}>
+                            <span className={styles.cardTitleIcon}>{Icon.heart}</span>
+                            Health &amp; Vitals
+                        </h2>
+                        <div className={styles.fieldGrid}>
+                            <div className={styles.field}>
+                                <span className={styles.fieldLabel}>Height</span>
+                                {editing ? (
+                                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                        <input
+                                            className={styles.fieldInput}
+                                            type="number"
+                                            value={editHeight}
+                                            onChange={(e) => setEditHeight(e.target.value)}
+                                            placeholder="e.g. 170"
+                                            min={50}
+                                            max={250}
+                                        />
+                                        <span className={styles.fieldUnit}>cm</span>
+                                    </div>
+                                ) : (
+                                    <span className={styles.fieldValue}>{patient.height ? `${patient.height} cm` : "—"}</span>
+                                )}
+                            </div>
+                            <div className={styles.field}>
+                                <span className={styles.fieldLabel}>Weight</span>
+                                {editing ? (
+                                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                        <input
+                                            className={styles.fieldInput}
+                                            type="number"
+                                            value={editWeight}
+                                            onChange={(e) => setEditWeight(e.target.value)}
+                                            placeholder="e.g. 68"
+                                            min={10}
+                                            max={300}
+                                            step="0.1"
+                                        />
+                                        <span className={styles.fieldUnit}>kg</span>
+                                    </div>
+                                ) : (
+                                    <span className={styles.fieldValue}>{patient.weight ? `${patient.weight} kg` : "—"}</span>
+                                )}
+                            </div>
+                            <div className={styles.field}>
+                                <span className={styles.fieldLabel}>Blood Group</span>
+                                {editing ? (
+                                    <select
+                                        className={styles.fieldInput}
+                                        value={editBloodGroup}
+                                        onChange={(e) => setEditBloodGroup(e.target.value)}
+                                    >
+                                        <option value="">Not set</option>
+                                        <option value="A+">A+</option>
+                                        <option value="A-">A−</option>
+                                        <option value="B+">B+</option>
+                                        <option value="B-">B−</option>
+                                        <option value="O+">O+</option>
+                                        <option value="O-">O−</option>
+                                        <option value="AB+">AB+</option>
+                                        <option value="AB-">AB−</option>
+                                    </select>
+                                ) : (
+                                    <span className={styles.fieldValue}>{patient.bloodGroup || "—"}</span>
+                                )}
+                            </div>
+                            <div className={styles.field}>
+                                <span className={styles.fieldLabel}>BMI</span>
+                                <span className={styles.fieldValue}>
+                                    {patient.height && patient.weight
+                                        ? (Number(patient.weight) / Math.pow(Number(patient.height) / 100, 2)).toFixed(1)
+                                        : "—"}
+                                </span>
                             </div>
                         </div>
                     </div>
@@ -498,6 +653,11 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
                 </div>
             )}
             {saved && <span className={styles.successMsg}>✓ Profile updated</span>}
+            {error && (
+                <div style={{ margin: "8px 0", padding: "10px 16px", background: "rgba(229,62,62,0.10)", border: "1px solid rgba(229,62,62,0.3)", borderRadius: 10, color: "#c53030", fontSize: 14 }}>
+                    ⚠️ {error} — <button style={{ background: "none", border: "none", color: "#c53030", cursor: "pointer", textDecoration: "underline" }} onClick={() => setError(null)}>Dismiss</button>
+                </div>
+            )}
 
             {/* ---- Logout ---- */}
             <div className={styles.logoutCard}>
@@ -508,8 +668,13 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
                 <button
                     className={styles.logoutBtn}
                     onClick={async () => {
-                        await logout();
-                        onNavigate("dashboard");
+                        try {
+                            await logout();
+                        } catch {
+                            // Auth state is cleared even if the API call fails
+                        }
+                        // Navigation is handled by AppRouter watching auth state —
+                        // no manual navigate needed.
                     }}
                 >
                     {Icon.logout} Sign Out

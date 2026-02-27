@@ -40,6 +40,9 @@ export interface Patient {
     address: Address;
     language: Language;
     emergencyContacts: EmergencyContact[];
+    height?: string;   // cm — patient-editable
+    weight?: string;   // kg — patient-editable
+    bloodGroup?: string;
     createdAt: string; // ISO 8601 datetime
     updatedAt: string;
 }

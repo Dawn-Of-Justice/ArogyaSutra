@@ -1,0 +1,159 @@
+/* ======================================================
+   Help Screen
+   ====================================================== */
+
+.page {
+    max-width: 860px;
+    margin: 0 auto;
+    height: 100%;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+}
+
+/* ---- Hero ---- */
+.hero {
+    text-align: center;
+    padding: var(--space-6) 0 var(--space-2);
+}
+
+.heroIcon {
+    font-size: 48px;
+    margin-bottom: var(--space-3);
+}
+
+.hero h2 {
+    font-size: var(--text-xl);
+    font-weight: var(--font-bold);
+    color: var(--color-text-primary);
+    margin: 0 0 var(--space-2);
+}
+
+.hero p {
+    font-size: var(--text-sm);
+    color: var(--color-text-tertiary);
+    margin: 0;
+}
+
+/* ---- FAQ Card ---- */
+.card {
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-2xl);
+    padding: var(--space-5);
+}
+
+.cardTitle {
+    font-size: var(--text-base);
+    font-weight: var(--font-semibold);
+    color: var(--color-text-primary);
+    margin: 0 0 var(--space-4);
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.cardTitle span {
+    font-size: 18px;
+}
+
+/* ---- Accordion Item ---- */
+.faqItem {
+    border-bottom: 1px solid var(--color-border);
+}
+
+.faqItem:last-child {
+    border-bottom: none;
+}
+
+.faqQ {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: var(--space-3) 0;
+    border: none;
+    background: transparent;
+    font-size: var(--text-sm);
+    font-weight: var(--font-medium);
+    color: var(--color-text-primary);
+    cursor: pointer;
+    text-align: left;
+}
+
+.faqQ:hover {
+    color: var(--color-accent);
+}
+
+.faqChevron {
+    font-size: 12px;
+    color: var(--color-text-tertiary);
+    transition: transform var(--transition-fast);
+}
+
+.faqChevronOpen {
+    transform: rotate(180deg);
+}
+
+.faqA {
+    font-size: var(--text-sm);
+    color: var(--color-text-secondary);
+    line-height: var(--leading-relaxed);
+    padding: 0 0 var(--space-3);
+}
+
+/* ---- Contact Grid ---- */
+.contactGrid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-3);
+}
+
+.contactItem {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3);
+    background: var(--color-bg-primary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-xl);
+}
+
+.contactIcon {
+    font-size: 24px;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-bg-tertiary);
+    border-radius: var(--radius-lg);
+    flex-shrink: 0;
+}
+
+.contactInfo {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.contactLabel {
+    font-size: var(--text-xs);
+    color: var(--color-text-tertiary);
+    font-weight: var(--font-medium);
+}
+
+.contactValue {
+    font-size: var(--text-sm);
+    color: var(--color-text-primary);
+    font-weight: var(--font-semibold);
+}
+
+/* ---- Version ---- */
+.version {
+    text-align: center;
+    font-size: var(--text-xs);
+    color: var(--color-text-tertiary);
+    padding: var(--space-2) 0 var(--space-4);
+}

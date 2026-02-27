@@ -24,6 +24,7 @@ export default function LoginScreen({ onEmergencyAccess }: LoginScreenProps) {
     } = useAuth();
 
     const [role, setRole] = useState<UserRole>("patient");
+    const [mode, setMode] = useState<"login" | "register">("login");
 
     // Patient fields
     const [cardId, setCardId] = useState("");
@@ -35,6 +36,19 @@ export default function LoginScreen({ onEmergencyAccess }: LoginScreenProps) {
     // Doctor fields
     const [doctorId, setDoctorId] = useState("");
     const [password, setPassword] = useState("");
+
+    // Registration fields
+    const [regName, setRegName] = useState("");
+    const [regPhone, setRegPhone] = useState("");
+    const [regDob, setRegDob] = useState("");
+    const [regEmail, setRegEmail] = useState("");
+    const [regMci, setRegMci] = useState("");
+    const [regInstitution, setRegInstitution] = useState("");
+    const [regDesignation, setRegDesignation] = useState("");
+    const [regPassword, setRegPassword] = useState("");
+    const [regLoading, setRegLoading] = useState(false);
+    const [regError, setRegError] = useState<string | null>(null);
+    const [regSuccess, setRegSuccess] = useState<{ cardId?: string; name: string; userType: string } | null>(null);
 
     const otpCountdown = useCountdown({
         duration: 300,
@@ -70,6 +84,50 @@ export default function LoginScreen({ onEmergencyAccess }: LoginScreenProps) {
         }
     };
 
+    // ---- Registration handler ----
+    const handleRegister = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setRegLoading(true);
+        setRegError(null);
+        setRegSuccess(null);
+
+        const body = role === "patient"
+            ? { userType: "patient", name: regName, phone: regPhone, dob: regDob }
+            : {
+                userType: "doctor",
+                name: regName, email: regEmail, phone: regPhone,
+                mciNumber: regMci, institution: regInstitution || undefined,
+                designation: regDesignation || undefined, password: regPassword,
+            };
+
+        try {
+            const res = await fetch("/api/auth/register", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(body),
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                setRegError(data.error || "Registration failed");
+            } else {
+                setRegSuccess({ cardId: data.cardId, name: data.name, userType: data.userType });
+                // Clear form
+                setRegName(""); setRegPhone(""); setRegDob(""); setRegEmail("");
+                setRegMci(""); setRegInstitution(""); setRegDesignation(""); setRegPassword("");
+            }
+        } catch {
+            setRegError("Network error — please try again");
+        } finally {
+            setRegLoading(false);
+        }
+    };
+
+    const switchToLogin = () => {
+        setMode("login");
+        setRegError(null);
+        setRegSuccess(null);
+    };
+
     // ---- Lock screen ----
     if (lockStatus.isLocked) {
         return (
@@ -88,9 +146,11 @@ export default function LoginScreen({ onEmergencyAccess }: LoginScreenProps) {
         );
     }
 
+    const isWide = mode === "register" && role === "doctor";
+
     return (
         <div className={styles.container}>
-            <div className={styles.card}>
+            <div className={`${styles.card} ${isWide ? styles.cardWide : ""}`}>
                 {/* Animated Logo */}
                 <div className={styles.brand}>
                     <LogoAnimated width={280} background="none" />
@@ -116,160 +176,358 @@ export default function LoginScreen({ onEmergencyAccess }: LoginScreenProps) {
                     </button>
                 </div>
 
-                {/* Error display */}
-                {error && (
-                    <div className={styles.error}>
-                        <span>⚠️</span> {error.replace(/^[A-Z_]+:\s*/, "")}
-                    </div>
-                )}
-
-                {/* ====== PATIENT FLOW ====== */}
-                {role === "patient" && (
+                {/* ============================================================ */}
+                {/* LOGIN MODE                                                   */}
+                {/* ============================================================ */}
+                {mode === "login" && (
                     <>
-                        {/* Step indicator */}
-                        <div className={styles.steps}>
-                            <div className={`${styles.step} ${state !== "UNAUTHENTICATED" ? styles.stepActive : ""}`}>
-                                <span className={styles.stepNumber}>1</span>
-                                <span className={styles.stepLabel}>Card ID</span>
+                        {/* Error display */}
+                        {error && (
+                            <div className={styles.error}>
+                                <span>⚠️</span> {error.replace(/^[A-Z_]+:\s*/, "")}
                             </div>
-                            <div className={styles.stepLine} />
-                            <div className={`${styles.step} ${state === "DOB_VERIFIED" || state === "OTP_SENT" || state === "AUTHENTICATED" ? styles.stepActive : ""}`}>
-                                <span className={styles.stepNumber}>2</span>
-                                <span className={styles.stepLabel}>DOB</span>
-                            </div>
-                            <div className={styles.stepLine} />
-                            <div className={`${styles.step} ${state === "OTP_SENT" || state === "AUTHENTICATED" ? styles.stepActive : ""}`}>
-                                <span className={styles.stepNumber}>3</span>
-                                <span className={styles.stepLabel}>OTP</span>
-                            </div>
-                        </div>
-
-                        {/* Step 1: Card ID */}
-                        {state === "UNAUTHENTICATED" && (
-                            <form onSubmit={handleCardIdSubmit} className={styles.form}>
-                                <label className={styles.label}>ArogyaSutra Card ID</label>
-                                <input
-                                    type="text"
-                                    className={styles.input}
-                                    placeholder="AS-XXXX-XXXX"
-                                    value={cardId}
-                                    onChange={(e) => setCardId(normalizeCardInput(e.target.value))}
-                                    maxLength={12}
-                                    autoFocus
-                                />
-                                <p className={styles.hint}>Enter the Card ID printed on your ArogyaSutra card</p>
-                                <button type="submit" className={styles.button} disabled={isLoading || !isValidCardId(cardId)}>
-                                    {isLoading ? "Verifying..." : "Continue"}
-                                </button>
-                            </form>
                         )}
 
-                        {/* Step 2: Date of Birth */}
-                        {state === "CARD_ID_ENTERED" && (
-                            <form onSubmit={handleDobSubmit} className={styles.form}>
-                                <label className={styles.label}>Date of Birth</label>
-                                <input
-                                    type="date"
-                                    className={styles.input}
-                                    value={dob}
-                                    onChange={(e) => setDob(e.target.value)}
-                                    autoFocus
-                                />
-                                <button type="submit" className={styles.button} disabled={isLoading || !dob}>
-                                    {isLoading ? "Verifying..." : "Verify & Send OTP"}
-                                </button>
-                            </form>
-                        )}
+                        {/* ====== PATIENT FLOW ====== */}
+                        {role === "patient" && (
+                            <>
+                                {/* Step indicator */}
+                                <div className={styles.steps}>
+                                    <div className={`${styles.step} ${state !== "UNAUTHENTICATED" ? styles.stepActive : ""}`}>
+                                        <span className={styles.stepNumber}>1</span>
+                                        <span className={styles.stepLabel}>Card ID</span>
+                                    </div>
+                                    <div className={styles.stepLine} />
+                                    <div className={`${styles.step} ${state === "DOB_VERIFIED" || state === "OTP_SENT" || state === "AUTHENTICATED" ? styles.stepActive : ""}`}>
+                                        <span className={styles.stepNumber}>2</span>
+                                        <span className={styles.stepLabel}>DOB</span>
+                                    </div>
+                                    <div className={styles.stepLine} />
+                                    <div className={`${styles.step} ${state === "OTP_SENT" || state === "AUTHENTICATED" ? styles.stepActive : ""}`}>
+                                        <span className={styles.stepNumber}>3</span>
+                                        <span className={styles.stepLabel}>OTP</span>
+                                    </div>
+                                </div>
 
-                        {/* Step 3: OTP */}
-                        {state === "OTP_SENT" && (
-                            <form onSubmit={handleOtpSubmit} className={styles.form}>
-                                <label className={styles.label}>One-Time Password</label>
-                                {maskedPhone && <p className={styles.hint}>Sent to {maskedPhone}</p>}
-                                {devOtp && (
-                                    <p className={styles.hint} style={{ color: 'var(--color-accent)', fontFamily: 'var(--font-mono)' }}>
-                                        🧪 Dev OTP: {devOtp}
-                                    </p>
-                                )}
-                                <div className={styles.otpContainer}>
-                                    {[0, 1, 2, 3, 4, 5].map((i) => (
+                                {/* Step 1: Card ID */}
+                                {state === "UNAUTHENTICATED" && (
+                                    <form onSubmit={handleCardIdSubmit} className={styles.form}>
+                                        <label className={styles.label}>ArogyaSutra Card ID</label>
                                         <input
-                                            key={i}
                                             type="text"
-                                            className={styles.otpDigit}
-                                            maxLength={1}
-                                            value={otp[i] || ""}
-                                            onChange={(e) => {
-                                                const val = e.target.value.replace(/\D/g, "");
-                                                const newOtp = otp.split("");
-                                                newOtp[i] = val;
-                                                setOtp(newOtp.join(""));
-                                                if (val && e.target.nextElementSibling) {
-                                                    (e.target.nextElementSibling as HTMLInputElement).focus();
-                                                }
-                                            }}
-                                            onKeyDown={(e) => {
-                                                if (e.key === "Backspace" && !otp[i] && e.currentTarget.previousElementSibling) {
-                                                    (e.currentTarget.previousElementSibling as HTMLInputElement).focus();
-                                                }
-                                            }}
-                                            autoFocus={i === 0}
+                                            className={styles.input}
+                                            placeholder="AS-XXXX-XXXX"
+                                            value={cardId}
+                                            onChange={(e) => setCardId(normalizeCardInput(e.target.value))}
+                                            maxLength={12}
+                                            autoFocus
                                         />
-                                    ))}
+                                        <p className={styles.hint}>Enter the Card ID printed on your ArogyaSutra card</p>
+                                        <button type="submit" className={styles.button} disabled={isLoading || !isValidCardId(cardId)}>
+                                            {isLoading ? "Verifying..." : "Continue"}
+                                        </button>
+                                    </form>
+                                )}
+
+                                {/* Step 2: Date of Birth */}
+                                {state === "CARD_ID_ENTERED" && (
+                                    <form onSubmit={handleDobSubmit} className={styles.form}>
+                                        <label className={styles.label}>Date of Birth</label>
+                                        <input
+                                            type="date"
+                                            className={styles.input}
+                                            value={dob}
+                                            onChange={(e) => setDob(e.target.value)}
+                                            autoFocus
+                                        />
+                                        <button type="submit" className={styles.button} disabled={isLoading || !dob}>
+                                            {isLoading ? "Verifying..." : "Verify & Send OTP"}
+                                        </button>
+                                    </form>
+                                )}
+
+                                {/* Step 3: OTP */}
+                                {state === "OTP_SENT" && (
+                                    <form onSubmit={handleOtpSubmit} className={styles.form}>
+                                        <label className={styles.label}>One-Time Password</label>
+                                        {maskedPhone && <p className={styles.hint}>Sent to {maskedPhone}</p>}
+                                        {devOtp && (
+                                            <p className={styles.hint} style={{ color: 'var(--color-accent)', fontFamily: 'var(--font-mono)' }}>
+                                                🧪 Dev OTP: {devOtp}
+                                            </p>
+                                        )}
+                                        <div className={styles.otpContainer}>
+                                            {[0, 1, 2, 3, 4, 5].map((i) => (
+                                                <input
+                                                    key={i}
+                                                    type="text"
+                                                    className={styles.otpDigit}
+                                                    maxLength={1}
+                                                    value={otp[i] || ""}
+                                                    onChange={(e) => {
+                                                        const val = e.target.value.replace(/\D/g, "");
+                                                        const newOtp = otp.split("");
+                                                        newOtp[i] = val;
+                                                        setOtp(newOtp.join(""));
+                                                        if (val && e.target.nextElementSibling) {
+                                                            (e.target.nextElementSibling as HTMLInputElement).focus();
+                                                        }
+                                                    }}
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === "Backspace" && !otp[i] && e.currentTarget.previousElementSibling) {
+                                                            (e.currentTarget.previousElementSibling as HTMLInputElement).focus();
+                                                        }
+                                                    }}
+                                                    autoFocus={i === 0}
+                                                />
+                                            ))}
+                                        </div>
+                                        <div className={styles.countdown}>
+                                            <span>{otpCountdown.formatted}</span>
+                                        </div>
+                                        <button type="submit" className={styles.button} disabled={isLoading || otp.length !== 6}>
+                                            {isLoading ? "Authenticating..." : "Unlock Records"}
+                                        </button>
+                                    </form>
+                                )}
+                            </>
+                        )}
+
+                        {/* ====== DOCTOR FLOW ====== */}
+                        {role === "doctor" && (
+                            <form onSubmit={handleDoctorLogin} className={styles.form}>
+                                <div className={styles.fieldGroup}>
+                                    <label className={styles.label}>MCI Number / Username</label>
+                                    <input
+                                        type="text"
+                                        className={`${styles.input} ${styles.inputLeft}`}
+                                        placeholder="e.g. MCI-12345"
+                                        value={doctorId}
+                                        onChange={(e) => setDoctorId(e.target.value)}
+                                        autoFocus
+                                    />
                                 </div>
-                                <div className={styles.countdown}>
-                                    <span>{otpCountdown.formatted}</span>
+                                <div className={styles.fieldGroup}>
+                                    <label className={styles.label}>Password</label>
+                                    <input
+                                        type="password"
+                                        className={`${styles.input} ${styles.inputLeft}`}
+                                        placeholder="Enter your password"
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
+                                    />
                                 </div>
-                                <button type="submit" className={styles.button} disabled={isLoading || otp.length !== 6}>
-                                    {isLoading ? "Authenticating..." : "Unlock Records"}
+                                <button
+                                    type="submit"
+                                    className={styles.button}
+                                    disabled={isLoading || !doctorId.trim() || !password}
+                                >
+                                    {isLoading ? "Signing in..." : "Sign In as Doctor"}
                                 </button>
                             </form>
                         )}
+
+                        {/* Link to register */}
+                        <p className={styles.switchMode}>
+                            Don&apos;t have an account?{" "}
+                            <button type="button" className={styles.switchModeBtn} onClick={() => setMode("register")}>
+                                Register here
+                            </button>
+                        </p>
                     </>
                 )}
 
-                {/* ====== DOCTOR FLOW ====== */}
-                {role === "doctor" && (
-                    <form onSubmit={handleDoctorLogin} className={styles.form}>
-                        <div className={styles.fieldGroup}>
-                            <label className={styles.label}>MCI Number / Username</label>
-                            <input
-                                type="text"
-                                className={`${styles.input} ${styles.inputLeft}`}
-                                placeholder="e.g. MCI-12345"
-                                value={doctorId}
-                                onChange={(e) => setDoctorId(e.target.value)}
-                                autoFocus
-                            />
-                        </div>
-                        <div className={styles.fieldGroup}>
-                            <label className={styles.label}>Password</label>
-                            <input
-                                type="password"
-                                className={`${styles.input} ${styles.inputLeft}`}
-                                placeholder="Enter your password"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                            />
-                        </div>
-                        <button
-                            type="submit"
-                            className={styles.button}
-                            disabled={isLoading || !doctorId.trim() || !password}
-                        >
-                            {isLoading ? "Signing in..." : "Sign In as Doctor"}
-                        </button>
-                    </form>
+                {/* ============================================================ */}
+                {/* REGISTER MODE                                                */}
+                {/* ============================================================ */}
+                {mode === "register" && (
+                    <>
+                        {regError && (
+                            <div className={styles.error}>
+                                <span>⚠️</span> {regError}
+                            </div>
+                        )}
+
+                        {/* Registration success */}
+                        {regSuccess ? (
+                            <div className={styles.regSuccess}>
+                                <div className={styles.regSuccessIcon}>✅</div>
+                                <h3 className={styles.regSuccessTitle}>
+                                    {regSuccess.userType === "patient" ? "Patient" : "Doctor"} Registered!
+                                </h3>
+                                {regSuccess.cardId && (
+                                    <div className={styles.regCardId}>
+                                        <span className={styles.regCardLabel}>Your Card ID</span>
+                                        <span className={styles.regCardValue}>{regSuccess.cardId}</span>
+                                    </div>
+                                )}
+                                <p className={styles.hint}>
+                                    {regSuccess.userType === "patient"
+                                        ? "Save your Card ID — you'll need it to sign in."
+                                        : "You can now sign in with your MCI number and password."}
+                                </p>
+                                <button type="button" className={styles.button} onClick={switchToLogin}>
+                                    Go to Sign In
+                                </button>
+                            </div>
+                        ) : (
+                            <>
+                                {/* ====== PATIENT REGISTRATION ====== */}
+                                {role === "patient" && (
+                                    <form onSubmit={handleRegister} className={styles.form}>
+                                        <div className={styles.fieldGroup}>
+                                            <label className={styles.label}>Full Name</label>
+                                            <input
+                                                type="text"
+                                                className={`${styles.input} ${styles.inputLeft}`}
+                                                placeholder="e.g. Rajesh Kumar"
+                                                value={regName}
+                                                onChange={(e) => setRegName(e.target.value)}
+                                                required
+                                                autoFocus
+                                            />
+                                        </div>
+                                        <div className={styles.fieldGroup}>
+                                            <label className={styles.label}>Phone Number</label>
+                                            <input
+                                                type="tel"
+                                                className={`${styles.input} ${styles.inputLeft}`}
+                                                placeholder="+919876543210"
+                                                value={regPhone}
+                                                onChange={(e) => setRegPhone(e.target.value)}
+                                                required
+                                            />
+                                        </div>
+                                        <div className={styles.fieldGroup}>
+                                            <label className={styles.label}>Date of Birth</label>
+                                            <input
+                                                type="date"
+                                                className={`${styles.input} ${styles.inputLeft}`}
+                                                value={regDob}
+                                                onChange={(e) => setRegDob(e.target.value)}
+                                                required
+                                            />
+                                        </div>
+                                        <button
+                                            type="submit"
+                                            className={styles.button}
+                                            disabled={regLoading || !regName || !regPhone || !regDob}
+                                        >
+                                            {regLoading ? "Creating Account..." : "Create Patient Account"}
+                                        </button>
+                                    </form>
+                                )}
+
+                                {/* ====== DOCTOR REGISTRATION ====== */}
+                                {role === "doctor" && (
+                                    <form onSubmit={handleRegister} className={styles.form}>
+                                        <div className={styles.fieldGroup}>
+                                            <label className={styles.label}>Full Name</label>
+                                            <input
+                                                type="text"
+                                                className={`${styles.input} ${styles.inputLeft}`}
+                                                placeholder="e.g. Dr. Ananya Sharma"
+                                                value={regName}
+                                                onChange={(e) => setRegName(e.target.value)}
+                                                required
+                                                autoFocus
+                                            />
+                                        </div>
+                                        <div className={styles.regRow}>
+                                            <div className={styles.fieldGroup}>
+                                                <label className={styles.label}>Email</label>
+                                                <input
+                                                    type="email"
+                                                    className={`${styles.input} ${styles.inputLeft}`}
+                                                    placeholder="doctor@hospital.in"
+                                                    value={regEmail}
+                                                    onChange={(e) => setRegEmail(e.target.value)}
+                                                    required
+                                                />
+                                            </div>
+                                            <div className={styles.fieldGroup}>
+                                                <label className={styles.label}>Phone</label>
+                                                <input
+                                                    type="tel"
+                                                    className={`${styles.input} ${styles.inputLeft}`}
+                                                    placeholder="+919876543210"
+                                                    value={regPhone}
+                                                    onChange={(e) => setRegPhone(e.target.value)}
+                                                    required
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className={styles.regRow}>
+                                            <div className={styles.fieldGroup}>
+                                                <label className={styles.label}>MCI Number</label>
+                                                <input
+                                                    type="text"
+                                                    className={`${styles.input} ${styles.inputLeft}`}
+                                                    placeholder="MCI-12345"
+                                                    value={regMci}
+                                                    onChange={(e) => setRegMci(e.target.value)}
+                                                    required
+                                                />
+                                            </div>
+                                            <div className={styles.fieldGroup}>
+                                                <label className={styles.label}>Designation</label>
+                                                <input
+                                                    type="text"
+                                                    className={`${styles.input} ${styles.inputLeft}`}
+                                                    placeholder="e.g. Cardiologist"
+                                                    value={regDesignation}
+                                                    onChange={(e) => setRegDesignation(e.target.value)}
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className={styles.regRow}>
+                                            <div className={styles.fieldGroup}>
+                                                <label className={styles.label}>Institution</label>
+                                                <input
+                                                    type="text"
+                                                    className={`${styles.input} ${styles.inputLeft}`}
+                                                    placeholder="e.g. AIIMS Delhi"
+                                                    value={regInstitution}
+                                                    onChange={(e) => setRegInstitution(e.target.value)}
+                                                />
+                                            </div>
+                                            <div className={styles.fieldGroup}>
+                                                <label className={styles.label}>Password</label>
+                                                <input
+                                                    type="password"
+                                                    className={`${styles.input} ${styles.inputLeft}`}
+                                                    placeholder="Min 12 chars, upper, num, symbol"
+                                                    value={regPassword}
+                                                    onChange={(e) => setRegPassword(e.target.value)}
+                                                    required
+                                                    minLength={12}
+                                                />
+                                            </div>
+                                        </div>
+                                        <button
+                                            type="submit"
+                                            className={styles.button}
+                                            disabled={regLoading || !regName || !regEmail || !regPhone || !regMci || !regPassword}
+                                        >
+                                            {regLoading ? "Creating Account..." : "Create Doctor Account"}
+                                        </button>
+                                    </form>
+                                )}
+                            </>
+                        )}
+
+                        {/* Link back to login */}
+                        <p className={styles.switchMode}>
+                            Already have an account?{" "}
+                            <button type="button" className={styles.switchModeBtn} onClick={switchToLogin}>
+                                Sign in
+                            </button>
+                        </p>
+                    </>
                 )}
 
-                {/* Security badge */}
-                <div className={styles.security}>
-                    <span className={styles.securityIcon}>🔐</span>
-                    <span>End-to-End Encrypted • Zero Knowledge</span>
-                </div>
-
                 {/* Emergency Access — for first responders, prominently placed */}
-                {onEmergencyAccess && (
+                {mode === "login" && onEmergencyAccess && (
                     <div className={styles.emergencySection}>
                         <div className={styles.emergencyDivider}>
                             <span>FOR MEDICAL PERSONNEL</span>

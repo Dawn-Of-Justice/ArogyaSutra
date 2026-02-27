@@ -9,6 +9,8 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-6);
+    height: 100%;
+    overflow-y: auto;
 }
 
 /* ---- Header Card ---- */
@@ -269,6 +271,28 @@
     outline: none;
     border-color: var(--color-accent);
     box-shadow: 0 0 0 3px var(--color-accent-glow);
+}
+
+.fieldUnit {
+    font-size: var(--text-xs);
+    color: var(--color-text-tertiary);
+    font-weight: var(--font-semibold);
+    white-space: nowrap;
+    min-width: 24px;
+}
+
+.doctorBadge {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: var(--font-semibold);
+    color: var(--color-accent);
+    background: rgba(74, 144, 217, 0.1);
+    border: 1px solid rgba(74, 144, 217, 0.2);
+    border-radius: var(--radius-sm);
+    padding: 1px 6px;
+    margin-left: 6px;
+    vertical-align: middle;
+    letter-spacing: 0.03em;
 }
 
 /* ---- Emergency Contacts ---- */

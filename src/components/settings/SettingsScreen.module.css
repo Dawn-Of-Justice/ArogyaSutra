@@ -1,0 +1,147 @@
+/* ======================================================
+   Settings Screen
+   ====================================================== */
+
+.page {
+    max-width: 860px;
+    margin: 0 auto;
+    height: 100%;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+}
+
+/* ---- Section Card ---- */
+.card {
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-2xl);
+    padding: var(--space-5);
+}
+
+.cardTitle {
+    font-size: var(--text-base);
+    font-weight: var(--font-semibold);
+    color: var(--color-text-primary);
+    margin: 0 0 var(--space-4);
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.cardTitle span {
+    font-size: 18px;
+}
+
+/* ---- Setting Row ---- */
+.row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-3) 0;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.row:last-child {
+    border-bottom: none;
+}
+
+.rowInfo {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.rowLabel {
+    font-size: var(--text-sm);
+    font-weight: var(--font-medium);
+    color: var(--color-text-primary);
+}
+
+.rowDesc {
+    font-size: var(--text-xs);
+    color: var(--color-text-tertiary);
+}
+
+/* ---- Toggle Switch ---- */
+.toggle {
+    position: relative;
+    width: 44px;
+    height: 24px;
+    background: var(--color-border);
+    border: none;
+    border-radius: var(--radius-full);
+    cursor: pointer;
+    transition: background var(--transition-fast);
+    flex-shrink: 0;
+}
+
+.toggle::after {
+    content: "";
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #fff;
+    transition: transform var(--transition-fast);
+}
+
+.toggleOn {
+    background: var(--color-accent);
+}
+
+.toggleOn::after {
+    transform: translateX(20px);
+}
+
+/* ---- Select ---- */
+.select {
+    padding: 6px 12px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-bg-primary);
+    color: var(--color-text-primary);
+    font-size: var(--text-sm);
+    cursor: pointer;
+    outline: none;
+}
+
+.select:focus {
+    border-color: var(--color-border-focus);
+}
+
+/* ---- Danger Zone ---- */
+.dangerCard {
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-danger);
+    border-radius: var(--radius-2xl);
+    padding: var(--space-5);
+}
+
+.dangerBtn {
+    padding: 8px 20px;
+    border: 1px solid var(--color-danger);
+    background: transparent;
+    color: var(--color-danger);
+    font-size: var(--text-sm);
+    font-weight: var(--font-semibold);
+    border-radius: var(--radius-lg);
+    cursor: pointer;
+    transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.dangerBtn:hover {
+    background: var(--color-danger);
+    color: #fff;
+}
+
+/* ---- Version Footer ---- */
+.version {
+    text-align: center;
+    font-size: var(--text-xs);
+    color: var(--color-text-tertiary);
+    padding: var(--space-2) 0 var(--space-4);
+}

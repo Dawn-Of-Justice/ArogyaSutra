@@ -1,22 +1,18 @@
 // ============================================================
 // Doctor Login API — Server-side auth using Cognito
 // POST /api/auth/doctor-login
-// Uses ADMIN_USER_PASSWORD_AUTH flow (server-side only)
+// Uses USER_PASSWORD_AUTH flow (no admin IAM creds needed)
 // ============================================================
 
 import { NextRequest, NextResponse } from "next/server";
 import {
     CognitoIdentityProviderClient,
-    AdminInitiateAuthCommand,
+    InitiateAuthCommand,
     AdminGetUserCommand,
 } from "@aws-sdk/client-cognito-identity-provider";
 
 const cognito = new CognitoIdentityProviderClient({
     region: process.env.NEXT_PUBLIC_AWS_REGION || "ap-south-1",
-    credentials: {
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID || "",
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || "",
-    },
 });
 
 const DOCTOR_POOL_ID = process.env.NEXT_PUBLIC_COGNITO_DOCTOR_POOL_ID!;
@@ -40,12 +36,11 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        // Authenticate via ADMIN_USER_PASSWORD_AUTH (server-side)
+        // Authenticate via USER_PASSWORD_AUTH
         const authResult = await cognito.send(
-            new AdminInitiateAuthCommand({
-                UserPoolId: DOCTOR_POOL_ID,
+            new InitiateAuthCommand({
                 ClientId: DOCTOR_CLIENT_ID,
-                AuthFlow: "ADMIN_USER_PASSWORD_AUTH",
+                AuthFlow: "USER_PASSWORD_AUTH",
                 AuthParameters: {
                     USERNAME: username,
                     PASSWORD: password,
@@ -106,6 +101,12 @@ export async function POST(req: NextRequest) {
             return NextResponse.json(
                 { error: "No doctor account found with this identifier." },
                 { status: 404 }
+            );
+        }
+        if (message.includes("Auth flow not enabled")) {
+            return NextResponse.json(
+                { error: "USER_PASSWORD_AUTH is not enabled on the Cognito User Pool Client. Enable ALLOW_USER_PASSWORD_AUTH in your Cognito Doctor Pool App Client settings." },
+                { status: 500 }
             );
         }
 

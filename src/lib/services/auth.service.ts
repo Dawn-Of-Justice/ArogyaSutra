@@ -179,35 +179,23 @@ export async function verifyOTP(
             console.warn("Audit log write skipped (expected client-side)");
         }
 
-        // Build patient profile from Cognito attributes or fallback
+        // Build patient profile by fetching from our server-side API
+        // (AdminGetUser requires admin credentials — cannot be called client-side)
         let patient: Patient;
         try {
-            const user = await cognito.getPatientUser(cardId);
+            const res = await fetch(`/api/profile/me?userId=${encodeURIComponent(cardId)}&role=patient`);
+            if (!res.ok) throw new Error(`profile/me returned ${res.status}`);
+            const { profile } = await res.json();
             patient = {
-                patientId: cardId,
-                fullName:
-                    user.UserAttributes?.find((a) => a.Name === "name")?.Value || "",
-                dateOfBirth:
-                    user.UserAttributes?.find((a) => a.Name === "birthdate")?.Value || "",
-                phone:
-                    user.UserAttributes?.find((a) => a.Name === "phone_number")?.Value ||
-                    "",
-                gender: "other",
-                address: {
-                    line1: "",
-                    city: "",
-                    state: "",
-                    pincode: "",
-                    country: "IN",
-                },
-                language: "en",
-                emergencyContacts: [],
-                createdAt: user.UserCreateDate?.toISOString() || "",
-                updatedAt: user.UserLastModifiedDate?.toISOString() || "",
+                ...(profile as Patient),
+                // Ensure type safety for union fields
+                gender: (profile.gender || "other") as "male" | "female" | "other",
+                language: (profile.language || "en") as import("../types/patient").Language,
+                emergencyContacts: profile.emergencyContacts ?? [],
             };
-        } catch {
-            // AdminGetUser requires server-side creds — fallback to minimal profile
-            console.warn("AdminGetUser skipped (expected client-side)");
+        } catch (profileErr) {
+            // Fallback — profile will be empty until user fills it in via ProfileScreen
+            console.warn("Failed to load profile from server:", profileErr);
             patient = {
                 patientId: cardId,
                 fullName: "",

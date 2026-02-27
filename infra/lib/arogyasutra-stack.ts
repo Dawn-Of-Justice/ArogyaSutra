@@ -261,7 +261,8 @@ export class ArogyaSutraStack extends cdk.Stack {
             userPoolClientName: "arogyasutra-doctor-web",
             authFlows: {
                 userSrp: true,
-                adminUserPassword: true, // Required for server-side ADMIN_USER_PASSWORD_AUTH
+                userPassword: true, // Required for USER_PASSWORD_AUTH flow
+                adminUserPassword: true, // Kept as fallback
             },
             preventUserExistenceErrors: true,
             accessTokenValidity: cdk.Duration.hours(1),

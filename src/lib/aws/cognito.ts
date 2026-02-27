@@ -90,6 +90,41 @@ export async function getPatientUser(cardId: string) {
     );
 }
 
+/** Update patient profile attributes in Cognito (server-side only).
+ *  birthdate is immutable after registration; phone changes require
+ *  a separate Cognito verify-attribute flow — both are omitted here. */
+export async function updatePatientAttributes(
+    cardId: string,
+    updates: {
+        fullName?: string;
+        gender?: string;
+        language?: string;
+        city?: string;
+        state?: string;
+        pincode?: string;
+        line1?: string;
+    }
+): Promise<void> {
+    const attrs: { Name: string; Value: string }[] = [];
+    if (updates.fullName !== undefined) attrs.push({ Name: "name", Value: updates.fullName });
+    if (updates.gender !== undefined) attrs.push({ Name: "gender", Value: updates.gender });
+    if (updates.language !== undefined) attrs.push({ Name: "custom:language", Value: updates.language });
+    if (updates.city !== undefined) attrs.push({ Name: "custom:city", Value: updates.city });
+    if (updates.state !== undefined) attrs.push({ Name: "custom:state", Value: updates.state });
+    if (updates.pincode !== undefined) attrs.push({ Name: "custom:pincode", Value: updates.pincode });
+    if (updates.line1 !== undefined) attrs.push({ Name: "custom:address_line1", Value: updates.line1 });
+
+    if (attrs.length === 0) return;
+
+    await cognitoClient.send(
+        new AdminUpdateUserAttributesCommand({
+            UserPoolId: PATIENT_POOL_ID,
+            Username: cardId,
+            UserAttributes: attrs,
+        })
+    );
+}
+
 // ---- Doctor Auth ----
 
 /** Register a doctor in the Doctor user pool */

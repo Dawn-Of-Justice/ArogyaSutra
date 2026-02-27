@@ -3,9 +3,11 @@
    ====================================================== */
 
 .container {
-    min-height: 100vh;
+    height: 100%;
     background: var(--color-bg-primary);
-    padding-bottom: 80px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
 }
 
 /* ---- Header ---- */
@@ -133,6 +135,9 @@
 .timeline {
     padding: 0 var(--space-4);
     position: relative;
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
 }
 
 .timeline::before {

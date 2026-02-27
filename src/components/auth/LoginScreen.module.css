@@ -19,9 +19,14 @@
     border-radius: var(--radius-2xl);
     padding: var(--space-8) var(--space-6);
     width: 100%;
-    max-width: 420px;
+    max-width: 460px;
     box-shadow: var(--shadow-xl);
     animation: fadeIn 0.5s ease-out;
+    transition: max-width 0.3s ease;
+}
+
+.cardWide {
+    max-width: 620px;
 }
 
 /* ---- Branding ---- */
@@ -61,6 +66,43 @@
 }
 
 /* ---- Role Toggle ---- */
+.modeToggle {
+    display: flex;
+    gap: var(--space-1);
+    margin-bottom: var(--space-3);
+    background: var(--color-bg-secondary);
+    padding: 4px;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--color-border);
+}
+
+.modeBtn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-2) var(--space-3);
+    border: none;
+    border-radius: var(--radius-md);
+    background: transparent;
+    color: var(--color-text-tertiary);
+    font-size: var(--text-sm);
+    font-weight: var(--font-medium);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.modeBtn:hover {
+    color: var(--color-text-secondary);
+}
+
+.modeBtnActive {
+    background: var(--color-text-primary);
+    color: var(--color-bg-primary);
+    font-weight: var(--font-semibold);
+    box-shadow: var(--shadow-md);
+}
+
 .roleToggle {
     display: flex;
     gap: var(--space-1);
@@ -427,4 +469,89 @@
     text-align: center;
     margin: 0;
     line-height: 1.5;
+}
+
+/* ---- Mode Switch Link ---- */
+.switchMode {
+    text-align: center;
+    font-size: var(--text-sm);
+    color: var(--color-text-tertiary);
+    margin: var(--space-5) 0 0;
+}
+
+.switchModeBtn {
+    background: none;
+    border: none;
+    color: var(--color-accent);
+    font-weight: var(--font-semibold);
+    cursor: pointer;
+    text-decoration: underline;
+    font-size: var(--text-sm);
+    padding: 0;
+    transition: color var(--transition-fast);
+}
+
+.switchModeBtn:hover {
+    color: var(--color-accent-dark);
+}
+
+/* ---- Registration Row (side by side) ---- */
+.regRow {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-3);
+}
+
+@media (max-width: 480px) {
+    .regRow {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ---- Registration Success ---- */
+.regSuccess {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-3);
+    animation: fadeIn 0.4s ease-out;
+}
+
+.regSuccessIcon {
+    font-size: 48px;
+}
+
+.regSuccessTitle {
+    font-size: var(--text-lg);
+    font-weight: var(--font-semibold);
+    color: var(--color-text-primary);
+    margin: 0;
+}
+
+.regCardId {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-1);
+    background: var(--color-bg-secondary);
+    border: 2px dashed var(--color-accent);
+    border-radius: var(--radius-lg);
+    padding: var(--space-4) var(--space-6);
+    width: 100%;
+}
+
+.regCardLabel {
+    font-size: var(--text-xs);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-wide);
+    color: var(--color-text-tertiary);
+    font-weight: var(--font-semibold);
+}
+
+.regCardValue {
+    font-size: var(--text-2xl);
+    font-weight: var(--font-bold);
+    font-family: var(--font-mono);
+    letter-spacing: 3px;
+    color: var(--color-accent);
 }

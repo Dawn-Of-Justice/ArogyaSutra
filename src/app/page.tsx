@@ -15,6 +15,9 @@ import TimelineScreen from "../components/timeline/TimelineScreen";
 import AssistantScreen from "../components/assistant/AssistantScreen";
 import BreakGlassScreen from "../components/emergency/BreakGlassScreen";
 import ProfileScreen from "../components/profile/ProfileScreen";
+import SettingsScreen from "../components/settings/SettingsScreen";
+import HelpScreen from "../components/help/HelpScreen";
+import NotificationsScreen from "../components/notifications/NotificationsScreen";
 
 const PAGE_TITLES: Record<string, string> = {
   dashboard: "Dashboard",
@@ -25,13 +28,18 @@ const PAGE_TITLES: Record<string, string> = {
   access: "Doctor Access",
   emergency: "Emergency",
   settings: "Settings",
+  help: "Help & Support",
+  notifications: "Notifications",
   profile: "Profile",
 };
 
 function AppRouter() {
-  const { state, patient, doctor, userRole } = useAuth();
+  const { state, patient, doctor, userRole, hydrated } = useAuth();
   const [screen, setScreen] = useState("dashboard");
   const [showBreakGlass, setShowBreakGlass] = useState(false);
+
+  // Wait for client-side session restoration to avoid hydration mismatch
+  if (!hydrated) return null;
 
   // Unauthenticated → show login (no shell), or break-glass overlay
   if (state !== "AUTHENTICATED") {
@@ -63,6 +71,12 @@ function AppRouter() {
         return <TimelineScreen onNavigate={setScreen} />;
       case "assistant":
         return <AssistantScreen onNavigate={setScreen} />;
+      case "settings":
+        return <SettingsScreen onNavigate={setScreen} />;
+      case "help":
+        return <HelpScreen onNavigate={setScreen} />;
+      case "notifications":
+        return <NotificationsScreen onNavigate={setScreen} />;
       default:
         return isDoctor
           ? <DoctorDashboard onNavigate={setScreen} doctorName={doctor?.fullName} />

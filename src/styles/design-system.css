@@ -4,49 +4,67 @@
    ====================================================== */
 
 :root {
-  /* ---- Color Palette ---- */
-  --color-bg-primary: #F0F4F8;
-  --color-bg-secondary: #FFFFFF;
-  --color-bg-tertiary: #F7F9FC;
-  --color-bg-card: rgba(255, 255, 255, 0.85);
-  --color-bg-glass: rgba(255, 255, 255, 0.65);
+  /* ---- Brand palette ---- */
+  --brand-navy: #0d1f3c;
+  /* primary dark — logo background */
+  --brand-navy-mid: #1a3258;
+  /* mid-dark navy for gradients */
+  --brand-navy-light: #e8eef8;
+  /* very light navy tint for backgrounds */
+  --brand-coral: #f06b6b;
+  /* primary accent — logo coral/red */
+  --brand-coral-light: #f8a5a5;
+  /* lighter coral for hover states */
+  --brand-coral-dark: #d94f4f;
+  /* deeper coral for active/pressed */
+  --brand-coral-glow: rgba(240, 107, 107, 0.18);
+  --brand-white: #ffffff;
 
-  --color-surface-hover: rgba(74, 144, 217, 0.06);
-  --color-surface-active: rgba(74, 144, 217, 0.10);
+  /* ---- Color Palette (mapped from brand) ---- */
+  --color-bg-primary: #f0f4f8;
+  /* warm blue-gray page bg */
+  --color-bg-secondary: #ffffff;
+  --color-bg-tertiary: #f7f9fc;
+  --color-bg-card: rgba(255, 255, 255, 0.92);
+  --color-bg-glass: rgba(255, 255, 255, 0.70);
 
-  --color-accent: #4A90D9;
-  --color-accent-light: #7CB3ED;
-  --color-accent-dark: #2B6CB0;
-  --color-accent-glow: rgba(74, 144, 217, 0.20);
+  --color-surface-hover: rgba(240, 107, 107, 0.07);
+  --color-surface-active: rgba(240, 107, 107, 0.13);
 
-  --color-text-primary: #1A202C;
-  --color-text-secondary: #4A5568;
+  /* Accent = brand coral */
+  --color-accent: var(--brand-coral);
+  --color-accent-light: var(--brand-coral-light);
+  --color-accent-dark: var(--brand-coral-dark);
+  --color-accent-glow: var(--brand-coral-glow);
+
+  --color-text-primary: #1a202c;
+  --color-text-secondary: #4a5568;
   --color-text-tertiary: #718096;
-  --color-text-inverse: #FFFFFF;
+  --color-text-inverse: #ffffff;
 
-  --color-border: rgba(0, 0, 0, 0.08);
-  --color-border-focus: rgba(74, 144, 217, 0.5);
+  --color-border: rgba(13, 31, 60, 0.09);
+  --color-border-focus: rgba(240, 107, 107, 0.50);
 
-  --color-danger: #E53E3E;
-  --color-danger-dark: #C53030;
+  --color-danger: #e53e3e;
+  --color-danger-dark: #c53030;
   --color-danger-glow: rgba(229, 62, 62, 0.15);
-  --color-warning: #DD6B20;
+  --color-warning: #dd6b20;
   --color-warning-glow: rgba(221, 107, 32, 0.15);
-  --color-success: #38A169;
-  --color-info: #3182CE;
+  --color-success: #38a169;
+  --color-info: #3182ce;
 
   /* Status flag colors */
-  --color-verified: #38A169;
-  --color-ai-read: #805AD5;
-  --color-critical: #E53E3E;
+  --color-verified: #38a169;
+  --color-ai-read: #805ad5;
+  --color-critical: #e53e3e;
 
   /* Document type tag colors */
-  --color-tag-rx: #3182CE;
-  --color-tag-lab: #805AD5;
-  --color-tag-hospital: #DD6B20;
-  --color-tag-consultation: #38A169;
-  --color-tag-vaccination: #0987A0;
-  --color-tag-imaging: #D53F8C;
+  --color-tag-rx: #3182ce;
+  --color-tag-lab: #805ad5;
+  --color-tag-hospital: #dd6b20;
+  --color-tag-consultation: #38a169;
+  --color-tag-vaccination: #0987a0;
+  --color-tag-imaging: #d53f8c;
 
   /* ---- Typography ---- */
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -159,7 +177,7 @@
 }
 
 html {
-  font-size: 16px;
+  font-size: 17px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;

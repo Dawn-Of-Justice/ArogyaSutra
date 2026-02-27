@@ -41,10 +41,15 @@ interface AuthContextType {
     // Doctor auth
     doctorLogin: (username: string, password: string) => Promise<void>;
 
+    // Profile updates (merges partial data into auth context + sessionStorage)
+    updatePatient: (partial: Partial<Patient>) => void;
+    updateDoctor: (partial: Partial<DoctorProfile>) => void;
+
     logout: () => Promise<void>;
 
     error: string | null;
     isLoading: boolean;
+    hydrated: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -82,23 +87,34 @@ function clearSession() {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-    // Lazy initializers — only run once on the client, never during SSR.
-    // A single loadSession() call is used for all state initialisations.
-    const [state, setState] = useState<AuthState>(() => {
-        const s = loadSession();
-        return s?.state ?? "UNAUTHENTICATED";
-    });
-    const [patient, setPatient] = useState<Patient | null>(() => loadSession()?.patient ?? null);
-    const [doctor, setDoctor] = useState<DoctorProfile | null>(() => loadSession()?.doctor ?? null);
-    const [userRole, setUserRole] = useState<UserRole | null>(() => loadSession()?.userRole ?? null);
+    // Start with safe defaults so SSR and first client render match.
+    // Session is restored from sessionStorage in a one-time useEffect below.
+    const [state, setState] = useState<AuthState>("UNAUTHENTICATED");
+    const [patient, setPatient] = useState<Patient | null>(null);
+    const [doctor, setDoctor] = useState<DoctorProfile | null>(null);
+    const [userRole, setUserRole] = useState<UserRole | null>(null);
     const [session, setSession] = useState<LoginSession | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
+    const [hydrated, setHydrated] = useState(false);
     const masterKeyRef = useRef<CryptoKey | null>(null);
+
+    // Restore persisted session after first client-side mount (avoids hydration mismatch).
+    useEffect(() => {
+        const s = loadSession();
+        if (s) {
+            setState(s.state);
+            setPatient(s.patient);
+            setDoctor(s.doctor);
+            setUserRole(s.userRole);
+        }
+        setHydrated(true);
+    }, []);
 
     // Auto-sync session to sessionStorage whenever auth state changes.
     // This is the primary persistence mechanism — belt-and-suspenders over the inline saveSession calls.
     useEffect(() => {
+        if (!hydrated) return; // skip until session is restored
         if (state === "AUTHENTICATED" && (patient || doctor)) {
             saveSession({ state, userRole: userRole!, patient: patient ?? null, doctor: doctor ?? null });
         } else if (state === "UNAUTHENTICATED") {
@@ -204,8 +220,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // ---- Logout ----
     const logout = useCallback(async () => {
-        if (patient) {
-            await authService.logout(patient.patientId);
+        // Try to notify server, but ALWAYS clear local state even if it fails
+        try {
+            if (patient) await authService.logout(patient.patientId);
+        } catch {
+            console.warn("Server-side logout failed — clearing local session anyway");
         }
         masterKeyRef.current = null;
         setPatient(null);
@@ -216,6 +235,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setError(null);
         clearSession(); // Wipe persisted session
     }, [patient]);
+
+    // ---- Profile updates (merge partial → context + sessionStorage) ----
+    const updatePatient = useCallback((partial: Partial<Patient>) => {
+        setPatient((prev) => {
+            const updated = prev ? { ...prev, ...partial } : null;
+            if (updated) saveSession({ state: "AUTHENTICATED", userRole: "patient", patient: updated, doctor: null });
+            return updated;
+        });
+    }, []);
+
+    const updateDoctor = useCallback((partial: Partial<DoctorProfile>) => {
+        setDoctor((prev) => {
+            const updated = prev ? { ...prev, ...partial } : null;
+            if (updated) saveSession({ state: "AUTHENTICATED", userRole: "doctor", patient: null, doctor: updated });
+            return updated;
+        });
+    }, []);
 
     return (
         <AuthContext.Provider
@@ -232,9 +268,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 sendOtp,
                 verifyOtp,
                 doctorLogin,
+                updatePatient,
+                updateDoctor,
                 logout,
                 error,
                 isLoading,
+                hydrated,
             }}
         >
             {children}
