@@ -46,7 +46,7 @@ export class ArogyaSutraStack extends cdk.Stack {
             removalPolicy: cdk.RemovalPolicy.RETAIN,
             cors: [
                 {
-                    allowedOrigins: ["http://localhost:3000", "https://*.amplifyapp.com"],
+                    allowedOrigins: ["http://localhost:3000", "https://*.amplifyapp.com", "https://d2l4x8weyihstc.amplifyapp.com"],
                     allowedMethods: [
                         s3.HttpMethods.GET,
                         s3.HttpMethods.PUT,
