@@ -13,8 +13,16 @@ import {
 } from "@aws-sdk/client-s3";
 import type { SerializedEncryptedBlob } from "../types/crypto";
 
+// Amplify blocks "AWS_" prefix env vars — use APP_AWS_* workaround.
+// Falls back to default credential chain (IAM role / local ~/.aws).
+const _appCreds =
+    process.env.APP_AWS_ACCESS_KEY_ID && process.env.APP_AWS_SECRET_ACCESS_KEY
+        ? { credentials: { accessKeyId: process.env.APP_AWS_ACCESS_KEY_ID, secretAccessKey: process.env.APP_AWS_SECRET_ACCESS_KEY } }
+        : {};
+
+
 const region = process.env.NEXT_PUBLIC_AWS_REGION || "ap-south-1";
-const s3Client = new S3Client({ region });
+const s3Client = new S3Client({ region, ..._appCreds });
 const BUCKET = process.env.NEXT_PUBLIC_S3_BUCKET!;
 
 /**

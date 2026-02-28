@@ -17,8 +17,16 @@ import {
 import type { AuditLogEntry, StoredAccessGrant, AuditLogQuery } from "../types/audit";
 import type { BreakGlassSession, BreakGlassLog } from "../types/emergency";
 
+// Amplify blocks "AWS_" prefix env vars — use APP_AWS_* workaround.
+// Falls back to default credential chain (IAM role / local ~/.aws).
+const _appCreds =
+    process.env.APP_AWS_ACCESS_KEY_ID && process.env.APP_AWS_SECRET_ACCESS_KEY
+        ? { credentials: { accessKeyId: process.env.APP_AWS_ACCESS_KEY_ID, secretAccessKey: process.env.APP_AWS_SECRET_ACCESS_KEY } }
+        : {};
+
+
 const region = process.env.NEXT_PUBLIC_AWS_REGION || "ap-south-1";
-const client = new DynamoDBClient({ region });
+const client = new DynamoDBClient({ region, ..._appCreds });
 const dynamodb = DynamoDBDocumentClient.from(client);
 
 const AUDIT_TABLE = process.env.DYNAMODB_AUDIT_TABLE || "arogyasutra-audit-logs";

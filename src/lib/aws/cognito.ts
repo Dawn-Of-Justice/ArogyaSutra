@@ -15,9 +15,21 @@ import {
     type InitiateAuthCommandOutput,
 } from "@aws-sdk/client-cognito-identity-provider";
 
-const region = process.env.NEXT_PUBLIC_AWS_REGION || "ap-south-1";
+const region = process.env.NEXT_PUBLIC_AWS_REGION || process.env.APP_AWS_REGION || "ap-south-1";
 
-const cognitoClient = new CognitoIdentityProviderClient({ region });
+// Amplify blocks env vars starting with "AWS_" so we use APP_AWS_* as a workaround.
+// Falls back to the default credential chain (IAM role / local ~/.aws) when not set.
+const explicitCredentials =
+    process.env.APP_AWS_ACCESS_KEY_ID && process.env.APP_AWS_SECRET_ACCESS_KEY
+        ? {
+            credentials: {
+                accessKeyId: process.env.APP_AWS_ACCESS_KEY_ID,
+                secretAccessKey: process.env.APP_AWS_SECRET_ACCESS_KEY,
+            },
+        }
+        : {};
+
+const cognitoClient = new CognitoIdentityProviderClient({ region, ...explicitCredentials });
 
 const PATIENT_POOL_ID = process.env.NEXT_PUBLIC_COGNITO_PATIENT_POOL_ID;
 const PATIENT_CLIENT_ID = process.env.NEXT_PUBLIC_COGNITO_PATIENT_CLIENT_ID;
