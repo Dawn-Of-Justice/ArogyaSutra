@@ -10,12 +10,20 @@ import {
     AdminGetUserCommand,
 } from "@aws-sdk/client-cognito-identity-provider";
 
+// Amplify blocks env vars starting with "AWS_" so we use APP_AWS_* as a workaround.
+const explicitCreds =
+    process.env.APP_AWS_ACCESS_KEY_ID && process.env.APP_AWS_SECRET_ACCESS_KEY
+        ? {
+            credentials: {
+                accessKeyId: process.env.APP_AWS_ACCESS_KEY_ID,
+                secretAccessKey: process.env.APP_AWS_SECRET_ACCESS_KEY,
+            },
+        }
+        : {};
+
 const cognito = new CognitoIdentityProviderClient({
-    region: process.env.NEXT_PUBLIC_AWS_REGION || "ap-south-1",
-    credentials: {
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID || "",
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || "",
-    },
+    region: process.env.NEXT_PUBLIC_AWS_REGION || process.env.APP_AWS_REGION || "ap-south-1",
+    ...explicitCreds,
 });
 
 const PATIENT_POOL_ID = process.env.NEXT_PUBLIC_COGNITO_PATIENT_POOL_ID!;

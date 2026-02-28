@@ -12,17 +12,22 @@ import {
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
-const region = process.env.NEXT_PUBLIC_AWS_REGION || "ap-south-1";
+const region = process.env.NEXT_PUBLIC_AWS_REGION || process.env.APP_AWS_REGION || "ap-south-1";
 const BUCKET = process.env.NEXT_PUBLIC_S3_BUCKET!;
 const KMS_KEY_ID = process.env.KMS_KEY_ID;
 
-const s3 = new S3Client({
-    region,
-    credentials: {
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID || "",
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || "",
-    },
-});
+// Amplify blocks env vars starting with "AWS_" so we use APP_AWS_* as a workaround.
+const explicitCreds =
+    process.env.APP_AWS_ACCESS_KEY_ID && process.env.APP_AWS_SECRET_ACCESS_KEY
+        ? {
+            credentials: {
+                accessKeyId: process.env.APP_AWS_ACCESS_KEY_ID,
+                secretAccessKey: process.env.APP_AWS_SECRET_ACCESS_KEY,
+            },
+        }
+        : {};
+
+const s3 = new S3Client({ region, ...explicitCreds });
 
 /** S3 key for a user's profile photo */
 function photoKey(userId: string, role: string): string {

@@ -42,3 +42,5 @@ next-env.d.ts
 
 infra/node_modules
 infra/cdk.out/
+
+.env.production
