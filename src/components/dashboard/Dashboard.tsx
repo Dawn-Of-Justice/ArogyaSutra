@@ -60,7 +60,12 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     useEffect(() => {
         if (!patient?.patientId) return;
         const cached = localStorage.getItem(`profilePhoto_${patient.patientId}`);
-        if (cached) setPhotoUrl(cached);
+        if (cached) { setPhotoUrl(cached); return; }
+        // No local cache — fetch presigned URL from S3 (same as ProfileScreen)
+        fetch(`/api/profile/photo?userId=${patient.patientId}&role=patient`)
+            .then((r) => r.json())
+            .then((data) => { if (data.url) setPhotoUrl(data.url); })
+            .catch(() => {});
     }, [patient?.patientId]);
 
     const latestVitals = extractLatestVitals(entries);

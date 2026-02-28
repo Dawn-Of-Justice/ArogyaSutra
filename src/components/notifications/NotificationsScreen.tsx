@@ -4,11 +4,12 @@
 
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import styles from "./NotificationsScreen.module.css";
 
 interface NotificationsScreenProps {
     onNavigate: (screen: string) => void;
+    userId?: string;
 }
 
 interface Notification {
@@ -34,9 +35,55 @@ const INITIAL_NOTIFICATIONS: Notification[] = [
 
 type Filter = "all" | "system" | "security" | "health";
 
-export default function NotificationsScreen({ onNavigate }: NotificationsScreenProps) {
-    const [notifications, setNotifications] = useState<Notification[]>(INITIAL_NOTIFICATIONS);
+function applyReadIds(base: Notification[], readIds: number[]): Notification[] {
+    const set = new Set(readIds);
+    return base.map((n) => ({ ...n, unread: !set.has(n.id) }));
+}
+
+function localReadIds(uid: string): number[] {
+    try {
+        const raw = localStorage.getItem(`notif_read_${uid}`);
+        return raw ? (JSON.parse(raw) as number[]) : [];
+    } catch { return []; }
+}
+
+function saveLocalReadIds(uid: string, readIds: number[]) {
+    try { localStorage.setItem(`notif_read_${uid}`, JSON.stringify(readIds)); } catch { /* ignore */ }
+}
+
+export default function NotificationsScreen({ onNavigate, userId }: NotificationsScreenProps) {
+    // Initialise from localStorage instantly (no flicker), then hydrate from DynamoDB
+    const [notifications, setNotifications] = useState<Notification[]>(() => {
+        if (!userId || typeof window === "undefined") return INITIAL_NOTIFICATIONS;
+        return applyReadIds(INITIAL_NOTIFICATIONS, localReadIds(userId));
+    });
     const [filter, setFilter] = useState<Filter>("all");
+
+    // On mount: fetch authoritative read state from DynamoDB
+    useEffect(() => {
+        if (!userId) return;
+        fetch(`/api/notifications/read-state?userId=${encodeURIComponent(userId)}`)
+            .then((r) => r.json())
+            .then(({ readIds }) => {
+                if (!Array.isArray(readIds)) return;
+                saveLocalReadIds(userId, readIds);
+                setNotifications(applyReadIds(INITIAL_NOTIFICATIONS, readIds));
+            })
+            .catch(() => { /* keep localStorage state on network/config error */ });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [userId]);
+
+    // Persist to localStorage (instant) + DynamoDB (durable) on every change
+    useEffect(() => {
+        if (!userId) return;
+        const readIds = notifications.filter((n) => !n.unread).map((n) => n.id);
+        saveLocalReadIds(userId, readIds);
+        fetch("/api/notifications/read-state", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ userId, readIds }),
+        }).catch(() => { /* localStorage already updated — DynamoDB syncs next login */ });
+    }, [notifications, userId]);
 
     const filtered = filter === "all"
         ? notifications
