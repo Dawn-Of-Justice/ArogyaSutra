@@ -266,7 +266,6 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
                     fullName: editName,
                     phone: editPhone,
                     language: editLanguage as import("../../lib/types/patient").Language,
-                    dateOfBirth: editDob,
                     gender: editGender as "male" | "female" | "other",
                     height: editHeight || undefined,
                     weight: editWeight || undefined,
@@ -276,6 +275,7 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
             }
 
             // 2. Persist to Cognito (await so we catch failures)
+            // NOTE: dateOfBirth is NOT included — birthdate is immutable in Cognito
             const res = await fetch("/api/profile/update", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -288,7 +288,6 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
                             fullName: editName,
                             phone: editPhone,
                             language: editLanguage,
-                            dateOfBirth: editDob,
                             gender: editGender,
                             height: editHeight,
                             weight: editWeight,
@@ -579,6 +578,22 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
                                 <span className={styles.fieldValue}>
                                     {patient.height && patient.weight
                                         ? (Number(patient.weight) / Math.pow(Number(patient.height) / 100, 2)).toFixed(1)
+                                        : "—"}
+                                </span>
+                            </div>
+                            <div className={styles.field}>
+                                <span className={styles.fieldLabel}>Blood Pressure <span style={{ fontSize: 10, color: 'var(--brand-coral, #E53E3E)', fontWeight: 600, marginLeft: 4 }}>Doctor only</span></span>
+                                <span className={styles.fieldValue}>
+                                    {patient.bpSystolic && patient.bpDiastolic
+                                        ? `${patient.bpSystolic}/${patient.bpDiastolic} mmHg`
+                                        : "—"}
+                                </span>
+                            </div>
+                            <div className={styles.field}>
+                                <span className={styles.fieldLabel}>Temperature <span style={{ fontSize: 10, color: 'var(--brand-coral, #E53E3E)', fontWeight: 600, marginLeft: 4 }}>Doctor only</span></span>
+                                <span className={styles.fieldValue}>
+                                    {patient.temperature
+                                        ? `${patient.temperature} °F`
                                         : "—"}
                                 </span>
                             </div>

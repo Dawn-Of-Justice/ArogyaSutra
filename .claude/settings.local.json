@@ -6,7 +6,16 @@
       "Bash(xargs:*)",
       "WebFetch(domain:main.d2cux24mxt6tio.amplifyapp.com)",
       "Bash(curl:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(aws amplify list-apps:*)",
+      "Bash(aws amplify list-jobs:*)",
+      "Bash(python3:*)",
+      "Bash(aws amplify get-job:*)",
+      "Bash(npm view:*)",
+      "Bash(aws amplify start-job:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)"
     ]
   }
 }

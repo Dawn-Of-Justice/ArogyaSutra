@@ -142,18 +142,21 @@ export async function getPatientUser(cardId: string) {
     );
 }
 
-/** Update patient profile attributes in Cognito (server-side only). */
+/** Update patient profile attributes in Cognito (server-side only).
+ *  NOTE: birthdate is immutable in Cognito — do NOT include dateOfBirth here. */
 export async function updatePatientAttributes(
     cardId: string,
     updates: {
         fullName?: string;
         phone?: string;
-        dateOfBirth?: string;
         gender?: string;
         language?: string;
         height?: string;
         weight?: string;
         bloodGroup?: string;
+        bpSystolic?: string;
+        bpDiastolic?: string;
+        temperature?: string;
         city?: string;
         state?: string;
         pincode?: string;
@@ -163,12 +166,15 @@ export async function updatePatientAttributes(
     const attrs: { Name: string; Value: string }[] = [];
     if (updates.fullName !== undefined) attrs.push({ Name: "name", Value: updates.fullName });
     if (updates.phone !== undefined) attrs.push({ Name: "phone_number", Value: updates.phone });
-    if (updates.dateOfBirth !== undefined) attrs.push({ Name: "birthdate", Value: updates.dateOfBirth });
+    // birthdate is immutable — intentionally NOT updated here
     if (updates.gender !== undefined) attrs.push({ Name: "gender", Value: updates.gender });
     if (updates.language !== undefined) attrs.push({ Name: "custom:language", Value: updates.language });
     if (updates.height !== undefined) attrs.push({ Name: "custom:height", Value: updates.height });
     if (updates.weight !== undefined) attrs.push({ Name: "custom:weight", Value: updates.weight });
     if (updates.bloodGroup !== undefined) attrs.push({ Name: "custom:blood_group", Value: updates.bloodGroup });
+    if (updates.bpSystolic !== undefined) attrs.push({ Name: "custom:bp_systolic", Value: updates.bpSystolic });
+    if (updates.bpDiastolic !== undefined) attrs.push({ Name: "custom:bp_diastolic", Value: updates.bpDiastolic });
+    if (updates.temperature !== undefined) attrs.push({ Name: "custom:temperature", Value: updates.temperature });
     if (updates.city !== undefined) attrs.push({ Name: "custom:city", Value: updates.city });
     if (updates.state !== undefined) attrs.push({ Name: "custom:state", Value: updates.state });
     if (updates.pincode !== undefined) attrs.push({ Name: "custom:pincode", Value: updates.pincode });

@@ -43,6 +43,9 @@ export interface Patient {
     height?: string;   // cm — patient-editable
     weight?: string;   // kg — patient-editable
     bloodGroup?: string;
+    bpSystolic?: string;    // mmHg — doctor-only
+    bpDiastolic?: string;   // mmHg — doctor-only
+    temperature?: string;   // °F   — doctor-only
     createdAt: string; // ISO 8601 datetime
     updatedAt: string;
 }
