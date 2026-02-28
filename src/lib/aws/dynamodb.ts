@@ -24,6 +24,7 @@ const dynamodb = DynamoDBDocumentClient.from(client);
 const AUDIT_TABLE = process.env.DYNAMODB_AUDIT_TABLE || "arogyasutra-audit-logs";
 const ACCESS_TABLE = process.env.DYNAMODB_ACCESS_TABLE || "arogyasutra-access-grants";
 const SESSION_TABLE = process.env.DYNAMODB_SESSION_TABLE || "arogyasutra-sessions";
+const PREFS_TABLE = process.env.DYNAMODB_PREFS_TABLE || "arogyasutra-user-prefs";
 
 // ---- Audit Logs (Immutable — no update/delete) ----
 
@@ -214,6 +215,34 @@ export async function expireBreakGlassSession(
             Key: { sessionId },
             UpdateExpression: "SET isActive = :inactive",
             ExpressionAttributeValues: { ":inactive": false },
+        })
+    );
+}
+
+// ---- User Preferences (notification read state, etc.) ----
+
+/** Get the list of read notification IDs for a user. */
+export async function getNotifReadIds(userId: string): Promise<number[]> {
+    const result = await dynamodb.send(
+        new GetCommand({
+            TableName: PREFS_TABLE,
+            Key: { userId, prefType: "notif_read" },
+        })
+    );
+    return (result.Item?.readIds as number[]) || [];
+}
+
+/** Persist the list of read notification IDs for a user. */
+export async function putNotifReadIds(userId: string, readIds: number[]): Promise<void> {
+    await dynamodb.send(
+        new PutCommand({
+            TableName: PREFS_TABLE,
+            Item: {
+                userId,
+                prefType: "notif_read",
+                readIds,
+                updatedAt: new Date().toISOString(),
+            },
         })
     );
 }

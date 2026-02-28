@@ -76,7 +76,7 @@ function AppRouter() {
       case "help":
         return <HelpScreen onNavigate={setScreen} />;
       case "notifications":
-        return <NotificationsScreen onNavigate={setScreen} />;
+        return <NotificationsScreen onNavigate={setScreen} userId={isDoctor ? doctor?.doctorId : patient?.patientId} />;
       default:
         return isDoctor
           ? <DoctorDashboard onNavigate={setScreen} doctorName={doctor?.fullName} />

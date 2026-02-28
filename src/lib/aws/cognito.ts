@@ -19,10 +19,50 @@ const region = process.env.NEXT_PUBLIC_AWS_REGION || "ap-south-1";
 
 const cognitoClient = new CognitoIdentityProviderClient({ region });
 
-const PATIENT_POOL_ID = process.env.NEXT_PUBLIC_COGNITO_PATIENT_POOL_ID!;
-const PATIENT_CLIENT_ID = process.env.NEXT_PUBLIC_COGNITO_PATIENT_CLIENT_ID!;
-const DOCTOR_POOL_ID = process.env.NEXT_PUBLIC_COGNITO_DOCTOR_POOL_ID!;
-const DOCTOR_CLIENT_ID = process.env.NEXT_PUBLIC_COGNITO_DOCTOR_CLIENT_ID!;
+const PATIENT_POOL_ID = process.env.NEXT_PUBLIC_COGNITO_PATIENT_POOL_ID;
+const PATIENT_CLIENT_ID = process.env.NEXT_PUBLIC_COGNITO_PATIENT_CLIENT_ID;
+const DOCTOR_POOL_ID = process.env.NEXT_PUBLIC_COGNITO_DOCTOR_POOL_ID;
+const DOCTOR_CLIENT_ID = process.env.NEXT_PUBLIC_COGNITO_DOCTOR_CLIENT_ID;
+
+function requirePatientClientId(): string {
+    if (!PATIENT_CLIENT_ID) {
+        throw new Error(
+            "COGNITO_NOT_CONFIGURED: NEXT_PUBLIC_COGNITO_PATIENT_CLIENT_ID is not set. " +
+            "Add it to your .env.local file."
+        );
+    }
+    return PATIENT_CLIENT_ID;
+}
+
+function requireDoctorClientId(): string {
+    if (!DOCTOR_CLIENT_ID) {
+        throw new Error(
+            "COGNITO_NOT_CONFIGURED: NEXT_PUBLIC_COGNITO_DOCTOR_CLIENT_ID is not set. " +
+            "Add it to your .env.local file."
+        );
+    }
+    return DOCTOR_CLIENT_ID;
+}
+
+function requirePatientPoolId(): string {
+    if (!PATIENT_POOL_ID) {
+        throw new Error(
+            "COGNITO_NOT_CONFIGURED: NEXT_PUBLIC_COGNITO_PATIENT_POOL_ID is not set. " +
+            "Add it to your .env.local file."
+        );
+    }
+    return PATIENT_POOL_ID;
+}
+
+function requireDoctorPoolId(): string {
+    if (!DOCTOR_POOL_ID) {
+        throw new Error(
+            "COGNITO_NOT_CONFIGURED: NEXT_PUBLIC_COGNITO_DOCTOR_POOL_ID is not set. " +
+            "Add it to your .env.local file."
+        );
+    }
+    return DOCTOR_POOL_ID;
+}
 
 // ---- Patient Auth ----
 
@@ -33,7 +73,7 @@ export async function initiatePatientAuth(
     return cognitoClient.send(
         new InitiateAuthCommand({
             AuthFlow: "CUSTOM_AUTH",
-            ClientId: PATIENT_CLIENT_ID,
+            ClientId: requirePatientClientId(),
             AuthParameters: {
                 USERNAME: cardId,
             },
@@ -50,7 +90,7 @@ export async function respondToChallenge(
 ): Promise<InitiateAuthCommandOutput> {
     return cognitoClient.send(
         new RespondToAuthChallengeCommand({
-            ClientId: pool === "patient" ? PATIENT_CLIENT_ID : DOCTOR_CLIENT_ID,
+            ClientId: pool === "patient" ? requirePatientClientId() : requireDoctorClientId(),
             ChallengeName: challengeName as "CUSTOM_CHALLENGE",
             Session: session,
             ChallengeResponses: responses,
@@ -67,7 +107,7 @@ export async function registerPatient(
 ): Promise<void> {
     await cognitoClient.send(
         new SignUpCommand({
-            ClientId: PATIENT_CLIENT_ID,
+            ClientId: requirePatientClientId(),
             Username: cardId,
             Password: crypto.randomUUID(), // Placeholder — auth uses custom challenge
             UserAttributes: [
@@ -84,7 +124,7 @@ export async function registerPatient(
 export async function getPatientUser(cardId: string) {
     return cognitoClient.send(
         new AdminGetUserCommand({
-            UserPoolId: PATIENT_POOL_ID,
+            UserPoolId: requirePatientPoolId(),
             Username: cardId,
         })
     );
@@ -118,7 +158,7 @@ export async function updatePatientAttributes(
 
     await cognitoClient.send(
         new AdminUpdateUserAttributesCommand({
-            UserPoolId: PATIENT_POOL_ID,
+            UserPoolId: requirePatientPoolId(),
             Username: cardId,
             UserAttributes: attrs,
         })
@@ -137,7 +177,7 @@ export async function registerDoctor(
 ): Promise<void> {
     await cognitoClient.send(
         new AdminCreateUserCommand({
-            UserPoolId: DOCTOR_POOL_ID,
+            UserPoolId: requireDoctorPoolId(),
             Username: doctorId,
             UserAttributes: [
                 { Name: "phone_number", Value: phone },
@@ -157,7 +197,7 @@ export async function verifyDoctorMci(
 ): Promise<void> {
     await cognitoClient.send(
         new AdminUpdateUserAttributesCommand({
-            UserPoolId: DOCTOR_POOL_ID,
+            UserPoolId: requireDoctorPoolId(),
             Username: doctorId,
             UserAttributes: [
                 {
@@ -176,7 +216,7 @@ export async function initiateDoctorAuth(
     return cognitoClient.send(
         new InitiateAuthCommand({
             AuthFlow: "CUSTOM_AUTH",
-            ClientId: DOCTOR_CLIENT_ID,
+            ClientId: requireDoctorClientId(),
             AuthParameters: {
                 USERNAME: doctorId,
             },
