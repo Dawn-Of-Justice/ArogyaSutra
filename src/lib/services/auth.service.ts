@@ -163,9 +163,11 @@ export async function verifyOTP(
         );
 
         currentSession.state = "AUTHENTICATED";
+        console.log("[verifyOTP] Cognito challenge succeeded, deriving master key...");
 
         // Derive the ephemeral Master Key (NEVER stored)
         const masterKey = await deriveMasterKey(cardId, otp);
+        console.log("[verifyOTP] Master key derived, logging access...");
 
         // Log successful login (non-blocking — may fail client-side)
         try {
@@ -175,17 +177,22 @@ export async function verifyOTP(
                 patientActor(cardId, cardId),
                 { method: "triple-layer" }
             );
-        } catch {
-            console.warn("Audit log write skipped (expected client-side)");
+        } catch (auditErr) {
+            console.warn("[verifyOTP] Audit log write skipped (expected client-side):", (auditErr as Error).message);
         }
+        console.log("[verifyOTP] Audit done, fetching profile...");
 
         // Build patient profile by fetching from our server-side API
         // (AdminGetUser requires admin credentials — cannot be called client-side)
         let patient: Patient;
         try {
-            const res = await fetch(`/api/profile/me?userId=${encodeURIComponent(cardId)}&role=patient`);
+            const profileUrl = `/api/profile/me?userId=${encodeURIComponent(cardId)}&role=patient`;
+            console.log("[verifyOTP] Fetching profile from:", profileUrl);
+            const res = await fetch(profileUrl);
+            console.log("[verifyOTP] Profile response status:", res.status);
             if (!res.ok) throw new Error(`profile/me returned ${res.status}`);
             const { profile } = await res.json();
+            console.log("[verifyOTP] Profile loaded:", profile?.fullName ? "OK" : "EMPTY");
             patient = {
                 ...(profile as Patient),
                 // Ensure type safety for union fields
@@ -195,7 +202,7 @@ export async function verifyOTP(
             };
         } catch (profileErr) {
             // Fallback — profile will be empty until user fills it in via ProfileScreen
-            console.warn("Failed to load profile from server:", profileErr);
+            console.error("[verifyOTP] Failed to load profile from /api/profile/me:", profileErr);
             patient = {
                 patientId: cardId,
                 fullName: "",

@@ -158,6 +158,36 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
         }
     }, [isDoctor, doctor, patient]);
 
+    // ---- Re-fetch profile from API if data looks empty (fallback from login) ----
+    const [profileLoading, setProfileLoading] = useState(false);
+    useEffect(() => {
+        if (!userId || isDoctor) return;
+        // If patient exists but core fields are empty, the login-time fetch likely failed
+        if (patient && !patient.fullName) {
+            setProfileLoading(true);
+            fetch(`/api/profile/me?userId=${encodeURIComponent(userId)}&role=patient`)
+                .then((r) => {
+                    if (!r.ok) throw new Error(`${r.status}`);
+                    return r.json();
+                })
+                .then((data) => {
+                    if (data.profile?.fullName) {
+                        updatePatient({
+                            ...data.profile,
+                            gender: (data.profile.gender || "other") as "male" | "female" | "other",
+                            language: data.profile.language || "en",
+                            emergencyContacts: data.profile.emergencyContacts ?? [],
+                        });
+                    }
+                })
+                .catch((err) => {
+                    console.error("[ProfileScreen] re-fetch failed:", err);
+                    setError(`Could not load profile data. Please try logging out and back in.`);
+                })
+                .finally(() => setProfileLoading(false));
+        }
+    }, [userId, isDoctor, patient, updatePatient]);
+
     // ---- Load saved photo from localStorage (fast) + S3 (authoritative) ----
     useEffect(() => {
         if (!userId) return;
@@ -294,6 +324,14 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
         .join("")
         .slice(0, 2)
         .toUpperCase();
+
+    if (profileLoading) {
+        return (
+            <div className={styles.page} style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: 300 }}>
+                <span style={{ color: "var(--brand-teal, #319795)", fontSize: 16 }}>Loading profile…</span>
+            </div>
+        );
+    }
 
     return (
         <div className={styles.page}>
