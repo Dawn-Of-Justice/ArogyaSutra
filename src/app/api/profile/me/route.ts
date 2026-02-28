@@ -16,17 +16,6 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ error: "Missing userId or role" }, { status: 400 });
     }
 
-    // ---- Env diagnostics (visible in CloudWatch + browser network tab) ----
-    const patientPoolId = process.env.NEXT_PUBLIC_COGNITO_PATIENT_POOL_ID;
-    const region = process.env.NEXT_PUBLIC_AWS_REGION || "ap-south-1";
-    console.log("[/api/profile/me] env check:", {
-        patientPoolId: patientPoolId || "MISSING",
-        region,
-        hasExplicitKey: !!process.env.AWS_ACCESS_KEY_ID,
-        userId,
-        role,
-    });
-
     try {
         if (role === "patient") {
             const user = await cognito.getPatientUser(userId);
@@ -58,14 +47,9 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ profile: null, error: "Doctor profile fetch not implemented" }, { status: 501 });
 
     } catch (err) {
-        const msg = (err as Error).message || "Failed to fetch profile";
-        console.error("[/api/profile/me] ERROR:", msg, {
-            patientPoolId: patientPoolId || "MISSING",
-            region,
-        });
-        // Return debug info in the error so you can see it in the browser network tab
+        console.error("[/api/profile/me]", (err as Error).message);
         return NextResponse.json(
-            { error: msg, debug: { patientPoolId: patientPoolId || "MISSING", region } },
+            { error: (err as Error).message || "Failed to fetch profile" },
             { status: 500 }
         );
     }
