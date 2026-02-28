@@ -40,4 +40,5 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-infra/node_modulesinfra/cdk.out/
+infra/node_modules
+infra/cdk.out/
