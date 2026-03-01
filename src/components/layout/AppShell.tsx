@@ -9,10 +9,16 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useAuth } from "../../hooks/useAuth";
 import styles from "./AppShell.module.css";
+import {
+    LayoutDashboard, ClipboardList, Camera, Link2,
+    HelpCircle, Settings, Hospital, User, LogOut,
+    Bell, Search, MoreVertical, CheckCheck, ShieldCheck,
+} from "lucide-react";
+import { GeminiIcon } from "../common/GeminiIcon";
 
 interface NavItem {
     id: string;
-    icon: string;
+    icon: React.ReactNode;
     label: string;
     badge?: number;
 }
@@ -28,27 +34,26 @@ interface AppShellProps {
 }
 
 const PATIENT_NAV_MAIN: NavItem[] = [
-    { id: "dashboard", icon: "🏠", label: "Dashboard" },
-    { id: "timeline", icon: "📋", label: "Timeline" },
-    { id: "upload", icon: "📷", label: "Scan Document" },
-    { id: "assistant", icon: "🤖", label: "AI Assistant" },
-    { id: "access", icon: "🔗", label: "Doctor Access" },
+    { id: "dashboard", icon: <LayoutDashboard size={18} />, label: "Dashboard" },
+    { id: "timeline", icon: <ClipboardList size={18} />, label: "Timeline" },
+    { id: "assistant", icon: <GeminiIcon size={18} />, label: "AI Assistant" },
+    { id: "access", icon: <Link2 size={18} />, label: "Doctor Access" },
 ];
 
 const PATIENT_NAV_BOTTOM: NavItem[] = [
-    { id: "help", icon: "❓", label: "Help" },
-    { id: "settings", icon: "⚙️", label: "Settings" },
+    { id: "help", icon: <HelpCircle size={18} />, label: "Help" },
+    { id: "settings", icon: <Settings size={18} />, label: "Settings" },
 ];
 
 const DOCTOR_NAV_MAIN: NavItem[] = [
-    { id: "doctor-dashboard", icon: "🏥", label: "Dashboard" },
-    { id: "timeline", icon: "📋", label: "Records" },
-    { id: "assistant", icon: "🤖", label: "AI Assistant" },
+    { id: "doctor-dashboard", icon: <Hospital size={18} />, label: "Dashboard" },
+    { id: "timeline", icon: <ClipboardList size={18} />, label: "Records" },
+    { id: "assistant", icon: <GeminiIcon size={18} />, label: "AI Assistant" },
 ];
 
 const DOCTOR_NAV_BOTTOM: NavItem[] = [
-    { id: "help", icon: "❓", label: "Help" },
-    { id: "settings", icon: "⚙️", label: "Settings" },
+    { id: "help", icon: <HelpCircle size={18} />, label: "Help" },
+    { id: "settings", icon: <Settings size={18} />, label: "Settings" },
 ];
 
 export default function AppShell({
@@ -114,12 +119,12 @@ export default function AppShell({
         return () => document.removeEventListener("mousedown", handleClick);
     }, [notifOpen]);
 
-    interface Notification { id: number; icon: string; title: string; desc: string; time: string; unread: boolean; }
+    interface Notification { id: number; icon: React.ReactNode; title: string; desc: string; time: string; unread: boolean; }
 
     const SHELL_NOTIFS: Notification[] = [
-        { id: 1, icon: "🟢", title: "Welcome to ArogyaSutra!", desc: "Your health vault is ready. Start by scanning a document.", time: "Just now", unread: true },
-        { id: 2, icon: "📋", title: "Timeline synced", desc: "All your health records are up to date.", time: "2 min ago", unread: true },
-        { id: 3, icon: "🔒", title: "Security check passed", desc: "Your encryption keys have been verified.", time: "5 min ago", unread: false },
+        { id: 1, icon: <User size={14} />, title: "Welcome to ArogyaSutra!", desc: "Your health vault is ready. Start by scanning a document.", time: "Just now", unread: true },
+        { id: 2, icon: <ClipboardList size={14} />, title: "Timeline synced", desc: "All your health records are up to date.", time: "2 min ago", unread: true },
+        { id: 3, icon: <ShieldCheck size={14} />, title: "Security check passed", desc: "Your encryption keys have been verified.", time: "5 min ago", unread: false },
     ];
 
     function applyReadIds(base: Notification[], readIds: number[]): Notification[] {
@@ -155,7 +160,7 @@ export default function AppShell({
                 setNotifications(applyReadIds(SHELL_NOTIFS, readIds));
             })
             .catch(() => { /* silently keep localStorage state */ });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [userId]);
 
     // Persist to both localStorage (instant) and DynamoDB (durable) on every change
@@ -254,17 +259,17 @@ export default function AppShell({
                         onClick={(e) => { e.stopPropagation(); setMenuOpen((v) => !v); }}
                         aria-label="More options"
                     >
-                        ⋮
+                        <MoreVertical size={16} />
                     </button>
 
                     {menuOpen && (
                         <div className={styles.popoverMenu}>
                             <button className={styles.popoverItem} onClick={() => { setMenuOpen(false); onNavigate("profile"); }}>
-                                <span>👤</span> My Profile
+                                <User size={14} /> My Profile
                             </button>
                             <div className={styles.popoverDivider} />
                             <button className={`${styles.popoverItem} ${styles.popoverDanger}`} onClick={handleSignOut}>
-                                <span>🚪</span> Sign Out
+                                <LogOut size={14} /> Sign Out
                             </button>
                         </div>
                     )}
@@ -278,7 +283,7 @@ export default function AppShell({
                 </div>
 
                 <div className={styles.searchBox}>
-                    <span className={styles.searchIcon}>🔍</span>
+                    <span className={styles.searchIcon}><Search size={15} /></span>
                     <input
                         type="text"
                         className={styles.searchInput}
@@ -293,7 +298,7 @@ export default function AppShell({
                             title="Notifications"
                             onClick={() => setNotifOpen((v) => !v)}
                         >
-                            🔔
+                            <Bell size={18} />
                             {unreadCount > 0 && <span className={styles.notifDot}>{unreadCount}</span>}
                         </button>
 
@@ -306,6 +311,7 @@ export default function AppShell({
                                         onClick={handleMarkAllRead}
                                         disabled={unreadCount === 0}
                                     >
+                                        <CheckCheck size={13} style={{ marginRight: 4, verticalAlign: "middle" }} />
                                         Mark all read
                                     </button>
                                 </div>

@@ -10,6 +10,7 @@ const withPWA = withPWAInit({
 
 const nextConfig: NextConfig = withPWA({
   reactStrictMode: true,
+  serverExternalPackages: ["sharp"],
   images: {
     unoptimized: true,
   },

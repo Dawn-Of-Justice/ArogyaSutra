@@ -132,50 +132,55 @@ export async function confirmAndSave(
 }
 
 /**
- * Retrieves timeline entries for a patient.
+ * Retrieves timeline entries for a patient from DynamoDB.
+ * Uses /api/timeline/entries — HealthLake is NOT available in ap-south-1.
  */
 export async function getTimeline(
     request: TimelineRequest,
-    masterKey: CryptoKey
+    _masterKey: CryptoKey
 ): Promise<TimelineResponse> {
-    // Query HealthLake for FHIR resources
-    const params: Record<string, string> = {
-        patient: request.patientId,
-        _sort: request.options.sortOrder === "newest" ? "-date" : "date",
-        _count: String(request.options.pageSize),
-    };
+    const params = new URLSearchParams({ patientId: request.patientId });
 
-    if (request.filters?.dateFrom) params["date"] = `ge${request.filters.dateFrom}`;
-    if (request.filters?.dateTo) params["date"] = `le${request.filters.dateTo}`;
-    if (request.search?.text) params["_content"] = request.search.text;
+    const res = await fetch(`/api/timeline/entries?${params.toString()}`);
+    if (!res.ok) {
+        const text = await res.text();
+        let msg = `Timeline fetch failed (${res.status})`;
+        try { msg = JSON.parse(text).error ?? msg; } catch { /* not JSON */ }
+        throw new Error(msg);
+    }
 
-    const fhirResults = await healthlake.searchFhir("DocumentReference", params);
-    const entries = (fhirResults as { entry?: { resource: Record<string, unknown> }[] }).entry || [];
+    const data = await res.json();
+    const entries: HealthEntry[] = data.entries ?? [];
 
-    // For now return a simplified response
-    const healthEntries: HealthEntry[] = entries.map((e, i) => ({
-        entryId: (e.resource.id as string) || `entry-${i}`,
-        patientId: request.patientId,
-        title: (e.resource.description as string) || "Medical Record",
-        documentType: "Other" as DocumentTypeTag,
-        statusFlags: [] as StatusFlag[],
-        date: (e.resource.date as string) || new Date().toISOString(),
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        encryptedBlobKey: "",
-        fhirResourceIds: [(e.resource.id as string) || ""],
-        addedBy: { type: "PATIENT" as const, userId: request.patientId, name: "" },
-        metadata: {},
-    }));
+    // Apply client-side filters
+    let filtered = entries;
+    if (request.filters?.documentTypes?.length) {
+        filtered = filtered.filter((e) =>
+            request.filters!.documentTypes!.includes(e.documentType)
+        );
+    }
+    if (request.filters?.dateFrom) {
+        filtered = filtered.filter((e) => e.date >= request.filters!.dateFrom!);
+    }
+    if (request.filters?.dateTo) {
+        filtered = filtered.filter((e) => e.date <= request.filters!.dateTo!);
+    }
+
+    // Pagination
+    const page = request.options.page ?? 1;
+    const pageSize = request.options.pageSize ?? 20;
+    const start = (page - 1) * pageSize;
+    const paged = filtered.slice(start, start + pageSize);
 
     return {
-        entries: healthEntries,
-        totalCount: healthEntries.length,
-        page: request.options.page,
-        pageSize: request.options.pageSize,
-        hasMore: false,
+        entries: paged,
+        totalCount: filtered.length,
+        page,
+        pageSize,
+        hasMore: start + pageSize < filtered.length,
     };
 }
+
 
 /**
  * Views a single timeline entry by decrypting its stored data.

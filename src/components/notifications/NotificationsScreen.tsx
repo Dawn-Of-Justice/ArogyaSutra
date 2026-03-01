@@ -6,6 +6,10 @@
 
 import React, { useState, useEffect } from "react";
 import styles from "./NotificationsScreen.module.css";
+import {
+    User, ClipboardList, ShieldCheck, Pill, Hospital,
+    FileText, ShieldAlert, Settings, Bell, CheckCheck,
+} from "lucide-react";
 
 interface NotificationsScreenProps {
     onNavigate: (screen: string) => void;
@@ -14,7 +18,7 @@ interface NotificationsScreenProps {
 
 interface Notification {
     id: number;
-    icon: string;
+    icon: React.ReactNode;
     title: string;
     desc: string;
     time: string;
@@ -23,14 +27,14 @@ interface Notification {
 }
 
 const INITIAL_NOTIFICATIONS: Notification[] = [
-    { id: 1, icon: "🟢", title: "Welcome to ArogyaSutra!", desc: "Your health vault is ready. Start by scanning your first medical document to build your digital timeline.", time: "Just now", unread: true, category: "system" },
-    { id: 2, icon: "📋", title: "Timeline synced", desc: "All your health records are up to date. Your encrypted data has been verified against the latest backup.", time: "2 min ago", unread: true, category: "health" },
-    { id: 3, icon: "🔒", title: "Security check passed", desc: "Your encryption keys have been verified. Zero-knowledge encryption is active — your data is safe.", time: "5 min ago", unread: false, category: "security" },
-    { id: 4, icon: "💊", title: "Medication reminder", desc: "Don't forget to take your prescribed medications today. Check your timeline for dosage details.", time: "1 hour ago", unread: false, category: "health" },
-    { id: 5, icon: "🏥", title: "Doctor access granted", desc: "Dr. Sharma now has read access to your health timeline. You can revoke access anytime from Settings.", time: "2 hours ago", unread: false, category: "security" },
-    { id: 6, icon: "📄", title: "Document processed", desc: "Your lab report from Metropolis Labs has been digitized with 94% confidence. Review the extracted data.", time: "Yesterday", unread: false, category: "health" },
-    { id: 7, icon: "🛡️", title: "Break-Glass access logged", desc: "Emergency access was attempted for your records. Check your audit log for full details.", time: "2 days ago", unread: false, category: "security" },
-    { id: 8, icon: "⚙️", title: "App updated to v0.1.0", desc: "ArogyaSutra has been updated with new features including the AI Clinical Assistant and improved offline support.", time: "3 days ago", unread: false, category: "system" },
+    { id: 1, icon: <User size={16} />, title: "Welcome to ArogyaSutra!", desc: "Your health vault is ready. Start by scanning your first medical document to build your digital timeline.", time: "Just now", unread: true, category: "system" },
+    { id: 2, icon: <ClipboardList size={16} />, title: "Timeline synced", desc: "All your health records are up to date. Your encrypted data has been verified against the latest backup.", time: "2 min ago", unread: true, category: "health" },
+    { id: 3, icon: <ShieldCheck size={16} />, title: "Security check passed", desc: "Your encryption keys have been verified. Zero-knowledge encryption is active — your data is safe.", time: "5 min ago", unread: false, category: "security" },
+    { id: 4, icon: <Pill size={16} />, title: "Medication reminder", desc: "Don't forget to take your prescribed medications today. Check your timeline for dosage details.", time: "1 hour ago", unread: false, category: "health" },
+    { id: 5, icon: <Hospital size={16} />, title: "Doctor access granted", desc: "Dr. Sharma now has read access to your health timeline. You can revoke access anytime from Settings.", time: "2 hours ago", unread: false, category: "security" },
+    { id: 6, icon: <FileText size={16} />, title: "Document processed", desc: "Your lab report from Metropolis Labs has been digitized with 94% confidence. Review the extracted data.", time: "Yesterday", unread: false, category: "health" },
+    { id: 7, icon: <ShieldAlert size={16} />, title: "Break-Glass access logged", desc: "Emergency access was attempted for your records. Check your audit log for full details.", time: "2 days ago", unread: false, category: "security" },
+    { id: 8, icon: <Settings size={16} />, title: "App updated to v0.1.0", desc: "ArogyaSutra has been updated with new features including the AI Clinical Assistant and improved offline support.", time: "3 days ago", unread: false, category: "system" },
 ];
 
 type Filter = "all" | "system" | "security" | "health";
@@ -70,7 +74,7 @@ export default function NotificationsScreen({ onNavigate, userId }: Notification
                 setNotifications(applyReadIds(INITIAL_NOTIFICATIONS, readIds));
             })
             .catch(() => { /* keep localStorage state on network/config error */ });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [userId]);
 
     // Persist to localStorage (instant) + DynamoDB (durable) on every change
@@ -119,7 +123,8 @@ export default function NotificationsScreen({ onNavigate, userId }: Notification
                         onClick={handleMarkAllRead}
                         disabled={unreadCount === 0}
                     >
-                        ✓ Mark all read
+                        <CheckCheck size={13} style={{ marginRight: 4, verticalAlign: "middle" }} />
+                        Mark all read
                     </button>
                 </div>
             </div>
@@ -140,7 +145,7 @@ export default function NotificationsScreen({ onNavigate, userId }: Notification
             {/* List */}
             {filtered.length === 0 ? (
                 <div className={styles.empty}>
-                    <div className={styles.emptyIcon}>🔔</div>
+                    <div className={styles.emptyIcon}><Bell size={36} /></div>
                     <h3>No notifications</h3>
                     <p>You&apos;re all caught up!</p>
                 </div>

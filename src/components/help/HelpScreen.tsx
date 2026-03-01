@@ -6,6 +6,7 @@
 
 import React, { useState } from "react";
 import styles from "./HelpScreen.module.css";
+import { Lightbulb, HelpCircle, ChevronDown, Phone, Mail, MessageSquare, Building2 } from "lucide-react";
 
 interface HelpScreenProps {
     onNavigate: (screen: string) => void;
@@ -49,14 +50,14 @@ export default function HelpScreen({ onNavigate }: HelpScreenProps) {
         <div className={styles.page}>
             {/* ---- Hero ---- */}
             <div className={styles.hero}>
-                <div className={styles.heroIcon}>💡</div>
+                <div className={styles.heroIcon}><Lightbulb size={36} /></div>
                 <h2>Help &amp; Support</h2>
                 <p>Find answers to common questions or reach out to our team.</p>
             </div>
 
             {/* ---- FAQ ---- */}
             <div className={styles.card}>
-                <h3 className={styles.cardTitle}><span>❓</span> Frequently Asked Questions</h3>
+                <h3 className={styles.cardTitle}><span><HelpCircle size={16} /></span> Frequently Asked Questions</h3>
 
                 {FAQ_ITEMS.map((item, i) => (
                     <div key={i} className={styles.faqItem}>
@@ -66,7 +67,7 @@ export default function HelpScreen({ onNavigate }: HelpScreenProps) {
                         >
                             {item.q}
                             <span className={`${styles.faqChevron} ${openIdx === i ? styles.faqChevronOpen : ""}`}>
-                                ▼
+                                <ChevronDown size={14} />
                             </span>
                         </button>
                         {openIdx === i && (
@@ -78,11 +79,11 @@ export default function HelpScreen({ onNavigate }: HelpScreenProps) {
 
             {/* ---- Contact ---- */}
             <div className={styles.card}>
-                <h3 className={styles.cardTitle}><span>📞</span> Contact Us</h3>
+                <h3 className={styles.cardTitle}><span><Phone size={16} /></span> Contact Us</h3>
 
                 <div className={styles.contactGrid}>
                     <div className={styles.contactItem}>
-                        <div className={styles.contactIcon}>📧</div>
+                        <div className={styles.contactIcon}><Mail size={20} /></div>
                         <div className={styles.contactInfo}>
                             <span className={styles.contactLabel}>Email</span>
                             <span className={styles.contactValue}>support@arogyasutra.in</span>
@@ -90,7 +91,7 @@ export default function HelpScreen({ onNavigate }: HelpScreenProps) {
                     </div>
 
                     <div className={styles.contactItem}>
-                        <div className={styles.contactIcon}>📱</div>
+                        <div className={styles.contactIcon}><Phone size={20} /></div>
                         <div className={styles.contactInfo}>
                             <span className={styles.contactLabel}>Phone</span>
                             <span className={styles.contactValue}>1800-123-4567</span>
@@ -98,7 +99,7 @@ export default function HelpScreen({ onNavigate }: HelpScreenProps) {
                     </div>
 
                     <div className={styles.contactItem}>
-                        <div className={styles.contactIcon}>💬</div>
+                        <div className={styles.contactIcon}><MessageSquare size={20} /></div>
                         <div className={styles.contactInfo}>
                             <span className={styles.contactLabel}>Live Chat</span>
                             <span className={styles.contactValue}>9 AM – 6 PM IST</span>
@@ -106,7 +107,7 @@ export default function HelpScreen({ onNavigate }: HelpScreenProps) {
                     </div>
 
                     <div className={styles.contactItem}>
-                        <div className={styles.contactIcon}>🏢</div>
+                        <div className={styles.contactIcon}><Building2 size={20} /></div>
                         <div className={styles.contactInfo}>
                             <span className={styles.contactLabel}>Office</span>
                             <span className={styles.contactValue}>Bengaluru, India</span>

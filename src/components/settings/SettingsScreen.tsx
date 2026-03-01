@@ -6,6 +6,7 @@
 
 import React, { useState } from "react";
 import styles from "./SettingsScreen.module.css";
+import { Palette, Bell, Lock, Package, TriangleAlert } from "lucide-react";
 
 interface SettingsScreenProps {
     onNavigate: (screen: string) => void;
@@ -21,7 +22,7 @@ export default function SettingsScreen({ onNavigate }: SettingsScreenProps) {
         <div className={styles.page}>
             {/* ---- General ---- */}
             <div className={styles.card}>
-                <h3 className={styles.cardTitle}><span>🎨</span> Appearance</h3>
+                <h3 className={styles.cardTitle}><span><Palette size={16} /></span> Appearance</h3>
 
                 <div className={styles.row}>
                     <div className={styles.rowInfo}>
@@ -59,7 +60,7 @@ export default function SettingsScreen({ onNavigate }: SettingsScreenProps) {
 
             {/* ---- Notifications ---- */}
             <div className={styles.card}>
-                <h3 className={styles.cardTitle}><span>🔔</span> Notifications</h3>
+                <h3 className={styles.cardTitle}><span><Bell size={16} /></span> Notifications</h3>
 
                 <div className={styles.row}>
                     <div className={styles.rowInfo}>
@@ -76,7 +77,7 @@ export default function SettingsScreen({ onNavigate }: SettingsScreenProps) {
 
             {/* ---- Security ---- */}
             <div className={styles.card}>
-                <h3 className={styles.cardTitle}><span>🔒</span> Security</h3>
+                <h3 className={styles.cardTitle}><span><Lock size={16} /></span> Security</h3>
 
                 <div className={styles.row}>
                     <div className={styles.rowInfo}>
@@ -101,7 +102,7 @@ export default function SettingsScreen({ onNavigate }: SettingsScreenProps) {
 
             {/* ---- Data & Privacy ---- */}
             <div className={styles.card}>
-                <h3 className={styles.cardTitle}><span>📦</span> Data &amp; Privacy</h3>
+                <h3 className={styles.cardTitle}><span><Package size={16} /></span> Data &amp; Privacy</h3>
 
                 <div className={styles.row}>
                     <div className={styles.rowInfo}>
@@ -122,7 +123,7 @@ export default function SettingsScreen({ onNavigate }: SettingsScreenProps) {
 
             {/* ---- Danger Zone ---- */}
             <div className={styles.dangerCard}>
-                <h3 className={styles.cardTitle}><span>⚠️</span> Danger Zone</h3>
+                <h3 className={styles.cardTitle}><span><TriangleAlert size={16} /></span> Danger Zone</h3>
 
                 <div className={styles.row}>
                     <div className={styles.rowInfo}>

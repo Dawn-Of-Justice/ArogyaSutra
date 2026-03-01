@@ -10,6 +10,8 @@ import { useAuth } from "../../hooks/useAuth";
 import * as ragService from "../../lib/services/rag.service";
 import type { RAGResponse, ChatMessage } from "../../lib/types/rag";
 import styles from "./AssistantScreen.module.css";
+import { ChevronLeft, Paperclip, ArrowUp, Cross } from "lucide-react";
+import { GeminiIcon } from "../common/GeminiIcon";
 
 interface AssistantScreenProps {
     onNavigate: (screen: string) => void;
@@ -83,7 +85,7 @@ export default function AssistantScreen({ onNavigate }: AssistantScreenProps) {
     return (
         <div className={styles.container}>
             <header className={styles.header}>
-                <button className={styles.backButton} onClick={() => onNavigate("dashboard")}>←</button>
+                <button className={styles.backButton} onClick={() => onNavigate("dashboard")}><ChevronLeft size={20} /></button>
                 <div className={styles.headerInfo}>
                     <h1 className={styles.title}>AI Health Assistant</h1>
                     <span className={styles.subtitle}>Powered by Amazon Bedrock</span>
@@ -93,7 +95,7 @@ export default function AssistantScreen({ onNavigate }: AssistantScreenProps) {
             <div className={styles.chatArea}>
                 {messages.length === 0 ? (
                     <div className={styles.welcome}>
-                        <span className={styles.welcomeIcon}>🤖</span>
+                        <span className={styles.welcomeIcon}><GeminiIcon size={48} /></span>
                         <h2>Hello! I&apos;m your health assistant.</h2>
                         <p>Ask me anything about your medical history. I&apos;ll cite sources from your records.</p>
                         <div className={styles.suggestions}>
@@ -112,7 +114,7 @@ export default function AssistantScreen({ onNavigate }: AssistantScreenProps) {
                                     <p className={styles.messageText}>{msg.content}</p>
                                     {msg.citations && msg.citations.length > 0 && (
                                         <div className={styles.citations}>
-                                            <span className={styles.citationLabel}>📎 Sources:</span>
+                                            <span className={styles.citationLabel}><Paperclip size={12} /> Sources:</span>
                                             {msg.citations.map((c, i) => (
                                                 <button key={i} className={styles.citation} onClick={() => onNavigate(`entry/${c.entryId}`)}>
                                                     {c.entryTitle} ({c.date?.slice(0, 10)})
@@ -139,7 +141,8 @@ export default function AssistantScreen({ onNavigate }: AssistantScreenProps) {
             </div>
 
             <div className={styles.disclaimer}>
-                ⚕️ AI-generated, not medical advice. Always consult a healthcare professional.
+                <Cross size={13} style={{ verticalAlign: "middle", marginRight: 4 }} />
+                AI-generated, not medical advice. Always consult a healthcare professional.
             </div>
 
             <form className={styles.inputArea} onSubmit={handleSubmit}>
@@ -152,7 +155,7 @@ export default function AssistantScreen({ onNavigate }: AssistantScreenProps) {
                     disabled={isLoading}
                 />
                 <button type="submit" className={styles.sendButton} disabled={!input.trim() || isLoading}>
-                    ↑
+                    <ArrowUp size={18} />
                 </button>
             </form>
         </div>

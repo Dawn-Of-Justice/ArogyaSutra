@@ -9,72 +9,15 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { useAuth } from "../../hooks/useAuth";
 import styles from "./ProfileScreen.module.css";
+import {
+    Pencil, Check, Camera, User, Phone, Heart, Shield,
+    MapPin, LogOut, Stethoscope,
+} from "lucide-react";
 
 interface ProfileScreenProps {
     onNavigate: (screen: string) => void;
 }
 
-// ---- SVG Icons ----
-const Icon = {
-    edit: (
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-        </svg>
-    ),
-    save: (
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="20 6 9 17 4 12" />
-        </svg>
-    ),
-    camera: (
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-            <circle cx="12" cy="13" r="4" />
-        </svg>
-    ),
-    user: (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-            <circle cx="12" cy="7" r="4" />
-        </svg>
-    ),
-    phone: (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13.6 19.79 19.79 0 0 1 1.69 5 2 2 0 0 1 3.67 3h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L7.91 10.9a16 16 0 0 0 6 6l1.06-1.06a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 17.18z" />
-        </svg>
-    ),
-    heart: (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M20.42 4.58a5.4 5.4 0 0 0-7.65 0L12 5.36l-.77-.78a5.4 5.4 0 0 0-7.65 7.65l7.72 7.72a1 1 0 0 0 1.4 0l7.72-7.72a5.4 5.4 0 0 0 0-7.65z" />
-        </svg>
-    ),
-    shield: (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-        </svg>
-    ),
-    location: (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-            <circle cx="12" cy="10" r="3" />
-        </svg>
-    ),
-    logout: (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-            <polyline points="16 17 21 12 16 7" />
-            <line x1="21" y1="12" x2="9" y2="12" />
-        </svg>
-    ),
-    stethoscope: (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M4.8 2.3A.3.3 0 1 0 5 2H4a2 2 0 0 0-2 2v5a6 6 0 0 0 6 6 6 6 0 0 0 6-6V4a2 2 0 0 0-2-2h-1a.2.2 0 1 0 .3.3" />
-            <path d="M8 15v1a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6v-4" />
-            <circle cx="20" cy="10" r="2" />
-        </svg>
-    ),
-};
 
 /** Format a date string for display */
 function formatDate(dateStr: string): string {
@@ -352,7 +295,7 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
                         onClick={() => fileInputRef.current?.click()}
                         title="Change profile photo"
                     >
-                        {Icon.camera}
+                        <Camera size={14} />
                     </button>
                     <input
                         ref={fileInputRef}
@@ -379,7 +322,7 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
                         className={`${styles.editToggle} ${editing ? styles.editToggleActive : ""}`}
                         onClick={() => { setEditing(!editing); setSaved(false); }}
                     >
-                        {editing ? Icon.save : Icon.edit}
+                        {editing ? <Check size={14} /> : <Pencil size={14} />}
                         {editing ? "Editing…" : "Edit Profile"}
                     </button>
                 </div>
@@ -392,7 +335,7 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
                         {/* Personal Info */}
                         <div className={styles.card}>
                             <h2 className={styles.cardTitle}>
-                                <span className={styles.cardTitleIcon}>{Icon.user}</span>
+                                <span className={styles.cardTitleIcon}><User size={20} /></span>
                                 Personal Information
                             </h2>
                             <div className={styles.fieldGrid}>
@@ -444,7 +387,7 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
                         {/* Contact */}
                         <div className={styles.card}>
                             <h2 className={styles.cardTitle}>
-                                <span className={styles.cardTitleIcon}>{Icon.phone}</span>
+                                <span className={styles.cardTitleIcon}><Phone size={16} /></span>
                                 Contact &amp; Address
                             </h2>
                             <div className={styles.fieldGrid}>
@@ -508,7 +451,7 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
                     {/* Health & Vitals */}
                     <div className={`${styles.card} ${styles.cardFull}`}>
                         <h2 className={styles.cardTitle}>
-                            <span className={styles.cardTitleIcon}>{Icon.heart}</span>
+                            <span className={styles.cardTitleIcon}><Heart size={16} /></span>
                             Health &amp; Vitals
                         </h2>
                         <div className={styles.fieldGrid}>
@@ -604,7 +547,7 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
                     {patient.emergencyContacts && patient.emergencyContacts.length > 0 && (
                         <div className={`${styles.card} ${styles.cardFull}`}>
                             <h2 className={styles.cardTitle}>
-                                <span className={styles.cardTitleIcon}>{Icon.shield}</span>
+                                <span className={styles.cardTitleIcon}><Shield size={16} /></span>
                                 Emergency Contacts
                             </h2>
                             <div className={styles.contactList}>
@@ -632,7 +575,7 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
                         {/* Professional Info */}
                         <div className={styles.card}>
                             <h2 className={styles.cardTitle}>
-                                <span className={styles.cardTitleIcon}>{Icon.stethoscope}</span>
+                                <span className={styles.cardTitleIcon}><Stethoscope size={16} /></span>
                                 Professional Details
                             </h2>
                             <div className={styles.fieldGrid}>
@@ -670,7 +613,7 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
                         {/* Contact */}
                         <div className={styles.card}>
                             <h2 className={styles.cardTitle}>
-                                <span className={styles.cardTitleIcon}>{Icon.phone}</span>
+                                <span className={styles.cardTitleIcon}><Phone size={16} /></span>
                                 Contact Details
                             </h2>
                             <div className={styles.fieldGrid}>
@@ -730,7 +673,7 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
                         // no manual navigate needed.
                     }}
                 >
-                    {Icon.logout} Sign Out
+                    <LogOut size={16} /> Sign Out
                 </button>
             </div>
         </div>
