@@ -35,6 +35,7 @@ const ACCESS_TABLE = process.env.DYNAMODB_ACCESS_TABLE || "arogyasutra-access-gr
 const SESSION_TABLE = process.env.DYNAMODB_SESSION_TABLE || "arogyasutra-sessions";
 const PREFS_TABLE = process.env.DYNAMODB_PREFS_TABLE || "arogyasutra-user-prefs";
 const APPT_TABLE = process.env.DYNAMODB_APPOINTMENTS_TABLE || "arogyasutra-appointments";
+const CHECKUP_TABLE = process.env.DYNAMODB_CHECKUP_TABLE || "arogyasutra-checkups";
 
 // ---- Audit Logs (Immutable — no update/delete) ----
 
@@ -56,6 +57,7 @@ export async function queryAuditLogs(
     const expressionValues: Record<string, unknown> = {
         ":patientId": query.patientId,
     };
+    const expressionNames: Record<string, string> = {};
     let filterExpression = "";
     const filterParts: string[] = [];
 
@@ -64,16 +66,19 @@ export async function queryAuditLogs(
             expressionValues[`:action${i}`] = a;
             return `:action${i}`;
         });
+        expressionNames["#action"] = "action";
         filterParts.push(`#action IN (${actionValues.join(", ")})`);
     }
 
     if (query.dateFrom) {
         expressionValues[":dateFrom"] = query.dateFrom;
+        expressionNames["#ts"] = "timestamp";
         filterParts.push("#ts >= :dateFrom");
     }
 
     if (query.dateTo) {
         expressionValues[":dateTo"] = query.dateTo;
+        expressionNames["#ts"] = "timestamp";
         filterParts.push("#ts <= :dateTo");
     }
 
@@ -86,10 +91,7 @@ export async function queryAuditLogs(
             TableName: AUDIT_TABLE,
             KeyConditionExpression: "patientId = :patientId",
             ExpressionAttributeValues: expressionValues,
-            ExpressionAttributeNames: {
-                "#action": "action",
-                "#ts": "timestamp",
-            },
+            ...(Object.keys(expressionNames).length > 0 && { ExpressionAttributeNames: expressionNames }),
             ...(filterExpression && { FilterExpression: filterExpression }),
             ScanIndexForward: false, // Newest first
             Limit: query.limit || 50,
@@ -334,4 +336,45 @@ export async function deleteAppointment(
             Key: { patientId, appointmentId },
         })
     );
+}
+
+// ---- Checkup History ----
+
+export interface CheckupEntry {
+    patientId: string;
+    checkupId: string;        // ISO timestamp used as sort key
+    bpSystolic: number;
+    bpDiastolic: number;
+    temperature: number;
+    height?: string;
+    weight?: string;
+    recordedBy: string;       // doctor ID / name
+    recordedAt: string;       // ISO timestamp
+}
+
+/** Store a new checkup reading. */
+export async function putCheckup(entry: CheckupEntry): Promise<void> {
+    await dynamodb.send(
+        new PutCommand({
+            TableName: CHECKUP_TABLE,
+            Item: entry,
+        })
+    );
+}
+
+/** Fetch the last N checkup readings for a patient (newest first). */
+export async function getCheckupHistory(
+    patientId: string,
+    limit = 12
+): Promise<CheckupEntry[]> {
+    const result = await dynamodb.send(
+        new QueryCommand({
+            TableName: CHECKUP_TABLE,
+            KeyConditionExpression: "patientId = :pid",
+            ExpressionAttributeValues: { ":pid": patientId },
+            ScanIndexForward: false,   // newest first
+            Limit: limit,
+        })
+    );
+    return (result.Items || []) as CheckupEntry[];
 }

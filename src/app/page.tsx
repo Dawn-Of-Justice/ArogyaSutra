@@ -5,12 +5,15 @@
 
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { AuthProvider, useAuth } from "../hooks/useAuth";
+import { useLanguage, broadcastLangChange } from "../hooks/useLanguage";
+import type { SupportedLang } from "../lib/i18n/translations";
 import LoginScreen from "../components/auth/LoginScreen";
 import AppShell from "../components/layout/AppShell";
 import Dashboard from "../components/dashboard/Dashboard";
 import DoctorDashboard from "../components/dashboard/DoctorDashboard";
+import type { DoctorPatientContext, PatientData } from "../components/dashboard/DoctorDashboard";
 import TimelineScreen from "../components/timeline/TimelineScreen";
 import AssistantScreen from "../components/assistant/AssistantScreen";
 import BreakGlassScreen from "../components/emergency/BreakGlassScreen";
@@ -18,24 +21,28 @@ import ProfileScreen from "../components/profile/ProfileScreen";
 import SettingsScreen from "../components/settings/SettingsScreen";
 import HelpScreen from "../components/help/HelpScreen";
 import NotificationsScreen from "../components/notifications/NotificationsScreen";
+import AccessLogScreen from "../components/access/AccessLogScreen";
 
-const PAGE_TITLES: Record<string, string> = {
-  dashboard: "Dashboard",
-  "doctor-dashboard": "Doctor Dashboard",
-  timeline: "Timeline",
-  upload: "Scan Document",
-  assistant: "AI Assistant",
-  access: "Doctor Access",
-  emergency: "Emergency",
-  settings: "Settings",
-  help: "Help & Support",
-  notifications: "Notifications",
-  profile: "Profile",
-};
+// PAGE_TITLES are now derived from translations inside AppRouter
 
 function AppRouter() {
   const { state, patient, doctor, userRole, hydrated } = useAuth();
+  const { t } = useLanguage();
   const [screen, setScreen] = useState("dashboard");
+  // Active patient session for doctor — used to gate Records nav + AI context
+  const [doctorActivePatient, setDoctorActivePatient] = useState<DoctorPatientContext | null>(null);
+  // Full patient data — lifted here so it survives DoctorDashboard unmount/remount on navigation
+  const [doctorPatientData, setDoctorPatientData] = useState<PatientData | null>(null);
+  // When a record is selected from global search, store its entryId to pass to TimelineScreen
+  const [pendingEntryId, setPendingEntryId] = useState<string | null>(null);
+
+  // Sync language from Cognito patient data on login (for new devices)
+  useEffect(() => {
+    if (patient?.language) {
+      broadcastLangChange(patient.language as SupportedLang);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [patient?.language]);
   const [showBreakGlass, setShowBreakGlass] = useState(false);
 
   // Wait for client-side session restoration to avoid hydration mismatch
@@ -63,30 +70,51 @@ function AppRouter() {
           <DoctorDashboard
             onNavigate={setScreen}
             doctorName={doctor?.fullName}
+            onPatientVerified={setDoctorActivePatient}
+            initialPatient={doctorPatientData}
+            onPatientDataChange={setDoctorPatientData}
           />
         );
       case "profile":
         return <ProfileScreen onNavigate={setScreen} />;
       case "timeline":
-        return <TimelineScreen onNavigate={setScreen} />;
+        return <TimelineScreen onNavigate={setScreen} patientId={doctorActivePatient?.cardId} initialEntryId={pendingEntryId} onEntryOpened={() => setPendingEntryId(null)} />;
       case "assistant":
-        return <AssistantScreen onNavigate={setScreen} />;
+        return <AssistantScreen onNavigate={setScreen} doctorPatientContext={doctorActivePatient ?? undefined} />;
       case "settings":
         return <SettingsScreen onNavigate={setScreen} />;
       case "help":
         return <HelpScreen onNavigate={setScreen} />;
+      case "access":
+        return <AccessLogScreen />;
       case "notifications":
         return <NotificationsScreen onNavigate={setScreen} userId={isDoctor ? doctor?.doctorId : patient?.patientId} />;
       default:
         return isDoctor
-          ? <DoctorDashboard onNavigate={setScreen} doctorName={doctor?.fullName} />
+          ? <DoctorDashboard onNavigate={setScreen} doctorName={doctor?.fullName} onPatientVerified={setDoctorActivePatient} initialPatient={doctorPatientData} onPatientDataChange={setDoctorPatientData} />
           : <Dashboard onNavigate={setScreen} />;
     }
   };
 
   const userName = isDoctor
-    ? doctor?.fullName || "Doctor"
+    ? doctor?.fullName || t("role_doctor")
     : patient?.fullName || "User";
+
+  const PAGE_TITLES: Record<string, string> = {
+    dashboard: t("page_dashboard"),
+    "doctor-dashboard": t("page_doctor_dashboard"),
+    timeline: t("page_timeline"),
+    assistant: t("page_assistant"),
+    access: t("page_access"),
+    settings: t("page_settings"),
+    help: t("page_help"),
+    notifications: t("page_notifications"),
+    profile: t("page_profile"),
+  };
+
+  const handleRecordSelect = (entryId: string) => {
+    setPendingEntryId(entryId);
+  };
 
   return (
     <AppShell
@@ -96,6 +124,8 @@ function AppRouter() {
       userName={userName}
       userRole={isDoctor ? "Doctor" : "Patient"}
       userId={isDoctor ? doctor?.doctorId : patient?.patientId}
+      activePatientId={doctorActivePatient?.cardId}
+      onRecordSelect={handleRecordSelect}
     >
       {renderScreen()}
     </AppShell>

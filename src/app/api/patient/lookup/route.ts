@@ -83,7 +83,15 @@ export async function POST(req: NextRequest) {
             // For now they are blank if not stored in Cognito
             bloodGroup: attrs["custom:blood_group"] || "—",
             weight: attrs["custom:weight"] || "—",
+            height: attrs["custom:height"] || "—",
+            bpSystolic: attrs["custom:bp_systolic"] || "",
+            bpDiastolic: attrs["custom:bp_diastolic"] || "",
+            temperature: attrs["custom:temperature"] || "",
             address: attrs["address"] || "",
+            allergies: (attrs["custom:allergies"] || "")
+                .split(",").map((s: string) => s.trim()).filter(Boolean),
+            criticalMeds: (attrs["custom:critical_meds"] || "")
+                .split(",").map((s: string) => s.trim()).filter(Boolean),
         };
 
         return NextResponse.json({ success: true, patient });

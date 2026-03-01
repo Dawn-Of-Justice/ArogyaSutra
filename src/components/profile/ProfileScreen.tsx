@@ -10,8 +10,8 @@ import React, { useState, useRef, useEffect, useCallback } from "react";
 import { useAuth } from "../../hooks/useAuth";
 import styles from "./ProfileScreen.module.css";
 import {
-    Pencil, Check, Camera, User, Phone, Heart, Shield,
-    MapPin, LogOut, Stethoscope,
+    Pencil, Check, X, Camera, User, Phone, Heart, Shield,
+    MapPin, LogOut, Stethoscope, AlertTriangle,
 } from "lucide-react";
 
 interface ProfileScreenProps {
@@ -77,6 +77,44 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
     // Doctor-specific
     const [editInstitution, setEditInstitution] = useState("");
     const [editDesignation, setEditDesignation] = useState("");
+
+    // ---- Emergency Info ----
+    const [emergencyAllergies, setEmergencyAllergies] = useState<string[]>([]);
+    const [emergencyCriticalMeds, setEmergencyCriticalMeds] = useState<string[]>([]);
+    // Doctor's own emergency data
+    const [doctorEmAllergies, setDoctorEmAllergies] = useState<string[]>([]);
+    const [doctorEmMeds, setDoctorEmMeds] = useState<string[]>([]);
+    // Edit mode
+    const [emergencyEditing, setEmergencyEditing] = useState(false);
+    const [editEmAllergiesTxt, setEditEmAllergiesTxt] = useState("");
+    const [editEmMedsTxt, setEditEmMedsTxt] = useState("");
+    const [emergencySaving, setEmergencySaving] = useState(false);
+    const [emergencySaved, setEmergencySaved] = useState(false);
+    const [emergencyError, setEmergencyError] = useState("");
+    // Visibility toggles (patient only)
+    const [emShowBloodGroup, setEmShowBloodGroup] = useState(true);
+    const [emShowAllergies, setEmShowAllergies] = useState(true);
+    const [emShowMeds, setEmShowMeds] = useState(true);
+
+    // Load emergency info from localStorage for both roles
+    useEffect(() => {
+        if (!userId) return;
+        try {
+            const raw = localStorage.getItem(`arogyasutra_emergency_${userId}`);
+            const data = raw ? JSON.parse(raw) : {};
+            const toArr = (s: string) => (s || "").split(",").map((x: string) => x.trim()).filter(Boolean);
+            if (isDoctor) {
+                setDoctorEmAllergies(toArr(data.allergies));
+                setDoctorEmMeds(toArr(data.criticalMeds));
+            } else {
+                setEmergencyAllergies(toArr(data.allergies));
+                setEmergencyCriticalMeds(toArr(data.criticalMeds));
+                setEmShowBloodGroup(data.showBloodGroup !== false);
+                setEmShowAllergies(data.showAllergies !== false);
+                setEmShowMeds(data.showMeds !== false);
+            }
+        } catch { /* ignore */ }
+    }, [userId, isDoctor]);
 
     // Sync editable fields from auth data whenever patient/doctor loads
     useEffect(() => {
@@ -191,6 +229,93 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
         },
         [userId, isDoctor, photoStorageKey]
     );
+
+    // ---- Emergency Info: open edit ----
+    const handleEditEmergency = () => {
+        if (emergencyEditing) { setEmergencyEditing(false); return; }
+        setEditEmAllergiesTxt(
+            (isDoctor ? doctorEmAllergies : emergencyAllergies).join(", ")
+        );
+        setEditEmMedsTxt(
+            (isDoctor ? doctorEmMeds : emergencyCriticalMeds).join(", ")
+        );
+        setEmergencyError("");
+        setEmergencyEditing(true);
+    };
+
+    // ---- Emergency Info: save ----
+    const handleSaveEmergency = async () => {
+        setEmergencySaving(true);
+        setEmergencyError("");
+        try {
+            const toArr = (s: string) => s.split(",").map(x => x.trim()).filter(Boolean);
+            const allergiesArr = toArr(editEmAllergiesTxt);
+            const medsArr = toArr(editEmMedsTxt);
+            if (isDoctor) {
+                localStorage.setItem(`arogyasutra_emergency_${userId}`, JSON.stringify({
+                    allergies: editEmAllergiesTxt,
+                    criticalMeds: editEmMedsTxt,
+                }));
+                setDoctorEmAllergies(allergiesArr);
+                setDoctorEmMeds(medsArr);
+            } else {
+                localStorage.setItem(`arogyasutra_emergency_${userId}`, JSON.stringify({
+                    allergies: editEmAllergiesTxt,
+                    criticalMeds: editEmMedsTxt,
+                    showBloodGroup: emShowBloodGroup,
+                    showAllergies: emShowAllergies,
+                    showMeds: emShowMeds,
+                }));
+                setEmergencyAllergies(allergiesArr);
+                setEmergencyCriticalMeds(medsArr);
+                // Also persist to Cognito so doctors can see allergies/meds during consultation
+                try {
+                    await fetch("/api/profile/update", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            userId,
+                            role: "patient",
+                            updates: {
+                                allergies: editEmAllergiesTxt,
+                                criticalMeds: editEmMedsTxt,
+                            },
+                        }),
+                    });
+                } catch { /* non-fatal — localStorage is the source of truth */ }
+            }
+            setEmergencySaved(true);
+            setTimeout(() => { setEmergencySaved(false); setEmergencyEditing(false); }, 1200);
+        } catch {
+            setEmergencyError("Failed to save. Please try again.");
+        } finally {
+            setEmergencySaving(false);
+        }
+    };
+
+    // ---- Emergency visibility toggle (instant save) ----
+    const handleToggleVisibility = (field: "bloodGroup" | "allergies" | "meds") => {
+        const next = {
+            bloodGroup: field === "bloodGroup" ? !emShowBloodGroup : emShowBloodGroup,
+            allergies: field === "allergies" ? !emShowAllergies : emShowAllergies,
+            meds: field === "meds" ? !emShowMeds : emShowMeds,
+        };
+        setEmShowBloodGroup(next.bloodGroup);
+        setEmShowAllergies(next.allergies);
+        setEmShowMeds(next.meds);
+        if (userId) {
+            try {
+                const raw = localStorage.getItem(`arogyasutra_emergency_${userId}`);
+                const data = raw ? JSON.parse(raw) : {};
+                localStorage.setItem(`arogyasutra_emergency_${userId}`, JSON.stringify({
+                    ...data,
+                    showBloodGroup: next.bloodGroup,
+                    showAllergies: next.allergies,
+                    showMeds: next.meds,
+                }));
+            } catch { /* ignore */ }
+        }
+    };
 
     // ---- Save profile edits ----
     const handleSave = async () => {
@@ -543,6 +668,90 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
                         </div>
                     </div>
 
+                    {/* Emergency Info */}
+                    <div className={`${styles.card} ${styles.cardFull}`}>
+                        <div className={styles.emCardHeader}>
+                            <h2 className={styles.cardTitle} style={{ margin: 0 }}>
+                                <span className={styles.cardTitleIcon}><AlertTriangle size={16} /></span>
+                                Emergency Info
+                            </h2>
+                            <button className={`${styles.editToggle} ${emergencyEditing ? styles.editToggleActive : ""}`} onClick={handleEditEmergency}>
+                                {emergencyEditing ? <X size={13} /> : <Pencil size={13} />}
+                                {emergencyEditing ? "Cancel" : "Edit"}
+                            </button>
+                        </div>
+
+                        {!emergencyEditing && (
+                            <p className={styles.emNote}>
+                                This information will be shown to emergency first responders
+                            </p>
+                        )}
+
+                        {emergencyEditing ? (
+                            <div className={styles.emForm}>
+                                {emergencyError && <p className={styles.emError}>{emergencyError}</p>}
+                                {emergencySaved && <p className={styles.emSuccess}>✓ Saved</p>}
+
+                                <div className={styles.emFormGroup}>
+                                    <label className={styles.emLabel}>Known Allergies <span className={styles.emLabelHint}>(comma-separated)</span></label>
+                                    <textarea className={styles.emTextarea} rows={2} placeholder="e.g. Penicillin, Sulfa drugs, Peanuts" value={editEmAllergiesTxt} onChange={e => setEditEmAllergiesTxt(e.target.value)} />
+                                </div>
+
+                                <div className={styles.emFormGroup}>
+                                    <label className={styles.emLabel}>Critical Medications <span className={styles.emLabelHint}>(comma-separated)</span></label>
+                                    <textarea className={styles.emTextarea} rows={2} placeholder="e.g. Warfarin 5mg daily, Insulin 10 units" value={editEmMedsTxt} onChange={e => setEditEmMedsTxt(e.target.value)} />
+                                </div>
+
+                                <div className={styles.emFormActions}>
+                                    <button className={styles.emCancelBtn} onClick={() => setEmergencyEditing(false)}>Cancel</button>
+                                    <button className={styles.emSaveBtn} onClick={handleSaveEmergency} disabled={emergencySaving}>
+                                        {emergencySaving ? "Saving…" : "Save"}
+                                    </button>
+                                </div>
+                            </div>
+                        ) : (
+                            <>
+                                <div className={styles.emergencyInfoGrid}>
+                                    <div className={styles.emergencySection}>
+                                        <span className={styles.emergencySectionLabel}>Allergies</span>
+                                        {emergencyAllergies.length > 0 ? (
+                                            <div className={styles.tagList}>
+                                                {emergencyAllergies.map((a, i) => <span key={i} className={styles.tagAllergy}>{a}</span>)}
+                                            </div>
+                                        ) : <span className={styles.emergencyEmpty}>None recorded</span>}
+                                    </div>
+                                    <div className={styles.emergencySection}>
+                                        <span className={styles.emergencySectionLabel}>Critical Medications</span>
+                                        {emergencyCriticalMeds.length > 0 ? (
+                                            <div className={styles.tagList}>
+                                                {emergencyCriticalMeds.map((m, i) => <span key={i} className={styles.tagMed}>{m}</span>)}
+                                            </div>
+                                        ) : <span className={styles.emergencyEmpty}>None recorded</span>}
+                                    </div>
+                                </div>
+
+                                <div className={styles.emVisDivider} />
+                                <div className={styles.emVisSection}>
+                                    <span className={styles.emVisTitle}>Visible to first responders</span>
+                                    <div className={styles.emVisGrid}>
+                                        <div className={styles.emVisRow}>
+                                            <span className={styles.emVisLabel}>Blood Group</span>
+                                            <button className={`${styles.emToggle} ${emShowBloodGroup ? styles.emToggleOn : ""}`} onClick={() => handleToggleVisibility("bloodGroup")} aria-label="Toggle blood group visibility" />
+                                        </div>
+                                        <div className={styles.emVisRow}>
+                                            <span className={styles.emVisLabel}>Allergies</span>
+                                            <button className={`${styles.emToggle} ${emShowAllergies ? styles.emToggleOn : ""}`} onClick={() => handleToggleVisibility("allergies")} aria-label="Toggle allergies visibility" />
+                                        </div>
+                                        <div className={styles.emVisRow}>
+                                            <span className={styles.emVisLabel}>Critical Medications</span>
+                                            <button className={`${styles.emToggle} ${emShowMeds ? styles.emToggleOn : ""}`} onClick={() => handleToggleVisibility("meds")} aria-label="Toggle medications visibility" />
+                                        </div>
+                                    </div>
+                                </div>
+                            </>
+                        )}
+                    </div>
+
                     {/* Emergency Contacts */}
                     {patient.emergencyContacts && patient.emergencyContacts.length > 0 && (
                         <div className={`${styles.card} ${styles.cardFull}`}>
@@ -635,6 +844,60 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
                                 </div>
                             </div>
                         </div>
+                    </div>
+
+                    {/* Doctor Emergency Info */}
+                    <div className={`${styles.card} ${styles.cardFull}`}>
+                        <div className={styles.emCardHeader}>
+                            <h2 className={styles.cardTitle} style={{ margin: 0 }}>
+                                <span className={styles.cardTitleIcon}><AlertTriangle size={16} /></span>
+                                My Emergency Info
+                            </h2>
+                            <button className={`${styles.editToggle} ${emergencyEditing ? styles.editToggleActive : ""}`} onClick={handleEditEmergency}>
+                                {emergencyEditing ? <X size={13} /> : <Pencil size={13} />}
+                                {emergencyEditing ? "Cancel" : "Edit"}
+                            </button>
+                        </div>
+
+                        {emergencyEditing ? (
+                            <div className={styles.emForm}>
+                                {emergencyError && <p className={styles.emError}>{emergencyError}</p>}
+                                {emergencySaved && <p className={styles.emSuccess}>✓ Saved</p>}
+                                <div className={styles.emFormGroup}>
+                                    <label className={styles.emLabel}>Known Allergies <span className={styles.emLabelHint}>(comma-separated)</span></label>
+                                    <textarea className={styles.emTextarea} rows={2} placeholder="e.g. Penicillin, Sulfa drugs, Peanuts" value={editEmAllergiesTxt} onChange={e => setEditEmAllergiesTxt(e.target.value)} />
+                                </div>
+                                <div className={styles.emFormGroup}>
+                                    <label className={styles.emLabel}>Critical Medications <span className={styles.emLabelHint}>(comma-separated)</span></label>
+                                    <textarea className={styles.emTextarea} rows={2} placeholder="e.g. Warfarin 5mg daily, Insulin 10 units" value={editEmMedsTxt} onChange={e => setEditEmMedsTxt(e.target.value)} />
+                                </div>
+                                <div className={styles.emFormActions}>
+                                    <button className={styles.emCancelBtn} onClick={() => setEmergencyEditing(false)}>Cancel</button>
+                                    <button className={styles.emSaveBtn} onClick={handleSaveEmergency} disabled={emergencySaving}>
+                                        {emergencySaving ? "Saving…" : "Save"}
+                                    </button>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className={styles.emergencyInfoGrid}>
+                                <div className={styles.emergencySection}>
+                                    <span className={styles.emergencySectionLabel}>Allergies</span>
+                                    {doctorEmAllergies.length > 0 ? (
+                                        <div className={styles.tagList}>
+                                            {doctorEmAllergies.map((a, i) => <span key={i} className={styles.tagAllergy}>{a}</span>)}
+                                        </div>
+                                    ) : <span className={styles.emergencyEmpty}>None recorded</span>}
+                                </div>
+                                <div className={styles.emergencySection}>
+                                    <span className={styles.emergencySectionLabel}>Critical Medications</span>
+                                    {doctorEmMeds.length > 0 ? (
+                                        <div className={styles.tagList}>
+                                            {doctorEmMeds.map((m, i) => <span key={i} className={styles.tagMed}>{m}</span>)}
+                                        </div>
+                                    ) : <span className={styles.emergencyEmpty}>None recorded</span>}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </>
             )}

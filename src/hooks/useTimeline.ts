@@ -14,7 +14,7 @@ import type {
 } from "../lib/types/timeline";
 import { useAuth } from "./useAuth";
 
-export function useTimeline() {
+export function useTimeline(overridePatientId?: string) {
     const { patient } = useAuth();
     const [entries, setEntries] = useState<HealthEntry[]>([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -22,15 +22,17 @@ export function useTimeline() {
     const [hasMore, setHasMore] = useState(false);
     const [page, setPage] = useState(1);
 
+    const resolvedId = overridePatientId || patient?.patientId;
+
     const loadTimeline = useCallback(
         async (filters?: TimelineFilters) => {
-            if (!patient) return;
+            if (!resolvedId) return;
             setIsLoading(true);
             setError(null);
 
             try {
                 const request: TimelineRequest = {
-                    patientId: patient.patientId,
+                    patientId: resolvedId,
                     filters: filters || {},
                     options: { page: 1, pageSize: 20, sortOrder: "newest", groupBy: "date" },
                 };
@@ -44,16 +46,16 @@ export function useTimeline() {
                 setIsLoading(false);
             }
         },
-        [patient]
+        [resolvedId]
     );
 
     const loadMore = useCallback(async () => {
-        if (!patient || !hasMore) return;
+        if (!resolvedId || !hasMore) return;
         setIsLoading(true);
 
         try {
             const request: TimelineRequest = {
-                patientId: patient.patientId,
+                patientId: resolvedId,
                 filters: {},
                 options: { page: page + 1, pageSize: 20, sortOrder: "newest", groupBy: "date" },
             };
@@ -66,7 +68,7 @@ export function useTimeline() {
         } finally {
             setIsLoading(false);
         }
-    }, [patient, hasMore, page]);
+    }, [resolvedId, hasMore, page]);
 
     return {
         entries,

@@ -6,8 +6,10 @@
 
 import React, { useState, useEffect } from "react";
 import styles from "./SettingsScreen.module.css";
-import { Palette, Bell, Package, TriangleAlert, CalendarClock, Download, ShieldAlert, Trash2 } from "lucide-react";
+import { Palette, Bell, Package, TriangleAlert, CalendarClock, Download, Trash2 } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
+import { broadcastLangChange } from "../../hooks/useLanguage";
+import type { SupportedLang } from "../../lib/i18n/translations";
 
 interface SettingsScreenProps {
     onNavigate: (screen: string) => void;
@@ -41,15 +43,6 @@ export default function SettingsScreen({ onNavigate }: SettingsScreenProps) {
     const [pushNotifs, setPushNotifs] = useState(true);
     const [apptReminders, setApptReminders] = useState(true);
 
-    // ---- Emergency Info ----
-    const [emergencyOpen, setEmergencyOpen] = useState(false);
-    const [editBloodGroup, setEditBloodGroup] = useState(patient?.bloodGroup ?? "");
-    const [editAllergies, setEditAllergies] = useState("");
-    const [editCriticalMeds, setEditCriticalMeds] = useState("");
-    const [emergencySaving, setEmergencySaving] = useState(false);
-    const [emergencySaved, setEmergencySaved] = useState(false);
-    const [emergencyError, setEmergencyError] = useState("");
-
     // ---- Export ----
     const [exporting, setExporting] = useState(false);
 
@@ -59,20 +52,17 @@ export default function SettingsScreen({ onNavigate }: SettingsScreenProps) {
     const [deleting, setDeleting] = useState(false);
     const [deleteError, setDeleteError] = useState("");
 
+    // Sync language when patient data loads
+    useEffect(() => {
+        if (patient?.language) setLanguage(patient.language);
+    }, [patient?.language]);
+
     // ---- Hydrate from localStorage ----
     useEffect(() => {
         const savedTheme = localStorage.getItem("arogyasutra_theme");
         setDarkMode(savedTheme === "dark");
         setPushNotifs(loadPref("arogyasutra_notif_push", true));
         setApptReminders(loadPref("arogyasutra_notif_appt", true));
-        if (patientId) {
-            const em = loadPref<{ allergies: string; criticalMeds: string }>(
-                `arogyasutra_emergency_${patientId}`,
-                { allergies: "", criticalMeds: "" }
-            );
-            setEditAllergies(em.allergies);
-            setEditCriticalMeds(em.criticalMeds);
-        }
     }, [patientId]);
 
     // ---- Dark mode ----
@@ -89,16 +79,18 @@ export default function SettingsScreen({ onNavigate }: SettingsScreenProps) {
     };
 
     // ---- Language ----
-    const handleSaveLanguage = async () => {
-        if (!patientId || language === (patient?.language ?? "en")) return;
+    const handleSaveLanguage = async (lang: string) => {
+        if (!patientId) return;
+        setLanguage(lang);
+        broadcastLangChange(lang as SupportedLang);
         setLangSaving(true);
         try {
             await fetch("/api/profile/update", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ userId: patientId, role: "patient", updates: { language } }),
+                body: JSON.stringify({ userId: patientId, role: "patient", updates: { language: lang } }),
             });
-            updatePatient({ language: language as "en" });
+            updatePatient({ language: lang as "en" });
             setLangSaved(true);
             setTimeout(() => setLangSaved(false), 2000);
         } catch { /* silent */ } finally {
@@ -159,34 +151,6 @@ export default function SettingsScreen({ onNavigate }: SettingsScreenProps) {
         }
     };
 
-    // ---- Emergency info ----
-    const handleSaveEmergency = async () => {
-        setEmergencySaving(true);
-        setEmergencyError("");
-        try {
-            if (patientId && editBloodGroup !== (patient?.bloodGroup ?? "")) {
-                await fetch("/api/profile/update", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ userId: patientId, role: "patient", updates: { bloodGroup: editBloodGroup } }),
-                });
-                updatePatient({ bloodGroup: editBloodGroup });
-            }
-            if (patientId) {
-                savePref(`arogyasutra_emergency_${patientId}`, {
-                    allergies: editAllergies,
-                    criticalMeds: editCriticalMeds,
-                });
-            }
-            setEmergencySaved(true);
-            setTimeout(() => { setEmergencySaved(false); setEmergencyOpen(false); }, 1500);
-        } catch {
-            setEmergencyError("Failed to save. Please try again.");
-        } finally {
-            setEmergencySaving(false);
-        }
-    };
-
     // ---- Delete account ----
     const handleDelete = async () => {
         if (!patientId || deleteInput !== "DELETE") return;
@@ -236,7 +200,8 @@ export default function SettingsScreen({ onNavigate }: SettingsScreenProps) {
                             <select
                                 className={styles.select}
                                 value={language}
-                                onChange={(e) => setLanguage(e.target.value)}
+                                onChange={(e) => handleSaveLanguage(e.target.value)}
+                                disabled={langSaving}
                             >
                                 <option value="en">English</option>
                                 <option value="hi">हिन्दी</option>
@@ -247,15 +212,7 @@ export default function SettingsScreen({ onNavigate }: SettingsScreenProps) {
                                 <option value="gu">ગુજરાતી</option>
                                 <option value="kn">ಕನ್ನಡ</option>
                             </select>
-                            {language !== (patient?.language ?? "en") && (
-                                <button
-                                    className={styles.saveBtn}
-                                    onClick={handleSaveLanguage}
-                                    disabled={langSaving}
-                                >
-                                    {langSaving ? "Saving…" : langSaved ? "✓ Saved" : "Save"}
-                                </button>
-                            )}
+                            {langSaved && <span className={styles.savedHint}>✓ Saved</span>}
                         </div>
                     </div>
                 )}
@@ -313,80 +270,6 @@ export default function SettingsScreen({ onNavigate }: SettingsScreenProps) {
                     </button>
                 </div>
 
-                {/* Emergency Info */}
-                <div className={styles.expandableRow}>
-                    <div className={styles.rowFlex}>
-                        <div className={styles.rowInfo}>
-                            <span className={styles.rowLabel}>
-                                <span className={styles.rowLabelIcon}><ShieldAlert size={13} /></span>
-                                Emergency Info
-                            </span>
-                            <span className={styles.rowDesc}>Blood group, known allergies, and critical medications visible during emergencies</span>
-                        </div>
-                        <button
-                            className={styles.actionBtn}
-                            onClick={() => setEmergencyOpen(o => !o)}
-                        >
-                            {emergencyOpen ? "Close" : "Edit"}
-                        </button>
-                    </div>
-
-                    {emergencyOpen && (
-                        <div className={styles.emergencyForm}>
-                            {emergencyError && <p className={styles.formError}>{emergencyError}</p>}
-                            {emergencySaved && <p className={styles.formSuccess}>✓ Saved successfully</p>}
-
-                            <div className={styles.formRow}>
-                                <div className={styles.formGroup}>
-                                    <label className={styles.formLabel}>Blood Group</label>
-                                    <select
-                                        className={styles.select}
-                                        value={editBloodGroup}
-                                        onChange={e => setEditBloodGroup(e.target.value)}
-                                    >
-                                        <option value="">— Select —</option>
-                                        {["A+", "A−", "B+", "B−", "O+", "O−", "AB+", "AB−"].map(g => (
-                                            <option key={g} value={g}>{g}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div className={styles.formGroup}>
-                                <label className={styles.formLabel}>Known Allergies</label>
-                                <textarea
-                                    className={styles.textarea}
-                                    rows={2}
-                                    placeholder="e.g. Penicillin, Sulfa drugs, Peanuts"
-                                    value={editAllergies}
-                                    onChange={e => setEditAllergies(e.target.value)}
-                                />
-                            </div>
-
-                            <div className={styles.formGroup}>
-                                <label className={styles.formLabel}>Critical Medications</label>
-                                <textarea
-                                    className={styles.textarea}
-                                    rows={2}
-                                    placeholder="e.g. Warfarin 5mg daily, Insulin 10 units"
-                                    value={editCriticalMeds}
-                                    onChange={e => setEditCriticalMeds(e.target.value)}
-                                />
-                            </div>
-
-                            <div className={styles.formActions}>
-                                <button className={styles.cancelBtn} onClick={() => setEmergencyOpen(false)}>Cancel</button>
-                                <button
-                                    className={styles.saveBtn}
-                                    onClick={handleSaveEmergency}
-                                    disabled={emergencySaving}
-                                >
-                                    {emergencySaving ? "Saving…" : "Save Emergency Info"}
-                                </button>
-                            </div>
-                        </div>
-                    )}
-                </div>
             </div>
 
             {/* ======== Danger Zone ======== */}

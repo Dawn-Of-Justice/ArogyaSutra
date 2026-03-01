@@ -8,6 +8,7 @@
 
 import React, { useState, Suspense, lazy } from "react";
 import { isValidCardId, normalizeCardInput } from "../../lib/utils/cardId";
+import type { CheckupEntry } from "../../lib/aws/dynamodb";
 import styles from "./DoctorDashboard.module.css";
 
 // Lazy-load the 3D body model to avoid SSR issues with Three.js
@@ -116,6 +117,19 @@ const Icon = {
             <polyline points="9 18 15 12 9 6" />
         </svg>
     ),
+    shieldCheck: (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+            <polyline points="9 12 11 14 15 10" />
+        </svg>
+    ),
+    alertCircle: (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="8" x2="12" y2="12" />
+            <line x1="12" y1="16" x2="12.01" y2="16" />
+        </svg>
+    ),
 };
 
 /* ---- History item icon map (text-based, not emoji) ---- */
@@ -128,7 +142,7 @@ function historyIcon(type: string) {
     }
 }
 
-interface PatientData {
+export interface PatientData {
     cardId: string;
     name: string;
     age: number;
@@ -139,8 +153,9 @@ interface PatientData {
     phone?: string;
     diagnosis: string;
     vitals: {
-        bp: string;
-        heartRate: string;
+        bpSystolic: string;
+        bpDiastolic: string;
+        temperature: string;
     };
     history: {
         type: string;
@@ -153,16 +168,99 @@ interface PatientData {
         title: string;
         date: string;
     }[];
+    allergies: string[];
+    criticalMeds: string[];
+    checkupHistory: CheckupEntry[];
+}
+
+/** Minimal patient context shared with the rest of the app (e.g. AssistantScreen). */
+export interface DoctorPatientContext {
+    cardId: string;
+    name: string;
+    age: number;
+    gender: string;
+    diagnosis: string;
+    vitals: { bpSystolic: string; bpDiastolic: string; temperature: string };
+    history: { type: string; label: string; date: string }[];
 }
 
 type VerifyStep = "card" | "dob" | "otp";
 
+// ---- Doctor Welcome Panel (shown when no patient is verified) ----
+function DoctorWelcomePanel({ doctorName }: { doctorName?: string }) {
+    const hour = new Date().getHours();
+    const greeting =
+        hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+    const today = new Date().toLocaleDateString("en-IN", {
+        weekday: "long", day: "numeric", month: "long", year: "numeric",
+    });
+
+    const tips = [
+        "Verify a patient to view their 3D anatomical model and health records.",
+        "Use AI Assistant to query a patient's medical history after verification.",
+        "Schedule follow-up appointments directly from the patient panel.",
+        "Patient sessions are encrypted — data is not stored post-session.",
+    ];
+    const tip = tips[new Date().getDay() % tips.length];
+
+    return (
+        <div className={styles.welcomePanel}>
+            {/* Greeting */}
+            <div className={styles.welcomeGreeting}>
+                <span className={styles.welcomeIcon}>{Icon.stethoscope}</span>
+                <div>
+                    <h2 className={styles.welcomeTitle}>
+                        {greeting}{doctorName ? `, Dr. ${doctorName.split(" ")[0]}` : ""}
+                    </h2>
+                    <p className={styles.welcomeDate}>{today}</p>
+                </div>
+            </div>
+
+            {/* Daily tip */}
+            <div className={styles.welcomeTip}>
+                <span className={styles.welcomeTipIcon}>{Icon.alertCircle}</span>
+                <p>{tip}</p>
+            </div>
+        </div>
+    );
+}
+
+// ---- Sparkline (inline SVG, no external dependencies) ----
+function Sparkline({ values, color = "var(--dd-accent)" }: { values: number[]; color?: string }) {
+    if (values.length < 2) return <span className="sparklinePlaceholder">No history yet</span>;
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const range = max - min || 1;
+    const W = 72, H = 26, pad = 3;
+    const points = values
+        .map((v, i) => {
+            const x = pad + (i / (values.length - 1)) * (W - pad * 2);
+            const y = H - pad - ((v - min) / range) * (H - pad * 2);
+            return `${x.toFixed(1)},${y.toFixed(1)}`;
+        })
+        .join(" ");
+    const [lastX, lastY] = points.split(" ").at(-1)!.split(",");
+    return (
+        <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ overflow: "visible", display: "block" }}>
+            <polyline points={points} fill="none" stroke={color} strokeWidth="1.5"
+                strokeLinejoin="round" strokeLinecap="round" opacity="0.8" />
+            <circle cx={lastX} cy={lastY} r="3" fill={color} />
+        </svg>
+    );
+}
+
 interface Props {
     onNavigate: (screen: string) => void;
     doctorName?: string;
+    /** Called when a patient session starts (context) or ends (null). */
+    onPatientVerified?: (context: DoctorPatientContext | null) => void;
+    /** Full patient data persisted across navigations — pass back on remount to restore session. */
+    initialPatient?: PatientData | null;
+    /** Called whenever patient state changes so the parent can persist it across navigations. */
+    onPatientDataChange?: (patient: PatientData | null) => void;
 }
 
-export default function DoctorDashboard({ onNavigate, doctorName }: Props) {
+export default function DoctorDashboard({ onNavigate, doctorName, onPatientVerified, initialPatient, onPatientDataChange }: Props) {
     // Verification state
     const [verifyStep, setVerifyStep] = useState<VerifyStep>("card");
     const [cardId, setCardId] = useState("");
@@ -172,7 +270,15 @@ export default function DoctorDashboard({ onNavigate, doctorName }: Props) {
     const [isVerifying, setIsVerifying] = useState(false);
 
     // Single patient session (null until verified)
-    const [patient, setPatient] = useState<PatientData | null>(null);
+    // initialPatient allows session to be restored after navigating away and back
+    const [patient, setPatient] = useState<PatientData | null>(initialPatient ?? null);
+
+    // Sync patient state to parent without calling setState during render
+    const onPatientDataChangeRef = React.useRef(onPatientDataChange);
+    onPatientDataChangeRef.current = onPatientDataChange;
+    React.useEffect(() => {
+        onPatientDataChangeRef.current?.(patient);
+    }, [patient]);
 
     // ---- Verification handlers ----
     const handleCardSubmit = (e: React.FormEvent) => {
@@ -206,6 +312,12 @@ export default function DoctorDashboard({ onNavigate, doctorName }: Props) {
             let patientPhone = "";
             let bloodGroup = "—";
             let weight = "—";
+            let height = "—";
+            let bpSystolic = "";
+            let bpDiastolic = "";
+            let temperature = "";
+            let allergies: string[] = [];
+            let criticalMeds: string[] = [];
 
             try {
                 const res = await fetch("/api/patient/lookup", {
@@ -222,30 +334,55 @@ export default function DoctorDashboard({ onNavigate, doctorName }: Props) {
                         patientPhone = data.patient.phone || "";
                         bloodGroup = data.patient.bloodGroup || "—";
                         weight = data.patient.weight || "—";
+                        height = data.patient.height || "—";
+                        bpSystolic = data.patient.bpSystolic || "";
+                        bpDiastolic = data.patient.bpDiastolic || "";
+                        temperature = data.patient.temperature || "";
+                        allergies = data.patient.allergies || [];
+                        criticalMeds = data.patient.criticalMeds || [];
                     }
                 }
             } catch {
-                // Backend not reachable — use minimal info from the card ID itself
                 console.warn("Patient lookup API unavailable — using fallback data");
             }
+
+            // Fetch checkup history (sparklines)
+            let checkupHistory: CheckupEntry[] = [];
+            try {
+                const hr = await fetch(`/api/checkup?patientId=${encodeURIComponent(cardId)}&limit=12`);
+                if (hr.ok) {
+                    const hd = await hr.json();
+                    checkupHistory = hd.history || [];
+                }
+            } catch { /* non-fatal */ }
 
             const verifiedPatient: PatientData = {
                 cardId,
                 name: patientName,
                 age: patientAge,
                 gender: patientGender,
-                height: "—",
+                height,
                 weight,
                 bloodGroup,
-                // Diagnosis and history come from medical records (HealthLake / timeline)
-                // These will be populated in a future Medical Records API integration
                 diagnosis: "Refer to medical records",
-                vitals: { bp: "—", heartRate: "—" },
+                vitals: { bpSystolic, bpDiastolic, temperature },
                 history: [],
                 annotations: [],
+                allergies,
+                criticalMeds,
+                checkupHistory,
             };
 
             setPatient(verifiedPatient);
+            onPatientVerified?.({
+                cardId: verifiedPatient.cardId,
+                name: verifiedPatient.name,
+                age: verifiedPatient.age,
+                gender: verifiedPatient.gender,
+                diagnosis: verifiedPatient.diagnosis,
+                vitals: verifiedPatient.vitals,
+                history: verifiedPatient.history,
+            });
             setCardId("");
             setDob("");
             setOtp("");
@@ -259,6 +396,7 @@ export default function DoctorDashboard({ onNavigate, doctorName }: Props) {
 
     const handleEndSession = () => {
         setPatient(null);
+        onPatientVerified?.(null);
         setVerifyStep("card");
         setVerifyError("");
         setCardId("");
@@ -271,6 +409,19 @@ export default function DoctorDashboard({ onNavigate, doctorName }: Props) {
 
     // ---- Schedule appointment (doctor sets next visit) ----
     const [schedOpen, setSchedOpen] = useState(false);
+
+    // ---- Checkup edit state ----
+    const [checkupEditing, setCheckupEditing] = useState(false);
+    const [editBpSys, setEditBpSys] = useState("");
+    const [editBpDia, setEditBpDia] = useState("");
+    const [editTemp, setEditTemp] = useState("");
+    const [editHeight, setEditHeight] = useState("");
+    const [editWeight, setEditWeight] = useState("");
+    const [editAllergies, setEditAllergies] = useState("");
+    const [editMeds, setEditMeds] = useState("");
+    const [checkupSaving, setCheckupSaving] = useState(false);
+    const [checkupSaved, setCheckupSaved] = useState(false);
+    const [checkupError, setCheckupError] = useState("");
     const [schedDate, setSchedDate] = useState("");
     const [schedTime, setSchedTime] = useState("");
     const [schedSpecialty, setSchedSpecialty] = useState("");
@@ -314,8 +465,198 @@ export default function DoctorDashboard({ onNavigate, doctorName }: Props) {
         }
     };
 
+    // ---- Save checkup (vitals + measurements + allergy/meds) ----
+    const handleSaveCheckup = async () => {
+        if (!patient) return;
+        setCheckupSaving(true);
+        setCheckupError("");
+        try {
+            const toArr = (s: string) => s.split(",").map(x => x.trim()).filter(Boolean);
+            const newAllergies = toArr(editAllergies);
+            const newMeds = toArr(editMeds);
+
+            // 1. Persist vitals + measurements to Cognito (via profile update)
+            await fetch("/api/profile/update", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    userId: doctorName || "doctor",  // logged-in doctor id
+                    role: "doctor",
+                    updates: {
+                        targetPatientId: patient.cardId,
+                        bpSystolic: editBpSys,
+                        bpDiastolic: editBpDia,
+                        temperature: editTemp,
+                        height: editHeight,
+                        weight: editWeight,
+                        allergies: editAllergies,
+                        criticalMeds: editMeds,
+                    },
+                }),
+            });
+
+            // 2. Persist checkup reading to DynamoDB for timeline history
+            if (editBpSys && editBpDia && editTemp) {
+                await fetch("/api/checkup", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        patientId: patient.cardId,
+                        bpSystolic: Number(editBpSys),
+                        bpDiastolic: Number(editBpDia),
+                        temperature: Number(editTemp),
+                        height: editHeight || patient.height,
+                        weight: editWeight || patient.weight,
+                        recordedBy: doctorName || "doctor",
+                    }),
+                });
+            }
+
+            // 3. Update local patient state
+            const newEntry = editBpSys && editBpDia && editTemp ? {
+                patientId: patient.cardId,
+                checkupId: new Date().toISOString(),
+                bpSystolic: Number(editBpSys),
+                bpDiastolic: Number(editBpDia),
+                temperature: Number(editTemp),
+                height: editHeight || undefined,
+                weight: editWeight || undefined,
+                recordedBy: doctorName || "doctor",
+                recordedAt: new Date().toISOString(),
+            } : null;
+
+            setPatient(prev => prev ? {
+                ...prev,
+                height: editHeight || prev.height,
+                weight: editWeight || prev.weight,
+                vitals: {
+                    bpSystolic: editBpSys || prev.vitals.bpSystolic,
+                    bpDiastolic: editBpDia || prev.vitals.bpDiastolic,
+                    temperature: editTemp || prev.vitals.temperature,
+                },
+                allergies: newAllergies.length > 0 ? newAllergies : prev.allergies,
+                criticalMeds: newMeds.length > 0 ? newMeds : prev.criticalMeds,
+                checkupHistory: newEntry ? [newEntry, ...prev.checkupHistory] : prev.checkupHistory,
+            } : null);
+
+            setCheckupSaved(true);
+            setTimeout(() => { setCheckupSaved(false); setCheckupEditing(false); }, 1500);
+        } catch {
+            setCheckupError("Could not save. Please try again.");
+        } finally {
+            setCheckupSaving(false);
+        }
+    };
+
     return (
-        <div className={styles.doctorDashboard}>
+        <div className={`${styles.doctorDashboard}${!patient ? " " + styles.noPatientDash : ""}`}>
+            {!patient ? (
+                /* ---- No-patient: single centered onboarding card ---- */
+                <div className={styles.landingCard}>
+                    {/* Greeting header */}
+                    <div className={styles.landingHeader}>
+                        <span className={styles.landingHeaderIcon}>{Icon.stethoscope}</span>
+                        <div>
+                            <h1 className={styles.landingTitle}>
+                                {(() => {
+                                    const hour = new Date().getHours();
+                                    const g = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+                                    return `${g}${doctorName ? `, Dr. ${doctorName.split(" ")[0]}` : ""}`;
+                                })()}
+                            </h1>
+                            <p className={styles.landingSubtitle}>
+                                {new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className={styles.landingDivider} />
+
+                    {/* Verify form */}
+                    <div className={styles.landingVerify}>
+                        <h2 className={styles.landingVerifyTitle}>Verify Patient</h2>
+                        <p className={styles.landingVerifySubtitle}>Enter patient credentials to begin the session</p>
+
+                        {/* Steps */}
+                        <div className={styles.verifySteps}>
+                            <div className={`${styles.verifyStep} ${verifyStep === "card" || verifyStep === "dob" || verifyStep === "otp" ? styles.verifyStepActive : ""}`}>
+                                <span className={styles.verifyStepNum}>1</span>
+                                <span className={styles.verifyStepLabel}>Card ID</span>
+                            </div>
+                            <div className={styles.verifyStepLine} />
+                            <div className={`${styles.verifyStep} ${verifyStep === "dob" || verifyStep === "otp" ? styles.verifyStepActive : ""}`}>
+                                <span className={styles.verifyStepNum}>2</span>
+                                <span className={styles.verifyStepLabel}>DOB</span>
+                            </div>
+                            <div className={styles.verifyStepLine} />
+                            <div className={`${styles.verifyStep} ${verifyStep === "otp" ? styles.verifyStepActive : ""}`}>
+                                <span className={styles.verifyStepNum}>3</span>
+                                <span className={styles.verifyStepLabel}>OTP</span>
+                            </div>
+                        </div>
+
+                        {verifyError && (
+                            <div className={styles.verifyError}>
+                                <span className={styles.verifyErrorIcon}>{Icon.alertTriangle}</span>
+                                {verifyError}
+                            </div>
+                        )}
+
+                        {verifyStep === "card" && (
+                            <form onSubmit={handleCardSubmit} className={styles.verifyForm}>
+                                <div>
+                                    <label className={styles.verifyLabel}>Patient Card ID</label>
+                                    <input type="text" className={styles.verifyInput} placeholder="AS-XXXX-XXXX"
+                                        value={cardId} onChange={(e) => setCardId(normalizeCardInput(e.target.value))}
+                                        maxLength={12} autoFocus />
+                                </div>
+                                <p className={styles.verifyHint}>Enter the Card ID from the patient&apos;s ArogyaSutra card</p>
+                                <button type="submit" className={styles.verifyBtn} disabled={!isValidCardId(cardId)}>Continue</button>
+                            </form>
+                        )}
+                        {verifyStep === "dob" && (
+                            <form onSubmit={handleDobSubmit} className={styles.verifyForm}>
+                                <div>
+                                    <label className={styles.verifyLabel}>Patient Date of Birth</label>
+                                    <input type="date" className={`${styles.verifyInput} ${styles.verifyInputNormal}`}
+                                        value={dob} onChange={(e) => setDob(e.target.value)} autoFocus />
+                                </div>
+                                <button type="submit" className={styles.verifyBtn} disabled={!dob}>Verify &amp; Send OTP</button>
+                            </form>
+                        )}
+                        {verifyStep === "otp" && (
+                            <form onSubmit={handleOtpSubmit} className={styles.verifyForm}>
+                                <div>
+                                    <label className={styles.verifyLabel}>Patient OTP</label>
+                                    <p className={styles.verifyHint} style={{ marginBottom: 8 }}>OTP sent to patient&apos;s registered mobile</p>
+                                    {DEV_OTP && <p className={styles.devOtpHint}>Dev OTP: {DEV_OTP}</p>}
+                                    <div className={styles.otpRow}>
+                                        {[0, 1, 2, 3, 4, 5].map((i) => (
+                                            <input key={i} type="text" className={styles.otpDigit} maxLength={1}
+                                                value={otp[i] || ""}
+                                                onChange={(e) => {
+                                                    const val = e.target.value.replace(/\D/g, "");
+                                                    const arr = otp.split(""); arr[i] = val; setOtp(arr.join(""));
+                                                    if (val && e.target.nextElementSibling) (e.target.nextElementSibling as HTMLInputElement).focus();
+                                                }}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === "Backspace" && !otp[i] && e.currentTarget.previousElementSibling)
+                                                        (e.currentTarget.previousElementSibling as HTMLInputElement).focus();
+                                                }}
+                                                autoFocus={i === 0} />
+                                        ))}
+                                    </div>
+                                </div>
+                                <button type="submit" className={styles.verifyBtn} disabled={isVerifying || otp.length !== 6}>
+                                    {isVerifying ? "Verifying..." : "Verify Patient"}
+                                </button>
+                            </form>
+                        )}
+                    </div>
+                </div>
+            ) : (
+                /* ---- Patient verified: two-column layout ---- */
+                <>
             {/* ---- Left Column: 3D Body Model ---- */}
             <div className={styles.leftColumn}>
                 <div className={styles.bodyModelArea}>
@@ -330,10 +671,7 @@ export default function DoctorDashboard({ onNavigate, doctorName }: Props) {
                             />
                         </Suspense>
                     ) : (
-                        <div className={styles.bodyModelPlaceholder}>
-                            <span className={styles.placeholderIcon}>{Icon.scan}</span>
-                            <span>Verify a patient to view anatomical model</span>
-                        </div>
+                        <DoctorWelcomePanel doctorName={doctorName} />
                     )}
 
                     {/* Annotation card (floating) */}
@@ -353,166 +691,48 @@ export default function DoctorDashboard({ onNavigate, doctorName }: Props) {
 
             {/* ---- Right Column ---- */}
             <div className={styles.rightColumn}>
-                {!patient ? (
-                    <div className={styles.verifyPanel}>
-                        <h2 className={styles.verifyTitle}>Verify Patient</h2>
-                        <p className={styles.verifySubtitle}>
-                            Enter patient credentials to access their health records
-                        </p>
-
-                        {/* Steps */}
-                        <div className={styles.verifySteps}>
-                            <div className={`${styles.verifyStep} ${verifyStep === "card" || verifyStep === "dob" || verifyStep === "otp"
-                                ? styles.verifyStepActive : ""
-                                }`}>
-                                <span className={styles.verifyStepNum}>1</span>
-                                <span className={styles.verifyStepLabel}>Card ID</span>
-                            </div>
-                            <div className={styles.verifyStepLine} />
-                            <div className={`${styles.verifyStep} ${verifyStep === "dob" || verifyStep === "otp"
-                                ? styles.verifyStepActive : ""
-                                }`}>
-                                <span className={styles.verifyStepNum}>2</span>
-                                <span className={styles.verifyStepLabel}>DOB</span>
-                            </div>
-                            <div className={styles.verifyStepLine} />
-                            <div className={`${styles.verifyStep} ${verifyStep === "otp" ? styles.verifyStepActive : ""
-                                }`}>
-                                <span className={styles.verifyStepNum}>3</span>
-                                <span className={styles.verifyStepLabel}>OTP</span>
-                            </div>
-                        </div>
-
-                        {verifyError && (
-                            <div className={styles.verifyError}>
-                                <span className={styles.verifyErrorIcon}>{Icon.alertTriangle}</span>
-                                {verifyError}
-                            </div>
-                        )}
-
-                        {/* Step 1: Card ID */}
-                        {verifyStep === "card" && (
-                            <form onSubmit={handleCardSubmit} className={styles.verifyForm}>
-                                <div>
-                                    <label className={styles.verifyLabel}>Patient Card ID</label>
-                                    <input
-                                        type="text"
-                                        className={styles.verifyInput}
-                                        placeholder="AS-XXXX-XXXX"
-                                        value={cardId}
-                                        onChange={(e) => setCardId(normalizeCardInput(e.target.value))}
-                                        maxLength={12}
-                                        autoFocus
-                                    />
-                                </div>
-                                <p className={styles.verifyHint}>
-                                    Enter the Card ID from the patient&apos;s ArogyaSutra card
-                                </p>
-                                <button
-                                    type="submit"
-                                    className={styles.verifyBtn}
-                                    disabled={!isValidCardId(cardId)}
-                                >
-                                    Continue
-                                </button>
-                            </form>
-                        )}
-
-                        {/* Step 2: DOB */}
-                        {verifyStep === "dob" && (
-                            <form onSubmit={handleDobSubmit} className={styles.verifyForm}>
-                                <div>
-                                    <label className={styles.verifyLabel}>Patient Date of Birth</label>
-                                    <input
-                                        type="date"
-                                        className={`${styles.verifyInput} ${styles.verifyInputNormal}`}
-                                        value={dob}
-                                        onChange={(e) => setDob(e.target.value)}
-                                        autoFocus
-                                    />
-                                </div>
-                                <button
-                                    type="submit"
-                                    className={styles.verifyBtn}
-                                    disabled={!dob}
-                                >
-                                    Verify &amp; Send OTP
-                                </button>
-                            </form>
-                        )}
-
-                        {/* Step 3: OTP */}
-                        {verifyStep === "otp" && (
-                            <form onSubmit={handleOtpSubmit} className={styles.verifyForm}>
-                                <div>
-                                    <label className={styles.verifyLabel}>Patient OTP</label>
-                                    <p className={styles.verifyHint} style={{ marginBottom: 8 }}>
-                                        OTP sent to patient&apos;s registered mobile
-                                    </p>
-                                    {DEV_OTP && (
-                                        <p className={styles.devOtpHint}>
-                                            Dev OTP: {DEV_OTP}
-                                        </p>
-                                    )}
-                                    <div className={styles.otpRow}>
-                                        {[0, 1, 2, 3, 4, 5].map((i) => (
-                                            <input
-                                                key={i}
-                                                type="text"
-                                                className={styles.otpDigit}
-                                                maxLength={1}
-                                                value={otp[i] || ""}
-                                                onChange={(e) => {
-                                                    const val = e.target.value.replace(/\D/g, "");
-                                                    const arr = otp.split("");
-                                                    arr[i] = val;
-                                                    setOtp(arr.join(""));
-                                                    if (val && e.target.nextElementSibling) {
-                                                        (e.target.nextElementSibling as HTMLInputElement).focus();
-                                                    }
-                                                }}
-                                                onKeyDown={(e) => {
-                                                    if (e.key === "Backspace" && !otp[i] && e.currentTarget.previousElementSibling) {
-                                                        (e.currentTarget.previousElementSibling as HTMLInputElement).focus();
-                                                    }
-                                                }}
-                                                autoFocus={i === 0}
-                                            />
-                                        ))}
-                                    </div>
-                                </div>
-                                <button
-                                    type="submit"
-                                    className={styles.verifyBtn}
-                                    disabled={isVerifying || otp.length !== 6}
-                                >
-                                    {isVerifying ? "Verifying..." : "Verify Patient"}
-                                </button>
-                            </form>
-                        )}
-                    </div>
-                ) : (
-                    /* ---- Patient Data Panel ---- */
+                    {/* ---- Patient Data Panel ---- */}
                     <>
                         <div className={styles.patientPanel}>
                             <div className={styles.patientPanelHeader}>
                                 <h2>Patient Info</h2>
-                                <button className={styles.moreBtn} title="More options">
-                                    {Icon.moreVertical}
+                                <button
+                                    className={`${styles.checkupEditBtn} ${checkupEditing ? styles.checkupEditBtnActive : ""}`}
+                                    onClick={() => {
+                                        if (checkupEditing) {
+                                            setCheckupEditing(false);
+                                        } else {
+                                            setEditBpSys(patient.vitals.bpSystolic);
+                                            setEditBpDia(patient.vitals.bpDiastolic);
+                                            setEditTemp(patient.vitals.temperature);
+                                            setEditHeight(patient.height === "—" ? "" : patient.height);
+                                            setEditWeight(patient.weight === "—" ? "" : patient.weight);
+                                            setEditAllergies(patient.allergies.join(", "));
+                                            setEditMeds(patient.criticalMeds.join(", "));
+                                            setCheckupError("");
+                                            setCheckupEditing(true);
+                                        }
+                                    }}
+                                    title={checkupEditing ? "Cancel" : "Update checkup readings"}
+                                >
+                                    {checkupEditing ? Icon.chevronRight : Icon.edit}
+                                    <span>{checkupEditing ? "Cancel" : "Update Checkup"}</span>
                                 </button>
                             </div>
 
-                            {/* Patient identity — top */}
-                            <div className={styles.patientFooter}>
-                                <span className={styles.patientFooterName}>{patient.name}</span>
-                                <span className={styles.patientFooterMeta}>
+                            {/* Patient identity header */}
+                            <div className={styles.patientIdentityRow}>
+                                <div className={styles.patientIdentityMain}>
+                                    <span className={styles.patientIdentityName}>{patient.name}</span>
+                                    <span className={styles.patientIdentityCard}>{patient.cardId}</span>
+                                </div>
+                                <span className={styles.patientIdentityMeta}>
                                     {patient.gender}{patient.age > 0 ? `, ${patient.age} yrs` : ""}
                                     {patient.phone ? ` · ${patient.phone}` : ""}
                                 </span>
-                                <span className={styles.patientFooterCard}>{patient.cardId}</span>
                             </div>
 
-                            {/* Stats bar: height / weight / blood group + last updated */}
+                            {/* Stats bar: height / weight / blood group */}
                             <div className={styles.statsBar}>
                                 <div className={styles.statItem}>
                                     <span className={styles.statLabel}>Height</span>
@@ -540,68 +760,123 @@ export default function DoctorDashboard({ onNavigate, doctorName }: Props) {
                                 </div>
                             </div>
 
-                            {/* Vitals */}
-                            <div className={styles.vitalsRow}>
-                                <div className={styles.vitalCard}>
-                                    <span className={styles.vitalIcon}>{Icon.activity}</span>
-                                    <div className={styles.vitalData}>
-                                        <span className={styles.vitalLabel}>Blood Pressure</span>
-                                        <span className={styles.vitalValue}>
-                                            {patient.vitals.bp}
-                                            <span className={styles.vitalUnit}>mmHg</span>
-                                        </span>
+                            {/* Checkup: Edit Form or Vital Cards */}
+                            {checkupEditing ? (
+                                <div className={styles.checkupForm}>
+                                    <div className={styles.checkupFormGrid}>
+                                        <div className={styles.checkupField}>
+                                            <label className={styles.checkupFieldLabel}>Height (cm)</label>
+                                            <input className={styles.checkupInput} type="text" placeholder="e.g. 170"
+                                                value={editHeight} onChange={e => setEditHeight(e.target.value)} />
+                                        </div>
+                                        <div className={styles.checkupField}>
+                                            <label className={styles.checkupFieldLabel}>Weight (kg)</label>
+                                            <input className={styles.checkupInput} type="text" placeholder="e.g. 68"
+                                                value={editWeight} onChange={e => setEditWeight(e.target.value)} />
+                                        </div>
+                                        <div className={styles.checkupField}>
+                                            <label className={styles.checkupFieldLabel}>BP Systolic</label>
+                                            <input className={styles.checkupInput} type="number" placeholder="e.g. 120"
+                                                value={editBpSys} onChange={e => setEditBpSys(e.target.value)} />
+                                        </div>
+                                        <div className={styles.checkupField}>
+                                            <label className={styles.checkupFieldLabel}>BP Diastolic</label>
+                                            <input className={styles.checkupInput} type="number" placeholder="e.g. 80"
+                                                value={editBpDia} onChange={e => setEditBpDia(e.target.value)} />
+                                        </div>
+                                        <div className={`${styles.checkupField} ${styles.checkupFieldFull}`}>
+                                            <label className={styles.checkupFieldLabel}>Temperature (°C)</label>
+                                            <input className={styles.checkupInput} type="number" step="0.1" placeholder="e.g. 37.2"
+                                                value={editTemp} onChange={e => setEditTemp(e.target.value)} />
+                                        </div>
                                     </div>
-                                </div>
-                                <div className={styles.vitalCard}>
-                                    <span className={styles.vitalIcon}>{Icon.heart}</span>
-                                    <div className={styles.vitalData}>
-                                        <span className={styles.vitalLabel}>Heart rate</span>
-                                        <span className={styles.vitalValue}>
-                                            {patient.vitals.heartRate}
-                                            <span className={styles.vitalUnit}>bpm</span>
-                                        </span>
+                                    <div className={styles.checkupAllergyRow}>
+                                        <div className={styles.checkupAllergyField}>
+                                            <label className={styles.checkupFieldLabel}>Allergies <span className={styles.checkupFieldHint}>(comma-separated)</span></label>
+                                            <textarea className={styles.checkupTextarea} rows={3}
+                                                placeholder="e.g. Penicillin, Aspirin"
+                                                value={editAllergies} onChange={e => setEditAllergies(e.target.value)} />
+                                        </div>
+                                        <div className={styles.checkupAllergyField}>
+                                            <label className={styles.checkupFieldLabel}>Critical Medications <span className={styles.checkupFieldHint}>(comma-separated)</span></label>
+                                            <textarea className={styles.checkupTextarea} rows={3}
+                                                placeholder="e.g. Metformin 500mg"
+                                                value={editMeds} onChange={e => setEditMeds(e.target.value)} />
+                                        </div>
                                     </div>
+                                    {checkupError && <p className={styles.checkupError}>{checkupError}</p>}
+                                    <button
+                                        className={`${styles.actionBtn} ${styles.actionBtnPrimary} ${styles.checkupSaveBtn}`}
+                                        onClick={handleSaveCheckup}
+                                        disabled={checkupSaving}
+                                    >
+                                        {checkupSaving ? "Saving…" : checkupSaved ? "✓ Saved" : <>{Icon.filePlus} Save Checkup</>}
+                                    </button>
                                 </div>
-                            </div>
-
-                            {/* Medical History & X-Ray */}
-                            <div className={styles.twoColumns}>
-                                <div>
-                                    <h3 className={styles.sectionTitle}>Medical History</h3>
-                                    <div className={styles.historyList}>
-                                        {patient.history.length === 0 ? (
-                                            <div style={{
-                                                padding: "var(--space-4)",
-                                                textAlign: "center",
-                                                color: "var(--color-text-tertiary)",
-                                                fontSize: "var(--text-sm)"
-                                            }}>
-                                                No history from medical records yet
+                            ) : (
+                                <div className={styles.vitalsRow}>
+                                    <div className={styles.vitalCard}>
+                                        <div className={styles.vitalCardTop}>
+                                            <span className={styles.vitalIcon}>{Icon.activity}</span>
+                                            <div className={styles.vitalData}>
+                                                <span className={styles.vitalLabel}>Blood Pressure</span>
+                                                <span className={styles.vitalValue}>
+                                                    {patient.vitals.bpSystolic && patient.vitals.bpDiastolic
+                                                        ? `${patient.vitals.bpSystolic}/${patient.vitals.bpDiastolic}`
+                                                        : "—"}
+                                                    {patient.vitals.bpSystolic && <span className={styles.vitalUnit}>mmHg</span>}
+                                                </span>
                                             </div>
-                                        ) : (
-                                            patient.history.map((item, i) => (
-                                                <div
-                                                    key={i}
-                                                    className={`${styles.historyItem} ${item.active ? styles.historyItemActive : ""
-                                                        }`}
-                                                >
-                                                    <span className={styles.historyIcon}>{historyIcon(item.type)}</span>
-                                                    <div className={styles.historyMeta}>
-                                                        <span className={styles.historyLabel}>{item.label}</span>
-                                                        <span className={styles.historyDate}>{item.date}</span>
-                                                    </div>
-                                                    {item.active && (
-                                                        <span className={styles.historyArrow}>{Icon.chevronRight}</span>
-                                                    )}
-                                                </div>
-                                            ))
-                                        )}
+                                        </div>
+                                        <Sparkline
+                                            values={[...patient.checkupHistory].reverse().map(c => c.bpSystolic).filter(Boolean)}
+                                            color="var(--dd-accent)"
+                                        />
+                                    </div>
+                                    <div className={styles.vitalCard}>
+                                        <div className={styles.vitalCardTop}>
+                                            <span className={styles.vitalIcon}>{Icon.heart}</span>
+                                            <div className={styles.vitalData}>
+                                                <span className={styles.vitalLabel}>Temperature</span>
+                                                <span className={styles.vitalValue}>
+                                                    {patient.vitals.temperature || "—"}
+                                                    {patient.vitals.temperature && <span className={styles.vitalUnit}>°C</span>}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <Sparkline
+                                            values={[...patient.checkupHistory].reverse().map(c => c.temperature).filter(Boolean)}
+                                            color="#f59e0b"
+                                        />
                                     </div>
                                 </div>
-                                <div className={styles.xrayArea}>
-                                    <h3 className={styles.sectionTitle}>X-Ray Docs</h3>
-                                    <div className={styles.xrayImageBox}>{Icon.imageOff}</div>
-                                    <p className={styles.xrayCaption}>No X-ray images uploaded</p>
+                            )}
+
+                            {/* Allergies & Medications */}
+                            <div className={styles.allergyMedGrid}>
+                                <div className={styles.allergyMedSection}>
+                                    <span className={styles.allergyMedLabel}>Allergies</span>
+                                    {patient.allergies.length > 0 ? (
+                                        <div className={styles.allergyTagList}>
+                                            {patient.allergies.map((a, i) => (
+                                                <span key={i} className={styles.tagAllergy}>{a}</span>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <span className={styles.allergyMedEmpty}>None recorded</span>
+                                    )}
+                                </div>
+                                <div className={styles.allergyMedSection}>
+                                    <span className={styles.allergyMedLabel}>Critical Medications</span>
+                                    {patient.criticalMeds.length > 0 ? (
+                                        <div className={styles.allergyTagList}>
+                                            {patient.criticalMeds.map((m, i) => (
+                                                <span key={i} className={styles.tagMed}>{m}</span>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <span className={styles.allergyMedEmpty}>None recorded</span>
+                                    )}
                                 </div>
                             </div>
 
@@ -717,8 +992,9 @@ export default function DoctorDashboard({ onNavigate, doctorName }: Props) {
                             {Icon.logOut} End Patient Session
                         </button>
                     </>
-                )}
             </div>
+            </>
+            )}
         </div>
     );
 }

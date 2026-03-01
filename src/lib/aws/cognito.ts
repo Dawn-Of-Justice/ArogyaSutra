@@ -162,6 +162,8 @@ export async function updatePatientAttributes(
         state?: string;
         pincode?: string;
         line1?: string;
+        allergies?: string;
+        criticalMeds?: string;
     }
 ): Promise<void> {
     const attrs: { Name: string; Value: string }[] = [];
@@ -180,6 +182,8 @@ export async function updatePatientAttributes(
     if (updates.state !== undefined) attrs.push({ Name: "custom:state", Value: updates.state });
     if (updates.pincode !== undefined) attrs.push({ Name: "custom:pincode", Value: updates.pincode });
     if (updates.line1 !== undefined) attrs.push({ Name: "custom:address_line1", Value: updates.line1 });
+    if (updates.allergies !== undefined) attrs.push({ Name: "custom:allergies", Value: updates.allergies });
+    if (updates.criticalMeds !== undefined) attrs.push({ Name: "custom:critical_meds", Value: updates.criticalMeds });
 
     if (attrs.length === 0) return;
 

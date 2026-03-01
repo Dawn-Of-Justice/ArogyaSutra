@@ -6,6 +6,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, QueryCommand } from "@aws-sdk/lib-dynamodb";
+import { randomUUID } from "crypto";
+import { putAuditLog } from "../../../../lib/aws/dynamodb";
 
 const region = process.env.NEXT_PUBLIC_AWS_REGION || process.env.APP_AWS_REGION || "ap-south-1";
 
@@ -27,6 +29,10 @@ const TABLE = process.env.DYNAMODB_HEALTH_RECORDS_TABLE || "arogyasutra-health-r
 export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const patientId = searchParams.get("patientId");
+    // Optional actor context passed by the client (doctor viewing patient records)
+    const viewerType = searchParams.get("viewerType") as "PATIENT" | "DOCTOR" | null;
+    const viewerId = searchParams.get("viewerId");
+    const viewerName = searchParams.get("viewerName");
 
     if (!patientId) {
         return NextResponse.json({ error: "Missing patientId" }, { status: 400 });
@@ -60,6 +66,21 @@ export async function GET(req: NextRequest) {
             addedBy: item.addedBy,
             metadata: item.metadata ?? {},
         }));
+
+        // Write audit log non-blocking (failure must not block the response)
+        const actorType = viewerType === "DOCTOR" ? "DOCTOR" : "PATIENT";
+        const actorId = viewerId ?? patientId;
+        const actorName = viewerName ?? (actorType === "PATIENT" ? "Patient" : "Doctor");
+        const auditAction = actorType === "DOCTOR" ? "DOCTOR_VIEW_TIMELINE" : "TIMELINE_VIEW";
+        putAuditLog({
+            logId: randomUUID(),
+            patientId,
+            action: auditAction,
+            performedBy: { type: actorType, userId: actorId, name: actorName },
+            timestamp: new Date().toISOString(),
+            userAgent: req.headers.get("user-agent") ?? undefined,
+            details: { entryCount: String(entries.length) },
+        }).catch((e) => console.error("[audit] TIMELINE_VIEW write failed:", e));
 
         return NextResponse.json({
             entries,

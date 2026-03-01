@@ -132,7 +132,7 @@
 
 .profileBadgeDoctor {
     background: rgba(56, 161, 105, 0.12);
-    color: #2f855a;
+    color: #22c55e;
     border-color: rgba(56, 161, 105, 0.2);
 }
 
@@ -440,7 +440,308 @@
     transition: all var(--transition-fast);
 }
 
+/* ---- Emergency Info ---- */
+.emergencyInfoGrid {
+    display: grid;
+    grid-template-columns: auto 1fr 1fr;
+    gap: var(--space-4) var(--space-6);
+    align-items: start;
+}
+
+@media (max-width: 640px) {
+    .emergencyInfoGrid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.emergencySection {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.emergencySectionLabel {
+    font-size: var(--text-xs);
+    font-weight: var(--font-semibold);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-wide);
+    color: var(--color-text-tertiary);
+}
+
+.bloodGroupBadge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 56px;
+    padding: var(--space-2) var(--space-4);
+    background: rgba(220, 38, 38, 0.12);
+    color: #ef4444;
+    border: 1.5px solid rgba(220, 38, 38, 0.30);
+    border-radius: var(--radius-lg);
+    font-size: var(--text-xl);
+    font-weight: var(--font-bold);
+    letter-spacing: 0.03em;
+}
+
+.emergencyEmpty {
+    font-size: var(--text-sm);
+    color: var(--color-text-tertiary);
+    font-style: italic;
+}
+
+.tagList {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.tagAllergy {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 10px;
+    border-radius: var(--radius-full);
+    font-size: var(--text-xs);
+    font-weight: var(--font-semibold);
+    background: rgba(220, 38, 38, 0.12);
+    color: #ef4444;
+    border: 1px solid rgba(220, 38, 38, 0.30);
+}
+
+.tagMed {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 10px;
+    border-radius: var(--radius-full);
+    font-size: var(--text-xs);
+    font-weight: var(--font-semibold);
+    background: rgba(22, 163, 74, 0.12);
+    color: #4ade80;
+    border: 1px solid rgba(22, 163, 74, 0.30);
+}
+
 .logoutBtn:hover {
     background: var(--color-danger);
     color: white;
+}
+
+/* ---- Emergency Info: edit + visibility controls ---- */
+.emCardHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--space-4);
+}
+
+.emNote {
+    font-size: var(--text-xs);
+    color: var(--color-text-secondary);
+    background: rgba(220, 38, 38, 0.07);
+    border: 1px solid rgba(220, 38, 38, 0.18);
+    border-radius: var(--radius-md);
+    padding: var(--space-2) var(--space-3);
+    margin: 0 0 var(--space-4) 0;
+}
+
+.emForm {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+.emFormRow {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-4);
+}
+
+.emFormGroup {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    flex: 1;
+}
+
+.emLabel {
+    font-size: var(--text-xs);
+    font-weight: var(--font-semibold);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-wide);
+    color: var(--color-text-tertiary);
+}
+
+.emLabelHint {
+    text-transform: none;
+    letter-spacing: 0;
+    font-weight: var(--font-normal);
+    opacity: 0.7;
+}
+
+.emTextarea {
+    width: 100%;
+    padding: var(--space-2) var(--space-3);
+    border: 1.5px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-tertiary);
+    color: var(--color-text-primary);
+    font-size: var(--text-sm);
+    font-family: var(--font-sans);
+    resize: vertical;
+    transition: border-color var(--transition-fast);
+    box-sizing: border-box;
+}
+
+.emTextarea:focus {
+    outline: none;
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 3px var(--color-accent-glow);
+}
+
+.emSelect {
+    padding: var(--space-2) var(--space-3);
+    border: 1.5px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-tertiary);
+    color: var(--color-text-primary);
+    font-size: var(--text-sm);
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238aa3be' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    padding-right: 32px;
+    min-width: 120px;
+}
+
+.emFormActions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    justify-content: flex-end;
+    margin-top: var(--space-1);
+}
+
+.emSaveBtn {
+    padding: var(--space-2) var(--space-5);
+    background: var(--color-accent);
+    color: white;
+    border: none;
+    border-radius: var(--radius-lg);
+    font-size: var(--text-sm);
+    font-weight: var(--font-semibold);
+    cursor: pointer;
+    transition: opacity var(--transition-fast);
+}
+
+.emSaveBtn:hover { opacity: 0.88; }
+.emSaveBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.emCancelBtn {
+    padding: var(--space-2) var(--space-4);
+    background: transparent;
+    color: var(--color-text-secondary);
+    border: 1.5px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    font-size: var(--text-sm);
+    font-weight: var(--font-medium);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.emCancelBtn:hover {
+    border-color: var(--color-text-secondary);
+    color: var(--color-text-primary);
+}
+
+.emError {
+    font-size: var(--text-xs);
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.10);
+    border: 1px solid rgba(239, 68, 68, 0.25);
+    border-radius: var(--radius-md);
+    padding: var(--space-2) var(--space-3);
+    margin: 0;
+}
+
+.emSuccess {
+    font-size: var(--text-xs);
+    color: #4ade80;
+    font-weight: var(--font-semibold);
+}
+
+/* Visibility toggles */
+.emVisDivider {
+    height: 1px;
+    background: var(--color-border);
+    margin: var(--space-4) 0;
+}
+
+.emVisSection {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.emVisTitle {
+    font-size: var(--text-xs);
+    font-weight: var(--font-semibold);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-wide);
+    color: var(--color-text-tertiary);
+    margin-bottom: 2px;
+}
+
+.emVisGrid {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.emVisRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-tertiary);
+}
+
+.emVisLabel {
+    font-size: var(--text-sm);
+    color: var(--color-text-primary);
+    font-weight: var(--font-medium);
+}
+
+.emToggle {
+    position: relative;
+    width: 36px;
+    height: 20px;
+    border-radius: 100px;
+    border: 1.5px solid var(--color-border);
+    background: var(--color-bg-secondary);
+    cursor: pointer;
+    transition: background var(--transition-fast), border-color var(--transition-fast);
+    flex-shrink: 0;
+    padding: 0;
+}
+
+.emToggle::after {
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--color-text-tertiary);
+    transition: transform var(--transition-fast), background var(--transition-fast);
+}
+
+.emToggleOn {
+    background: var(--color-accent);
+    border-color: var(--color-accent);
+}
+
+.emToggleOn::after {
+    transform: translateX(16px);
+    background: white;
 }

@@ -42,14 +42,20 @@ export async function POST(req: NextRequest) {
                 state: updates.state,
                 pincode: updates.pincode,
                 line1: updates.line1,
+                allergies: updates.allergies,
+                criticalMeds: updates.criticalMeds,
             });
         } else if (role === "doctor") {
-            // When a doctor updates a *patient's* vitals (BP/temp)
+            // When a doctor updates a *patient's* vitals and health info
             if (updates.targetPatientId) {
                 await cognito.updatePatientAttributes(updates.targetPatientId, {
                     bpSystolic: updates.bpSystolic,
                     bpDiastolic: updates.bpDiastolic,
                     temperature: updates.temperature,
+                    height: updates.height,
+                    weight: updates.weight,
+                    allergies: updates.allergies,
+                    criticalMeds: updates.criticalMeds,
                 });
             } else {
                 // Doctor updating their own profile

@@ -1,13 +1,13 @@
 // ============================================================
 // RAG Clinical Assistant Screen
-// Chat interface with medical context
+// Dual-mode: patient RAG chat OR doctor general/context chat
 // ============================================================
 
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
 import { useAuth } from "../../hooks/useAuth";
-import * as ragService from "../../lib/services/rag.service";
+import type { DoctorPatientContext } from "../dashboard/DoctorDashboard";
 import type { RAGResponse, ChatMessage, SourceCitation } from "../../lib/types/rag";
 import styles from "./AssistantScreen.module.css";
 import { ChevronLeft, Paperclip, ArrowUp, Cross } from "lucide-react";
@@ -85,9 +85,11 @@ function renderContent(
 
 interface AssistantScreenProps {
     onNavigate: (screen: string) => void;
+    /** When a doctor has a verified patient session, provide that patient's context. */
+    doctorPatientContext?: DoctorPatientContext;
 }
 
-export default function AssistantScreen({ onNavigate }: AssistantScreenProps) {
+export default function AssistantScreen({ onNavigate, doctorPatientContext }: AssistantScreenProps) {
     const { patient } = useAuth();
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [input, setInput] = useState("");
@@ -95,13 +97,18 @@ export default function AssistantScreen({ onNavigate }: AssistantScreenProps) {
     const [conversationId, setConversationId] = useState<string | undefined>();
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
+    // Determine mode
+    const isDoctor = !patient; // doctors don't have a patient object from useAuth
+    const hasPatientContext = isDoctor && !!doctorPatientContext;
+    const isGeneralMode = isDoctor && !doctorPatientContext;
+
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [messages]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!input.trim() || !patient || isLoading) return;
+        if (!input.trim() || isLoading) return;
 
         const userMsg: ChatMessage = {
             messageId: `msg-${Date.now()}`,
@@ -114,22 +121,53 @@ export default function AssistantScreen({ onNavigate }: AssistantScreenProps) {
         setIsLoading(true);
 
         try {
-            const response: RAGResponse = await ragService.query({
-                queryText: input,
-                patientId: patient.patientId,
-                queryBy: "PATIENT",
-                queryByUserId: patient.patientId,
-                conversationId,
-            });
+            let answer = "";
+            let newConversationId = conversationId;
+            let citations: SourceCitation[] | undefined;
 
-            if (!conversationId) setConversationId(response.conversationId);
+            if (isGeneralMode) {
+                // Doctor, no patient — call general LLM endpoint
+                const res = await fetch("/api/assistant/general", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ query: input, conversationId }),
+                });
+                const data = await res.json();
+                answer = data.answer || "Sorry, I couldn't process that request.";
+                newConversationId = data.conversationId;
+            } else {
+                // Patient mode OR doctor with patient context — use RAG endpoint
+                const patientId = hasPatientContext
+                    ? doctorPatientContext!.cardId
+                    : patient!.patientId;
+                const queryBy = hasPatientContext ? "DOCTOR" : "PATIENT";
+                const queryByUserId = hasPatientContext ? `doctor-${patientId}` : patientId;
+
+                const res = await fetch("/api/assistant/rag", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        query: input,
+                        patientId,
+                        queryBy,
+                        queryByUserId,
+                        conversationId,
+                    }),
+                });
+                const data: RAGResponse = await res.json();
+                answer = data.answer || "Sorry, I couldn't process that request.";
+                citations = data.citations;
+                newConversationId = data.conversationId;
+            }
+
+            if (!conversationId) setConversationId(newConversationId);
 
             const assistantMsg: ChatMessage = {
                 messageId: `msg-${Date.now()}-resp`,
                 role: "assistant",
-                content: response.answer,
-                citations: response.citations,
-                timestamp: response.generatedAt,
+                content: answer,
+                citations,
+                timestamp: new Date().toISOString(),
             };
             setMessages((prev) => [...prev, assistantMsg]);
         } catch {
@@ -145,29 +183,83 @@ export default function AssistantScreen({ onNavigate }: AssistantScreenProps) {
         }
     };
 
-    const suggestedQuestions = [
-        "What medications am I currently on?",
-        "Summarize my recent lab results",
-        "Are there any drug interactions?",
-        "When was my last checkup?",
-    ];
+    const suggestedQuestions = hasPatientContext
+        ? [
+            `Summarize ${doctorPatientContext!.name.split(" ")[0]}'s medical history`,
+            "What medications is this patient on?",
+            "Any red flags or abnormal values?",
+            "When was the last check-up?",
+        ]
+        : isGeneralMode
+        ? [
+            "What are the first-line treatments for Type 2 Diabetes?",
+            "ICMR guidelines for hypertension management?",
+            "Common drug interactions with Metformin",
+            "Differential diagnosis for chest pain in a 45-year-old",
+        ]
+        : [
+            "What medications am I currently on?",
+            "Summarize my recent lab results",
+            "Are there any drug interactions?",
+            "When was my last checkup?",
+        ];
 
     return (
         <div className={styles.container}>
             <header className={styles.header}>
-                <button className={styles.backButton} onClick={() => onNavigate("dashboard")}><ChevronLeft size={20} /></button>
+                <button className={styles.backButton} onClick={() => onNavigate(isDoctor ? "doctor-dashboard" : "dashboard")}><ChevronLeft size={20} /></button>
                 <div className={styles.headerInfo}>
                     <h1 className={styles.title}>AI Health Assistant</h1>
-                    <span className={styles.subtitle}>Powered by Amazon Bedrock</span>
+                    <span className={styles.subtitle}>
+                        {hasPatientContext
+                            ? `Patient: ${doctorPatientContext!.name}`
+                            : isGeneralMode
+                            ? "General medical knowledge"
+                            : "Powered by Amazon Bedrock"}
+                    </span>
                 </div>
             </header>
+
+            {/* Patient context banner for doctor mode */}
+            {hasPatientContext && (
+                <div className={styles.contextBanner}>
+                    <span className={styles.contextBannerDot} />
+                    <span>
+                        Viewing context for <strong>{doctorPatientContext!.name}</strong>
+                        {doctorPatientContext!.age > 0 ? `, ${doctorPatientContext!.age} yrs` : ""}
+                        {doctorPatientContext!.gender ? ` · ${doctorPatientContext!.gender}` : ""}
+                        {" · "}
+                        <span className={styles.contextCardId}>{doctorPatientContext!.cardId}</span>
+                    </span>
+                </div>
+            )}
+
+            {isGeneralMode && (
+                <div className={styles.generalModeBanner}>
+                    <span>General mode — Verify a patient on the dashboard to enable context-aware record queries.</span>
+                </div>
+            )}
 
             <div className={styles.chatArea}>
                 {messages.length === 0 ? (
                     <div className={styles.welcome}>
                         <span className={styles.welcomeIcon}><GeminiIcon size={48} /></span>
-                        <h2>Hello! I&apos;m your health assistant.</h2>
-                        <p>Ask me anything about your medical history. I&apos;ll cite sources from your records.</p>
+                        {hasPatientContext ? (
+                            <>
+                                <h2>Ready to assist with {doctorPatientContext!.name.split(" ")[0]}&apos;s records.</h2>
+                                <p>Ask me anything about this patient&apos;s medical history. I&apos;ll cite sources from their health records.</p>
+                            </>
+                        ) : isGeneralMode ? (
+                            <>
+                                <h2>Hello, Doctor. How can I assist?</h2>
+                                <p>Ask general clinical questions, drug interactions, treatment guidelines, or differential diagnoses.</p>
+                            </>
+                        ) : (
+                            <>
+                                <h2>Hello! I&apos;m your health assistant.</h2>
+                                <p>Ask me anything about your medical history. I&apos;ll cite sources from your records.</p>
+                            </>
+                        )}
                         <div className={styles.suggestions}>
                             {suggestedQuestions.map((q, i) => (
                                 <button key={i} className={styles.suggestion} onClick={() => setInput(q)}>
@@ -225,7 +317,13 @@ export default function AssistantScreen({ onNavigate }: AssistantScreenProps) {
                 <input
                     type="text"
                     className={styles.input}
-                    placeholder="Ask about your health..."
+                    placeholder={
+                        hasPatientContext
+                            ? `Ask about ${doctorPatientContext!.name.split(" ")[0]}'s health...`
+                            : isGeneralMode
+                            ? "Ask a clinical question..."
+                            : "Ask about your health..."
+                    }
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     disabled={isLoading}

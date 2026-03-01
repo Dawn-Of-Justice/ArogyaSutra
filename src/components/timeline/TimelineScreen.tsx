@@ -50,6 +50,12 @@ const TYPE_INFO: Record<string, { label: string; icon: React.ReactNode; color: s
 
 interface TimelineScreenProps {
     onNavigate: (screen: string) => void;
+    /** When a doctor views a patient's records, pass the patient's card ID here. */
+    patientId?: string;
+    /** When set, auto-open the detail modal for this entry (e.g. from global search). */
+    initialEntryId?: string | null;
+    /** Called after the initial entry has been opened, so the parent can clear the pending ID. */
+    onEntryOpened?: () => void;
 }
 
 interface MonthBucket {
@@ -62,8 +68,8 @@ interface MonthBucket {
 
 type Entry = ReturnType<typeof useTimeline>["entries"][number];
 
-export default function TimelineScreen({ onNavigate }: TimelineScreenProps) {
-    const { entries, isLoading, loadTimeline, loadMore, hasMore } = useTimeline();
+export default function TimelineScreen({ onNavigate, patientId, initialEntryId, onEntryOpened }: TimelineScreenProps) {
+    const { entries, isLoading, loadTimeline, loadMore, hasMore } = useTimeline(patientId);
     const [activeFilter, setActiveFilter] = useState<DocumentTypeTag | "ALL">("ALL");
     const [searchText, setSearchText] = useState("");
     const [hoveredMonth, setHoveredMonth] = useState<string | null>(null);
@@ -80,6 +86,16 @@ export default function TimelineScreen({ onNavigate }: TimelineScreenProps) {
         if (activeFilter !== "ALL") filters.documentTypes = [activeFilter];
         loadTimeline(filters);
     }, [activeFilter, loadTimeline]);
+
+    // Auto-open a specific entry when navigated here from global search
+    useEffect(() => {
+        if (!initialEntryId || entries.length === 0) return;
+        const match = entries.find((e) => e.entryId === initialEntryId);
+        if (match) {
+            setSelectedEntry(match);
+            onEntryOpened?.();
+        }
+    }, [initialEntryId, entries, onEntryOpened]);
 
     // Build month buckets from all entries
     const monthBuckets = useMemo<MonthBucket[]>(() => {

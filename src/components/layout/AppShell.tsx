@@ -8,11 +8,12 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { useAuth } from "../../hooks/useAuth";
+import { useLanguage } from "../../hooks/useLanguage";
 import styles from "./AppShell.module.css";
 import {
     LayoutDashboard, ClipboardList, Camera, Link2,
     HelpCircle, Settings, Hospital, User, LogOut,
-    Bell, Search, MoreVertical, CheckCheck, ShieldCheck,
+    Bell, Search, MoreVertical, CheckCheck, ShieldCheck, X,
 } from "lucide-react";
 import { GeminiIcon } from "../common/GeminiIcon";
 
@@ -23,6 +24,27 @@ interface NavItem {
     badge?: number;
 }
 
+interface TimelineEntry {
+    entryId: string;
+    title: string;
+    documentType: string;
+    doctorName?: string;
+    sourceInstitution?: string;
+    date?: string;
+}
+
+interface SearchResult {
+    id: string;
+    type: "nav" | "record";
+    icon: React.ReactNode;
+    label: string;
+    desc?: string;
+    badge?: string;
+    navTarget: string;
+    /** For record results, the entryId to open in the detail modal. */
+    entryId?: string;
+}
+
 interface AppShellProps {
     children: React.ReactNode;
     activeScreen: string;
@@ -31,30 +53,13 @@ interface AppShellProps {
     userName: string;
     userRole: string;
     userId?: string;
+    /** When a doctor has an active patient session, pass the patientId to unlock Records nav. */
+    activePatientId?: string;
+    /** Called when user clicks a specific health record in global search. */
+    onRecordSelect?: (entryId: string) => void;
 }
 
-const PATIENT_NAV_MAIN: NavItem[] = [
-    { id: "dashboard", icon: <LayoutDashboard size={18} />, label: "Dashboard" },
-    { id: "timeline", icon: <ClipboardList size={18} />, label: "Timeline" },
-    { id: "assistant", icon: <GeminiIcon size={18} />, label: "AI Assistant" },
-    { id: "access", icon: <Link2 size={18} />, label: "Doctor Access" },
-];
-
-const PATIENT_NAV_BOTTOM: NavItem[] = [
-    { id: "help", icon: <HelpCircle size={18} />, label: "Help" },
-    { id: "settings", icon: <Settings size={18} />, label: "Settings" },
-];
-
-const DOCTOR_NAV_MAIN: NavItem[] = [
-    { id: "doctor-dashboard", icon: <Hospital size={18} />, label: "Dashboard" },
-    { id: "timeline", icon: <ClipboardList size={18} />, label: "Records" },
-    { id: "assistant", icon: <GeminiIcon size={18} />, label: "AI Assistant" },
-];
-
-const DOCTOR_NAV_BOTTOM: NavItem[] = [
-    { id: "help", icon: <HelpCircle size={18} />, label: "Help" },
-    { id: "settings", icon: <Settings size={18} />, label: "Settings" },
-];
+// Nav items are built inside the component so labels react to language changes
 
 export default function AppShell({
     children,
@@ -64,11 +69,30 @@ export default function AppShell({
     userName,
     userRole,
     userId,
+    activePatientId,
+    onRecordSelect,
 }: AppShellProps) {
     const { logout } = useAuth();
+    const { t } = useLanguage();
     const isDoctor = userRole === "Doctor";
-    const navMain = isDoctor ? DOCTOR_NAV_MAIN : PATIENT_NAV_MAIN;
-    const navBottom = isDoctor ? DOCTOR_NAV_BOTTOM : PATIENT_NAV_BOTTOM;
+
+    const navMain: NavItem[] = isDoctor
+        ? [
+            { id: "doctor-dashboard", icon: <Hospital size={18} />, label: t("nav_dashboard") },
+            ...(activePatientId ? [{ id: "timeline", icon: <ClipboardList size={18} />, label: t("nav_records") }] : []),
+            { id: "assistant", icon: <GeminiIcon size={18} />, label: t("nav_assistant") },
+        ]
+        : [
+            { id: "dashboard", icon: <LayoutDashboard size={18} />, label: t("nav_dashboard") },
+            { id: "timeline", icon: <ClipboardList size={18} />, label: t("nav_timeline") },
+            { id: "assistant", icon: <GeminiIcon size={18} />, label: t("nav_assistant") },
+            { id: "access", icon: <Link2 size={18} />, label: t("nav_access") },
+        ];
+
+    const navBottom: NavItem[] = [
+        { id: "help", icon: <HelpCircle size={18} />, label: t("nav_help") },
+        { id: "settings", icon: <Settings size={18} />, label: t("nav_settings") },
+    ];
 
     const initials = userName
         .split(" ")
@@ -84,7 +108,7 @@ export default function AppShell({
         if (cached) setPhotoUrl(cached);
     }, [userId]);
 
-    // ---- Apply saved theme on mount ----
+    // ---- Apply saved theme + language on mount ----
     useEffect(() => {
         const saved = localStorage.getItem("arogyasutra_theme");
         if (saved === "dark") {
@@ -92,6 +116,8 @@ export default function AppShell({
         } else {
             document.documentElement.removeAttribute("data-theme");
         }
+        const lang = localStorage.getItem("arogyasutra_language");
+        if (lang) document.documentElement.setAttribute("lang", lang);
     }, []);
 
     // ---- User card popover menu ----
@@ -200,6 +226,135 @@ export default function AppShell({
         onNavigate("notifications");
     };
 
+    // ---- Global search ----
+    const [searchQuery, setSearchQuery] = useState("");
+    const [searchOpen, setSearchOpen] = useState(false);
+    const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+    const [searchActiveIdx, setSearchActiveIdx] = useState(-1);
+    const searchRef = useRef<HTMLDivElement>(null);
+    const [entriesCache, setEntriesCache] = useState<TimelineEntry[] | null>(null);
+    const entriesFetchedRef = useRef(false);
+
+    // Prefetch timeline entries in the background:
+    // - For patients: their own records
+    // - For doctors: the active patient's records (re-fetches when activePatientId changes)
+    useEffect(() => {
+        const fetchId = isDoctor ? activePatientId : userId;
+        if (!fetchId) return;
+        // Re-fetch when the doctor switches patients
+        if (!isDoctor && entriesFetchedRef.current) return;
+        entriesFetchedRef.current = true;
+        setEntriesCache(null);
+        fetch(`/api/timeline/entries?patientId=${encodeURIComponent(fetchId)}`)
+            .then((r) => r.json())
+            .then((data) => { setEntriesCache(data.entries ?? []); })
+            .catch(() => { /* silently ignore – search just won't show records */ });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isDoctor, userId, activePatientId]);
+
+    // Close search dropdown on outside click
+    useEffect(() => {
+        if (!searchOpen) return;
+        const handle = (e: MouseEvent) => {
+            if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+                setSearchOpen(false);
+                setSearchActiveIdx(-1);
+            }
+        };
+        document.addEventListener("mousedown", handle);
+        return () => document.removeEventListener("mousedown", handle);
+    }, [searchOpen]);
+
+    // Run search whenever query changes
+    useEffect(() => {
+        const lq = searchQuery.trim().toLowerCase();
+        if (!lq) { setSearchResults([]); return; }
+
+        const buildResults: SearchResult[] = [];
+
+        // --- Navigation items ---
+        const allNavItems: { id: string; icon: React.ReactNode; label: string }[] = [
+            ...(isDoctor
+                ? [
+                    { id: "doctor-dashboard", icon: <Hospital size={16} />, label: t("nav_dashboard") },
+                    { id: "timeline", icon: <ClipboardList size={16} />, label: t("nav_records") },
+                    { id: "assistant", icon: <GeminiIcon size={16} />, label: t("nav_assistant") },
+                ]
+                : [
+                    { id: "dashboard", icon: <LayoutDashboard size={16} />, label: t("nav_dashboard") },
+                    { id: "timeline", icon: <ClipboardList size={16} />, label: t("nav_timeline") },
+                    { id: "assistant", icon: <GeminiIcon size={16} />, label: t("nav_assistant") },
+                    { id: "access", icon: <Link2 size={16} />, label: t("nav_access") },
+                ]),
+            { id: "help", icon: <HelpCircle size={16} />, label: t("nav_help") },
+            { id: "settings", icon: <Settings size={16} />, label: t("nav_settings") },
+            { id: "profile", icon: <User size={16} />, label: t("my_profile") },
+            { id: "notifications", icon: <Bell size={16} />, label: t("notif_title") },
+        ];
+
+        allNavItems.forEach((item) => {
+            if (item.label.toLowerCase().includes(lq)) {
+                buildResults.push({
+                    id: `nav-${item.id}`,
+                    type: "nav",
+                    icon: item.icon,
+                    label: item.label,
+                    navTarget: item.id,
+                });
+            }
+        });
+
+        // --- Health records (patient or doctor with active patient session) ---
+        if (entriesCache) {
+            entriesCache
+                .filter((e) =>
+                    [e.title, e.documentType, e.doctorName, e.sourceInstitution]
+                        .some((f) => f?.toLowerCase().includes(lq))
+                )
+                .slice(0, 6)
+                .forEach((e) => {
+                    buildResults.push({
+                        id: `rec-${e.entryId}`,
+                        type: "record",
+                        icon: <ClipboardList size={16} />,
+                        label: e.title || "Health Record",
+                        desc: [e.doctorName, e.sourceInstitution].filter(Boolean).join(" · "),
+                        badge: e.documentType,
+                        navTarget: "timeline",                        entryId: e.entryId,                    });
+                });
+        }
+
+        setSearchResults(buildResults);
+        setSearchActiveIdx(-1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [searchQuery, entriesCache, isDoctor, t]);
+
+    const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (!searchOpen || searchResults.length === 0) {
+            if (e.key === "Escape") { setSearchOpen(false); setSearchQuery(""); }
+            return;
+        }
+        if (e.key === "ArrowDown") {
+            e.preventDefault();
+            setSearchActiveIdx((prev) => Math.min(prev + 1, searchResults.length - 1));
+        } else if (e.key === "ArrowUp") {
+            e.preventDefault();
+            setSearchActiveIdx((prev) => Math.max(prev - 1, 0));
+        } else if (e.key === "Enter" && searchActiveIdx >= 0) {
+            e.preventDefault();
+            const target = searchResults[searchActiveIdx]?.navTarget;
+            const eid = searchResults[searchActiveIdx]?.entryId;
+            if (target) {
+                if (eid && onRecordSelect) onRecordSelect(eid);
+                onNavigate(target); setSearchQuery(""); setSearchOpen(false); setSearchActiveIdx(-1);
+            }
+        } else if (e.key === "Escape") {
+            setSearchOpen(false);
+            setSearchQuery("");
+            setSearchActiveIdx(-1);
+        }
+    };
+
     return (
         <div className={styles.shell}>
             {/* ---- Sidebar ---- */}
@@ -211,7 +366,7 @@ export default function AppShell({
 
                 {/* Main nav group */}
                 <div className={styles.navGroup}>
-                    <span className={styles.navGroupLabel}>Menu</span>
+                    <span className={styles.navGroupLabel}>{t("nav_group_menu")}</span>
                     <nav className={styles.sidebarNav}>
                         {navMain.map((item) => (
                             <button
@@ -234,7 +389,7 @@ export default function AppShell({
 
                 {/* Bottom nav group */}
                 <div className={styles.navGroup}>
-                    <span className={styles.navGroupLabel}>Account</span>
+                    <span className={styles.navGroupLabel}>{t("nav_group_account")}</span>
                     <nav className={styles.sidebarNav}>
                         {navBottom.map((item) => (
                             <button
@@ -261,7 +416,7 @@ export default function AppShell({
                         </div>
                         <div className={styles.userInfo}>
                             <span className={styles.userName}>{userName || "User"}</span>
-                            <span className={styles.userRole}>{userRole}</span>
+                            <span className={styles.userRole}>{isDoctor ? t("role_doctor") : t("role_patient")}</span>
                         </div>
                     </button>
                     <button
@@ -275,11 +430,11 @@ export default function AppShell({
                     {menuOpen && (
                         <div className={styles.popoverMenu}>
                             <button className={styles.popoverItem} onClick={() => { setMenuOpen(false); onNavigate("profile"); }}>
-                                <User size={14} /> My Profile
+                                <User size={14} /> {t("my_profile")}
                             </button>
                             <div className={styles.popoverDivider} />
                             <button className={`${styles.popoverItem} ${styles.popoverDanger}`} onClick={handleSignOut}>
-                                <LogOut size={14} /> Sign Out
+                                <LogOut size={14} /> {t("sign_out")}
                             </button>
                         </div>
                     )}
@@ -292,13 +447,96 @@ export default function AppShell({
                     <h1 className={styles.pageTitle}>{pageTitle}</h1>
                 </div>
 
-                <div className={styles.searchBox}>
+                <div className={styles.searchBox} ref={searchRef}>
                     <span className={styles.searchIcon}><Search size={15} /></span>
                     <input
                         type="text"
                         className={styles.searchInput}
-                        placeholder="Find Anything..."
+                        placeholder={t("search_placeholder")}
+                        value={searchQuery}
+                        onChange={(e) => {
+                            setSearchQuery(e.target.value);
+                            setSearchOpen(true);
+                            setSearchActiveIdx(-1);
+                        }}
+                        onFocus={() => { if (searchQuery.trim()) setSearchOpen(true); }}
+                        onKeyDown={handleSearchKeyDown}
+                        autoComplete="off"
                     />
+                    {searchQuery && (
+                        <button
+                            className={styles.searchClear}
+                            onClick={() => { setSearchQuery(""); setSearchResults([]); setSearchOpen(false); setSearchActiveIdx(-1); }}
+                            aria-label="Clear search"
+                        >
+                            <X size={14} />
+                        </button>
+                    )}
+
+                    {/* Search dropdown — onMouseDown preventDefault keeps input focused so clicks always fire */}
+                    {searchOpen && searchQuery.trim() && (
+                        <div className={styles.searchDropdown} onMouseDown={(e) => e.preventDefault()}>
+                            {searchResults.length === 0 ? (
+                                <div className={styles.searchEmpty}>No results for &ldquo;{searchQuery}&rdquo;</div>
+                            ) : (
+                                <>
+                                    {/* Navigation section */}
+                                    {searchResults.filter((r) => r.type === "nav").length > 0 && (
+                                        <>
+                                            <div className={styles.searchSection}>Navigation</div>
+                                            {searchResults
+                                                .filter((r) => r.type === "nav")
+                                                .map((r) => {
+                                                    const globalIdx = searchResults.findIndex((x) => x.id === r.id);
+                                                    return (
+                                                        <button
+                                                            key={r.id}
+                                                            type="button"
+                                                            className={`${styles.searchResult} ${globalIdx === searchActiveIdx ? styles.searchResultActive : ""}`}
+                                                            onMouseEnter={() => setSearchActiveIdx(globalIdx)}
+                                                            onClick={() => { onNavigate(r.navTarget); setSearchQuery(""); setSearchOpen(false); setSearchActiveIdx(-1); }}
+                                                        >
+                                                            <span className={styles.searchResultIcon}>{r.icon}</span>
+                                                            <div className={styles.searchResultBody}>
+                                                                <span className={styles.searchResultLabel}>{r.label}</span>
+                                                            </div>
+                                                        </button>
+                                                    );
+                                                })}
+                                        </>
+                                    )}
+
+                                    {/* Health records section */}
+                                    {searchResults.filter((r) => r.type === "record").length > 0 && (
+                                        <>
+                                            <div className={styles.searchSection}>Health Records</div>
+                                            {searchResults
+                                                .filter((r) => r.type === "record")
+                                                .map((r) => {
+                                                    const globalIdx = searchResults.findIndex((x) => x.id === r.id);
+                                                    return (
+                                                        <button
+                                                            key={r.id}
+                                                            type="button"
+                                                            className={`${styles.searchResult} ${globalIdx === searchActiveIdx ? styles.searchResultActive : ""}`}
+                                                            onMouseEnter={() => setSearchActiveIdx(globalIdx)}
+                                                            onClick={() => { if (r.entryId && onRecordSelect) onRecordSelect(r.entryId); onNavigate(r.navTarget); setSearchQuery(""); setSearchOpen(false); setSearchActiveIdx(-1); }}
+                                                        >
+                                                            <span className={styles.searchResultIcon}>{r.icon}</span>
+                                                            <div className={styles.searchResultBody}>
+                                                                <span className={styles.searchResultLabel}>{r.label}</span>
+                                                                {r.desc && <span className={styles.searchResultDesc}>{r.desc}</span>}
+                                                            </div>
+                                                            {r.badge && <span className={styles.searchResultBadge}>{r.badge}</span>}
+                                                        </button>
+                                                    );
+                                                })}
+                                        </>
+                                    )}
+                                </>
+                            )}
+                        </div>
+                    )}
                 </div>
 
                 <div className={styles.topbarRight}>
@@ -315,14 +553,14 @@ export default function AppShell({
                         {notifOpen && (
                             <div className={styles.notifPanel}>
                                 <div className={styles.notifHeader}>
-                                    <span className={styles.notifTitle}>Notifications</span>
+                                    <span className={styles.notifTitle}>{t("notif_title")}</span>
                                     <button
                                         className={styles.notifMarkAll}
                                         onClick={handleMarkAllRead}
                                         disabled={unreadCount === 0}
                                     >
                                         <CheckCheck size={13} style={{ marginRight: 4, verticalAlign: "middle" }} />
-                                        Mark all read
+                                        {t("notif_mark_all")}
                                     </button>
                                 </div>
                                 <div className={styles.notifList}>
@@ -341,7 +579,7 @@ export default function AppShell({
                                         </div>
                                     ))}
                                 </div>
-                                <button className={styles.notifViewAll} onClick={handleViewAll}>View all notifications</button>
+                                <button className={styles.notifViewAll} onClick={handleViewAll}>{t("notif_view_all")}</button>
                             </div>
                         )}
                     </div>
