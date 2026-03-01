@@ -12,6 +12,7 @@ import {
     AdminCreateUserCommand,
     AdminSetUserPasswordCommand,
     AdminUpdateUserAttributesCommand,
+    AdminDeleteUserCommand,
     type InitiateAuthCommandOutput,
 } from "@aws-sdk/client-cognito-identity-provider";
 
@@ -246,6 +247,16 @@ export async function initiateDoctorAuth(
             AuthParameters: {
                 USERNAME: doctorId,
             },
+        })
+    );
+}
+
+/** Permanently delete a patient from the user pool. */
+export async function deletePatientUser(userId: string): Promise<void> {
+    await cognitoClient.send(
+        new AdminDeleteUserCommand({
+            UserPoolId: requirePatientPoolId(),
+            Username: userId,
         })
     );
 }

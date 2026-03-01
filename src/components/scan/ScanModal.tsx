@@ -13,7 +13,7 @@ import {
     Pill, FlaskConical, Building2, Stethoscope, Camera as ImagingIcon,
     FileCheck2, FileText, Loader2,
 } from "lucide-react";
-import type { DocumentTypeTag } from "../../lib/types/timeline";
+import type { DocumentTypeTag, MedicationDetail } from "../../lib/types/timeline";
 
 // ---- Types -------------------------------------------------------
 
@@ -22,12 +22,12 @@ interface ExtractionResult {
     confidence: number;
     title: string;
     metadata: {
-        medications: string[];
-        diagnoses: string[];
-        labTests: string[];
-        doctors: string[];
-        institutions: string[];
-        dates: string[];
+        medications?: MedicationDetail[];
+        diagnoses?: string[];
+        labTests?: string[];
+        doctors?: string[];
+        institutions?: string[];
+        dates?: string[];
     };
 }
 
@@ -101,12 +101,21 @@ export default function ScanModal({ onClose, onSaved }: ScanModalProps) {
             setTitle(ext.title);
             // Pre-fill date from extracted dates if available
             if (ext.metadata.dates?.[0]) {
-                // Try to parse DD/MM/YYYY or similar
                 const d = ext.metadata.dates[0];
+                // YYYY-MM-DD or YYYY/MM/DD
                 const isoMatch = d.match(/(\d{4})[\-\/](\d{2})[\-\/](\d{2})/);
-                const ddmmMatch = d.match(/(\d{2})[\-\/\.](\d{2})[\-\/\.](\d{4})/);
-                if (isoMatch) setDate(d.slice(0, 10));
-                else if (ddmmMatch) setDate(`${ddmmMatch[3]}-${ddmmMatch[2]}-${ddmmMatch[1]}`);
+                // DD-MM-YYYY or DD/MM/YYYY or DD.MM.YYYY
+                const ddmmyyyyMatch = d.match(/(\d{2})[\-\/\.](\d{2})[\-\/\.](\d{4})/);
+                // DD-MM-YY or DD/MM/YY (2-digit year → assume 20xx)
+                const ddmmyyMatch = d.match(/^(\d{2})[\-\/\.](\d{2})[\-\/\.](\d{2})$/);
+                if (isoMatch) {
+                    setDate(`${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`);
+                } else if (ddmmyyyyMatch) {
+                    setDate(`${ddmmyyyyMatch[3]}-${ddmmyyyyMatch[2]}-${ddmmyyyyMatch[1]}`);
+                } else if (ddmmyyMatch) {
+                    const year = `20${ddmmyyMatch[3]}`;
+                    setDate(`${year}-${ddmmyyMatch[2]}-${ddmmyyMatch[1]}`);
+                }
             }
             // Store s3Key for saving
             setS3Key((body.s3Key as string) ?? "");
@@ -321,42 +330,43 @@ export default function ScanModal({ onClose, onSaved }: ScanModalProps) {
                             </div>
 
                             {/* Extracted entities summary */}
-                            {(extraction.metadata.medications.length > 0 ||
-                                extraction.metadata.diagnoses.length > 0 ||
-                                extraction.metadata.doctors.length > 0) && (
+                            {((extraction.metadata.medications?.length ?? 0) > 0 ||
+                                (extraction.metadata.diagnoses?.length ?? 0) > 0 ||
+                                (extraction.metadata.doctors?.length ?? 0) > 0) && (
                                     <div className={styles.entitySummary}>
-                                        {extraction.metadata.medications.length > 0 && (
+                                        {(extraction.metadata.medications?.length ?? 0) > 0 && (
                                             <div className={styles.entityGroup}>
                                                 <span className={styles.entityGroupLabel}>Medications</span>
                                                 <div className={styles.entityChips}>
-                                                    {extraction.metadata.medications.slice(0, 4).map((m) => (
-                                                        <span key={m} className={styles.chip}>{m}</span>
+                                                    {extraction.metadata.medications!.slice(0, 4).map((m, i) => (
+                                                        <span key={i} className={styles.chip}>{m.name}</span>
                                                     ))}
                                                 </div>
                                             </div>
                                         )}
-                                        {extraction.metadata.diagnoses.length > 0 && (
+                                        {(extraction.metadata.diagnoses?.length ?? 0) > 0 && (
                                             <div className={styles.entityGroup}>
                                                 <span className={styles.entityGroupLabel}>Conditions</span>
                                                 <div className={styles.entityChips}>
-                                                    {extraction.metadata.diagnoses.slice(0, 3).map((d) => (
-                                                        <span key={d} className={styles.chip}>{d}</span>
+                                                    {extraction.metadata.diagnoses!.slice(0, 3).map((d, i) => (
+                                                        <span key={i} className={styles.chip}>{d}</span>
                                                     ))}
                                                 </div>
                                             </div>
                                         )}
-                                        {extraction.metadata.doctors.length > 0 && (
+                                        {(extraction.metadata.doctors?.length ?? 0) > 0 && (
                                             <div className={styles.entityGroup}>
                                                 <span className={styles.entityGroupLabel}>Doctor</span>
                                                 <div className={styles.entityChips}>
-                                                    {extraction.metadata.doctors.slice(0, 2).map((d) => (
-                                                        <span key={d} className={styles.chip}>Dr. {d}</span>
+                                                    {extraction.metadata.doctors!.slice(0, 2).map((d, i) => (
+                                                        <span key={i} className={styles.chip}>Dr. {d}</span>
                                                     ))}
                                                 </div>
                                             </div>
                                         )}
                                     </div>
                                 )}
+
                         </div>
 
                         {error && <div className={styles.errorBanner}>{error}</div>}

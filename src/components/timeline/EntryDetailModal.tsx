@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useAuth } from "../../hooks/useAuth";
 import styles from "./EntryDetailModal.module.css";
 import {
@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import type { HealthEntry, DocumentTypeTag } from "../../lib/types/timeline";
 import DocThumbnail from "../scan/DocThumbnail";
+import ZoomableImage from "../scan/ZoomableImage";
 
 interface EntryDetailModalProps {
     entry: HealthEntry;
@@ -33,6 +34,16 @@ export default function EntryDetailModal({ entry, onClose, onDeleted, onUpdated 
     const [mode, setMode] = useState<"view" | "edit" | "confirmDelete">("view");
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [imgUrl, setImgUrl] = useState<string | null>(null);
+
+    // Fetch presigned URL once for the zoomable viewer
+    useEffect(() => {
+        if (!entry.encryptedBlobKey) return;
+        fetch(`/api/timeline/document-url?s3Key=${encodeURIComponent(entry.encryptedBlobKey)}`)
+            .then(r => r.json())
+            .then(d => { if (d.url) setImgUrl(d.url); })
+            .catch(() => { });
+    }, [entry.encryptedBlobKey]);
 
     // Edit form state
     const [editTitle, setEditTitle] = useState(entry.title);
@@ -46,6 +57,8 @@ export default function EntryDetailModal({ entry, onClose, onDeleted, onUpdated 
         try { return new Date(entry.date).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" }); }
         catch { return entry.date; }
     })();
+
+    const meta = entry.metadata ?? {};
 
     // ---- handlers ----
 
@@ -199,19 +212,20 @@ export default function EntryDetailModal({ entry, onClose, onDeleted, onUpdated 
                 {/* ---- View Mode ---- */}
                 {mode === "view" && (
                     <div className={styles.body}>
-                        {entry.encryptedBlobKey && (
-                            <div className={styles.imageWrapper}>
-                                <DocThumbnail s3Key={entry.encryptedBlobKey} alt={entry.title}
-                                    style={{ width: "100%", height: 220, borderRadius: "var(--radius-xl)" }} />
-                            </div>
-                        )}
+                        {imgUrl && <ZoomableImage src={imgUrl} alt={entry.title} />}
 
+                        {/* Meta row */}
                         <div className={styles.metaRow}>
                             <div className={styles.metaItem}><Calendar size={14} className={styles.metaIcon} /><span>{formattedDate}</span></div>
-                            {entry.sourceInstitution && <div className={styles.metaItem}><Building2 size={14} className={styles.metaIcon} /><span>{entry.sourceInstitution}</span></div>}
-                            {entry.doctorName && <div className={styles.metaItem}><Stethoscope size={14} className={styles.metaIcon} /><span>Dr. {entry.doctorName}</span></div>}
+                            {(entry.sourceInstitution || meta.institutions?.[0]) && (
+                                <div className={styles.metaItem}><Building2 size={14} className={styles.metaIcon} /><span>{entry.sourceInstitution || meta.institutions![0]}</span></div>
+                            )}
+                            {(entry.doctorName || meta.doctors?.[0]) && (
+                                <div className={styles.metaItem}><Stethoscope size={14} className={styles.metaIcon} /><span>Dr. {entry.doctorName || meta.doctors![0]}</span></div>
+                            )}
                         </div>
 
+                        {/* Status / confidence */}
                         {(entry.statusFlags?.length > 0 || entry.confidenceScore != null) && (
                             <div className={styles.flags}>
                                 {entry.statusFlags?.map(f => <span key={f} className={styles.flagBadge}>{f}</span>)}
@@ -219,26 +233,151 @@ export default function EntryDetailModal({ entry, onClose, onDeleted, onUpdated 
                             </div>
                         )}
 
-                        {(entry.metadata?.medications?.length ?? 0) > 0 && (
+                        {/* Summary */}
+                        {meta.summary && (
+                            <div className={styles.section}>
+                                <h4 className={styles.sectionTitle}><FileText size={13} /> Summary</h4>
+                                <p className={styles.summaryText}>{meta.summary}</p>
+                            </div>
+                        )}
+
+                        {/* ── Medications (RX / Consult) ── */}
+                        {(meta.medications?.length ?? 0) > 0 && (
                             <div className={styles.section}>
                                 <h4 className={styles.sectionTitle}><Pill size={13} /> Medications</h4>
-                                {chips(entry.metadata?.medications ?? [], "#10b981")}
+                                <div className={styles.medTable}>
+                                    {meta.medications!.map((m, i) => (
+                                        <div key={i} className={styles.medRow}>
+                                            <span className={styles.medName}>{m.name}</span>
+                                            <div className={styles.medDetails}>
+                                                {m.dosage && <span className={styles.medTag}>{m.dosage}</span>}
+                                                {m.frequency && <span className={styles.medTag}>{m.frequency}</span>}
+                                                {m.duration && <span className={styles.medTagAlt}>{m.duration}</span>}
+                                                {m.route && <span className={styles.medTagAlt}>{m.route}</span>}
+                                                {m.instructions && <span className={styles.medNote}>{m.instructions}</span>}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         )}
-                        {(entry.metadata?.diagnoses?.length ?? 0) > 0 && (
+
+                        {/* ── Diagnoses ── */}
+                        {(meta.diagnoses?.length ?? 0) > 0 && (
                             <div className={styles.section}>
-                                <h4 className={styles.sectionTitle}><Stethoscope size={13} /> Conditions</h4>
-                                {chips(entry.metadata?.diagnoses ?? [], "#f59e0b")}
+                                <h4 className={styles.sectionTitle}><Stethoscope size={13} /> Conditions / Diagnoses</h4>
+                                <div className={styles.chipRow}>
+                                    {meta.diagnoses!.map((d, i) => <span key={i} className={styles.chip} style={{ borderColor: "#f59e0b" }}>{d}</span>)}
+                                </div>
                             </div>
                         )}
-                        {(entry.metadata?.labTests?.length ?? 0) > 0 && (
+
+                        {/* ── Lab Results ── */}
+                        {(meta.labTests?.length ?? 0) > 0 && (
                             <div className={styles.section}>
-                                <h4 className={styles.sectionTitle}><FlaskConical size={13} /> Lab Tests</h4>
-                                {chips(entry.metadata?.labTests ?? [], "#6366f1")}
+                                <h4 className={styles.sectionTitle}><FlaskConical size={13} /> Lab Results</h4>
+                                {meta.labName && <p className={styles.metaNote}>{meta.labName}{meta.referredBy ? ` · Ref: Dr. ${meta.referredBy}` : ""}</p>}
+                                <div className={styles.labTable}>
+                                    {meta.labTests!.map((t, i) => (
+                                        <div key={i} className={styles.labRow}>
+                                            <span className={styles.labName}>{t.name}</span>
+                                            <span className={styles.labValue}>{t.value}{t.unit ? ` ${t.unit}` : ""}</span>
+                                            {t.referenceRange && <span className={styles.labRange}>{t.referenceRange}</span>}
+                                            {t.status && (
+                                                <span className={`${styles.labStatus} ${styles[`labStatus${t.status}`]}`}>{t.status}</span>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* ── Imaging ── */}
+                        {(meta.modality || meta.findings || meta.impression) && (
+                            <div className={styles.section}>
+                                <h4 className={styles.sectionTitle}><Camera size={13} /> Imaging Details</h4>
+                                {(meta.modality || meta.bodyPart) && (
+                                    <p className={styles.metaNote}>{[meta.modality, meta.bodyPart].filter(Boolean).join(" – ")}{meta.radiologist ? ` · Dr. ${meta.radiologist}` : ""}</p>
+                                )}
+                                {meta.findings && <div className={styles.textBlock}><strong>Findings:</strong> {meta.findings}</div>}
+                                {meta.impression && <div className={styles.textBlock}><strong>Impression:</strong> {meta.impression}</div>}
+                            </div>
+                        )}
+
+                        {/* ── Hospital ── */}
+                        {(meta.admissionDate || meta.dischargeDate || (meta.procedures?.length ?? 0) > 0) && (
+                            <div className={styles.section}>
+                                <h4 className={styles.sectionTitle}><Building2 size={13} /> Hospital Details</h4>
+                                <div className={styles.infoGrid}>
+                                    {meta.admissionDate && <div className={styles.infoItem}><span className={styles.infoLabel}>Admitted</span><span>{meta.admissionDate}</span></div>}
+                                    {meta.dischargeDate && <div className={styles.infoItem}><span className={styles.infoLabel}>Discharged</span><span>{meta.dischargeDate}</span></div>}
+                                    {meta.wardInfo && <div className={styles.infoItem}><span className={styles.infoLabel}>Ward</span><span>{meta.wardInfo}</span></div>}
+                                </div>
+                                {(meta.procedures?.length ?? 0) > 0 && (
+                                    <div className={styles.chipRow} style={{ marginTop: 8 }}>
+                                        {meta.procedures!.map((p, i) => <span key={i} className={styles.chip} style={{ borderColor: "#ef4444" }}>{p}</span>)}
+                                    </div>
+                                )}
+                                {meta.dischargeInstructions && <div className={styles.textBlock}><strong>Discharge instructions:</strong> {meta.dischargeInstructions}</div>}
+                            </div>
+                        )}
+
+                        {/* ── Consultation ── */}
+                        {(meta.chiefComplaint || meta.treatmentPlan || meta.followUpDate) && (
+                            <div className={styles.section}>
+                                <h4 className={styles.sectionTitle}><Stethoscope size={13} /> Consultation Details</h4>
+                                {meta.chiefComplaint && <div className={styles.textBlock}><strong>Chief complaint:</strong> {meta.chiefComplaint}</div>}
+                                {meta.examinationFindings && <div className={styles.textBlock}><strong>Examination:</strong> {meta.examinationFindings}</div>}
+                                {meta.treatmentPlan && <div className={styles.textBlock}><strong>Treatment plan:</strong> {meta.treatmentPlan}</div>}
+                                {meta.followUpDate && <div className={styles.infoItem}><span className={styles.infoLabel}>Follow-up</span><span>{meta.followUpDate}</span></div>}
+                                {(meta.advice?.length ?? 0) > 0 && (
+                                    <div className={styles.chipRow} style={{ marginTop: 8 }}>
+                                        {meta.advice!.map((a, i) => <span key={i} className={styles.chip} style={{ borderColor: "#f59e0b" }}>{a}</span>)}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* ── Insurance ── */}
+                        {(meta.policyNumber || meta.insurer) && (
+                            <div className={styles.section}>
+                                <h4 className={styles.sectionTitle}><FileCheck2 size={13} /> Insurance Details</h4>
+                                <div className={styles.infoGrid}>
+                                    {meta.insurer && <div className={styles.infoItem}><span className={styles.infoLabel}>Insurer</span><span>{meta.insurer}</span></div>}
+                                    {meta.policyNumber && <div className={styles.infoItem}><span className={styles.infoLabel}>Policy #</span><span>{meta.policyNumber}</span></div>}
+                                    {meta.policyHolder && <div className={styles.infoItem}><span className={styles.infoLabel}>Holder</span><span>{meta.policyHolder}</span></div>}
+                                    {meta.coverageAmount && <div className={styles.infoItem}><span className={styles.infoLabel}>Coverage</span><span>₹{meta.coverageAmount}</span></div>}
+                                    {meta.validityPeriod && <div className={styles.infoItem}><span className={styles.infoLabel}>Validity</span><span>{meta.validityPeriod}</span></div>}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* ── Vaccination ── */}
+                        {meta.vaccineName && (
+                            <div className={styles.section}>
+                                <h4 className={styles.sectionTitle}><ClipboardList size={13} /> Vaccination Details</h4>
+                                <div className={styles.infoGrid}>
+                                    <div className={styles.infoItem}><span className={styles.infoLabel}>Vaccine</span><span>{meta.vaccineName}</span></div>
+                                    {meta.doseNumber && <div className={styles.infoItem}><span className={styles.infoLabel}>Dose</span><span>{meta.doseNumber}</span></div>}
+                                    {meta.nextDueDate && <div className={styles.infoItem}><span className={styles.infoLabel}>Next due</span><span>{meta.nextDueDate}</span></div>}
+                                    {meta.administeredBy && <div className={styles.infoItem}><span className={styles.infoLabel}>Given by</span><span>{meta.administeredBy}</span></div>}
+                                    {meta.batchNumber && <div className={styles.infoItem}><span className={styles.infoLabel}>Batch</span><span>{meta.batchNumber}</span></div>}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* ── Allergies ── */}
+                        {(meta.allergies?.length ?? 0) > 0 && (
+                            <div className={styles.section}>
+                                <h4 className={styles.sectionTitle} style={{ color: "#ef4444" }}>⚠ Allergies</h4>
+                                <div className={styles.chipRow}>
+                                    {meta.allergies!.map((a, i) => <span key={i} className={styles.chip} style={{ borderColor: "#ef4444", color: "#ef4444" }}>{a}</span>)}
+                                </div>
                             </div>
                         )}
                     </div>
                 )}
+
             </div>
         </div>
     );

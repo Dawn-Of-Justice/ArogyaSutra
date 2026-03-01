@@ -16,6 +16,7 @@ import {
 } from "@aws-sdk/lib-dynamodb";
 import type { AuditLogEntry, StoredAccessGrant, AuditLogQuery } from "../types/audit";
 import type { BreakGlassSession, BreakGlassLog } from "../types/emergency";
+import type { Appointment, UpdateAppointmentInput } from "../types/appointment";
 
 // Amplify blocks "AWS_" prefix env vars — use APP_AWS_* workaround.
 // Falls back to default credential chain (IAM role / local ~/.aws).
@@ -33,6 +34,7 @@ const AUDIT_TABLE = process.env.DYNAMODB_AUDIT_TABLE || "arogyasutra-audit-logs"
 const ACCESS_TABLE = process.env.DYNAMODB_ACCESS_TABLE || "arogyasutra-access-grants";
 const SESSION_TABLE = process.env.DYNAMODB_SESSION_TABLE || "arogyasutra-sessions";
 const PREFS_TABLE = process.env.DYNAMODB_PREFS_TABLE || "arogyasutra-user-prefs";
+const APPT_TABLE = process.env.DYNAMODB_APPOINTMENTS_TABLE || "arogyasutra-appointments";
 
 // ---- Audit Logs (Immutable — no update/delete) ----
 
@@ -262,6 +264,74 @@ export async function putBreakGlassLog(log: BreakGlassLog): Promise<void> {
             TableName: AUDIT_TABLE,
             Item: { ...log, action: "BREAKGLASS_INITIATE" },
             ConditionExpression: "attribute_not_exists(logId)",
+        })
+    );
+}
+
+// ---- Appointments ----
+
+/** List all appointments for a patient, ordered by date ascending. */
+export async function listAppointments(patientId: string): Promise<Appointment[]> {
+    const result = await dynamodb.send(
+        new QueryCommand({
+            TableName: APPT_TABLE,
+            IndexName: "by-date",
+            KeyConditionExpression: "patientId = :pid",
+            ExpressionAttributeValues: { ":pid": patientId },
+            ScanIndexForward: true, // oldest → newest by appointmentDate
+        })
+    );
+    return (result.Items || []) as Appointment[];
+}
+
+/** Create or overwrite an appointment. */
+export async function putAppointment(appt: Appointment): Promise<void> {
+    await dynamodb.send(
+        new PutCommand({
+            TableName: APPT_TABLE,
+            Item: appt,
+        })
+    );
+}
+
+/** Partially update an appointment (status, time, notes, etc.). */
+export async function updateAppointment(
+    patientId: string,
+    appointmentId: string,
+    updates: UpdateAppointmentInput
+): Promise<void> {
+    const now = new Date().toISOString();
+    const fields = { ...updates, updatedAt: now };
+    const setClauses = Object.keys(fields)
+        .map((k) => `#${k} = :${k}`)
+        .join(", ");
+    const expressionAttributeNames = Object.fromEntries(
+        Object.keys(fields).map((k) => [`#${k}`, k])
+    );
+    const expressionAttributeValues = Object.fromEntries(
+        Object.entries(fields).map(([k, v]) => [`:${k}`, v])
+    );
+
+    await dynamodb.send(
+        new UpdateCommand({
+            TableName: APPT_TABLE,
+            Key: { patientId, appointmentId },
+            UpdateExpression: `SET ${setClauses}`,
+            ExpressionAttributeNames: expressionAttributeNames,
+            ExpressionAttributeValues: expressionAttributeValues,
+        })
+    );
+}
+
+/** Delete an appointment. */
+export async function deleteAppointment(
+    patientId: string,
+    appointmentId: string
+): Promise<void> {
+    await dynamodb.send(
+        new DeleteCommand({
+            TableName: APPT_TABLE,
+            Key: { patientId, appointmentId },
         })
     );
 }

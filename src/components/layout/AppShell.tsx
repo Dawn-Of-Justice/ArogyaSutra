@@ -84,6 +84,16 @@ export default function AppShell({
         if (cached) setPhotoUrl(cached);
     }, [userId]);
 
+    // ---- Apply saved theme on mount ----
+    useEffect(() => {
+        const saved = localStorage.getItem("arogyasutra_theme");
+        if (saved === "dark") {
+            document.documentElement.setAttribute("data-theme", "dark");
+        } else {
+            document.documentElement.removeAttribute("data-theme");
+        }
+    }, []);
+
     // ---- User card popover menu ----
     const [menuOpen, setMenuOpen] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);

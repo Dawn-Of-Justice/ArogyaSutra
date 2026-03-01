@@ -123,7 +123,27 @@ export class ArogyaSutraStack extends cdk.Stack {
         });
 
         // ====================================================
-        // 6. SNS — Notifications Topic
+        // 6. DynamoDB — Appointments Table
+        // ====================================================
+        const appointmentsTable = new dynamodb.Table(this, "AppointmentsTable", {
+            tableName: "arogyasutra-appointments",
+            partitionKey: { name: "patientId", type: dynamodb.AttributeType.STRING },
+            sortKey: { name: "appointmentId", type: dynamodb.AttributeType.STRING },
+            billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+            encryption: dynamodb.TableEncryption.AWS_MANAGED,
+            pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
+            removalPolicy: cdk.RemovalPolicy.RETAIN,
+        });
+
+        appointmentsTable.addGlobalSecondaryIndex({
+            indexName: "by-date",
+            partitionKey: { name: "patientId", type: dynamodb.AttributeType.STRING },
+            sortKey: { name: "appointmentDate", type: dynamodb.AttributeType.STRING },
+            projectionType: dynamodb.ProjectionType.ALL,
+        });
+
+        // ====================================================
+        // 7. SNS — Notifications Topic
         // ====================================================
         const notificationTopic = new sns.Topic(this, "NotificationsTopic", {
             topicName: "arogyasutra-notifications",
@@ -131,7 +151,7 @@ export class ArogyaSutraStack extends cdk.Stack {
         });
 
         // ====================================================
-        // 7. Lambda — Cognito Custom Auth Triggers
+        // 8. Lambda — Cognito Custom Auth Triggers
         // ====================================================
         const defineAuthFn = new NodejsFunction(this, "DefineAuthChallenge", {
             functionName: "arogyasutra-define-auth",
@@ -307,6 +327,8 @@ export class ArogyaSutraStack extends cdk.Stack {
         accessTable.grantReadWriteData(appRole);
         sessionTable.grantReadWriteData(appRole);
         notificationTopic.grantPublish(appRole);
+
+        appointmentsTable.grantReadWriteData(appRole);
 
         appRole.addToPolicy(
             new iam.PolicyStatement({
@@ -484,6 +506,11 @@ export class ArogyaSutraStack extends cdk.Stack {
         new cdk.CfnOutput(this, "SessionTableName", {
             value: sessionTable.tableName,
             description: "DYNAMODB_SESSION_TABLE",
+        });
+
+        new cdk.CfnOutput(this, "AppointmentsTableName", {
+            value: appointmentsTable.tableName,
+            description: "DYNAMODB_APPOINTMENTS_TABLE",
         });
 
         new cdk.CfnOutput(this, "IdentityPoolId", {

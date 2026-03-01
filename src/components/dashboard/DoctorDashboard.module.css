@@ -806,6 +806,76 @@
     color: var(--dd-danger);
 }
 
+/* Schedule appointment button */
+.actionBtnSchedule {
+    background: var(--dd-accent-light);
+    border-color: var(--dd-accent);
+    color: var(--dd-accent-dark);
+}
+
+.actionBtnSchedule:hover {
+    background: #DBEAFE;
+}
+
+/* Schedule appointment form panel */
+.apptForm {
+    background: var(--dd-bg-card-alt);
+    border: 1px solid var(--dd-border-light);
+    border-radius: var(--radius-xl);
+    padding: var(--space-5);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    margin-top: var(--space-3);
+}
+
+.apptFormTitle {
+    font-size: var(--text-base);
+    font-weight: var(--font-bold);
+    color: var(--dd-text-primary);
+    margin: 0 0 var(--space-1);
+}
+
+.apptFormRow {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-3);
+}
+
+.apptFormGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.apptFormActions {
+    display: flex;
+    gap: var(--space-3);
+    justify-content: flex-end;
+    padding-top: var(--space-2);
+    border-top: 1px solid var(--dd-border-light);
+    margin-top: var(--space-1);
+}
+
+.apptSuccess {
+    background: #F0FDF4;
+    color: #16A34A;
+    border: 1px solid #BBF7D0;
+    border-radius: var(--radius-md);
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--text-sm);
+    font-weight: var(--font-semibold);
+}
+
+.apptError {
+    background: #FEF2F2;
+    color: var(--dd-danger);
+    border: 1px solid #FECACA;
+    border-radius: var(--radius-md);
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--text-sm);
+}
+
 /* ---- Responsive ---- */
 @media (max-width: 900px) {
     .doctorDashboard {

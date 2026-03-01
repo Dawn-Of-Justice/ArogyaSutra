@@ -16,10 +16,13 @@ const _appCreds =
         : {};
 
 
-const region = process.env.NEXT_PUBLIC_AWS_REGION || "ap-south-1";
-const bedrockClient = new BedrockRuntimeClient({ region, ..._appCreds });
+// Claude 4 cross-region inference profiles only work in us-east-1 / us-west-2
+const bedrockRegion = ["us-east-1", "us-west-2"].includes(process.env.NEXT_PUBLIC_AWS_REGION || "")
+    ? process.env.NEXT_PUBLIC_AWS_REGION!
+    : "us-east-1";
+const bedrockClient = new BedrockRuntimeClient({ region: bedrockRegion, ..._appCreds });
 const MODEL_ID =
-    process.env.BEDROCK_MODEL_ID || "anthropic.claude-3-sonnet-20240229-v1:0";
+    process.env.BEDROCK_MODEL_ID || "us.amazon.nova-pro-v1:0";
 
 /** RAG context document */
 export interface RAGContext {
@@ -57,25 +60,31 @@ export async function invokeModel(
         )
         .join("\n\n");
 
-    const defaultSystem = `You are ArogyaSutra's clinical assistant. You help patients and doctors understand medical records. You MUST:
-1. Always cite sources using [Source N] format
-2. Never diagnose — only summarize and highlight patterns
-3. Flag anything potentially concerning with ⚠️
-4. Include a medical disclaimer in every response
-5. Respond in the same language the user asks in
-6. Be concise but thorough`;
+    const defaultSystem = `You are Arogya, a friendly and knowledgeable health assistant built into ArogyaSutra. You support both patients and their doctors by helping them understand medical records, lab results, prescriptions, and health history clearly and compassionately.
+
+Your role is to EXPLAIN and SUMMARIZE — not to diagnose, prescribe, or draw clinical conclusions. The treating doctor always makes the final call.
+
+Guidelines:
+- Be warm, clear, and conversational. Avoid robotic or clinical-sounding language.
+- Always cite the source of information using [Source N] format so readers know exactly where data came from.
+- Explain medical terms in plain language that a patient can understand, while still being precise enough for a doctor.
+- If something in the records looks noteworthy (e.g. a value outside normal range, a missed follow-up), mention it calmly and factually — no alarm language.
+- DO NOT repeat legal disclaimers or boilerplate warnings in every message. Users of this app already understand they are reviewing their own health data.
+- Respond in the same language the user writes in (Hindi, English, etc.).
+- Keep answers focused and concise. Use bullet points or short paragraphs for readability.`;
 
     const body = JSON.stringify({
-        anthropic_version: "bedrock-2023-05-31",
-        max_tokens: 2048,
-        system: systemPrompt || defaultSystem,
         messages: [
             {
                 role: "user",
-                content: `Here are the patient's relevant medical records:\n\n${contextBlock}\n\nQuestion: ${query}`,
+                content: [{ text: `Here are the patient's relevant medical records:\n\n${contextBlock}\n\nQuestion: ${query}` }],
             },
         ],
-        temperature: 0.3, // Low temperature for medical accuracy
+        system: [{ text: systemPrompt || defaultSystem }],
+        inferenceConfig: {
+            maxTokens: 2048,
+            temperature: 0.3,
+        },
     });
 
     const result = await bedrockClient.send(
@@ -90,9 +99,9 @@ export async function invokeModel(
     const responseBody = JSON.parse(new TextDecoder().decode(result.body));
 
     return {
-        answer: responseBody.content?.[0]?.text || "",
-        inputTokens: responseBody.usage?.input_tokens || 0,
-        outputTokens: responseBody.usage?.output_tokens || 0,
+        answer: responseBody.output?.message?.content?.[0]?.text || responseBody.content?.[0]?.text || "",
+        inputTokens: responseBody.usage?.inputTokens || responseBody.usage?.input_tokens || 0,
+        outputTokens: responseBody.usage?.outputTokens || responseBody.usage?.output_tokens || 0,
     };
 }
 

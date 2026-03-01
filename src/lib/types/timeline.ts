@@ -50,11 +50,79 @@ export interface EntrySource {
 
 /** Extracted metadata for search/filter */
 export interface EntryMetadata {
-    medications?: string[];
-    diagnoses?: string[];
-    labTests?: string[];
-    vitals?: VitalReading[];
+    // ── Universal ──────────────────────────────────────────────
+    rawText?: string;                // Full OCR text — used for RAG vector embedding
+    summary?: string;               // Human-readable AI summary of the document
+    doctors?: string[];
+    institutions?: string[];
+    dates?: string[];
     allergies?: string[];
+    vitals?: VitalReading[];
+
+    // ── Prescription (RX) ──────────────────────────────────────
+    medications?: MedicationDetail[];   // rich: name + dosage + freq + route
+    diagnoses?: string[];               // conditions being treated
+
+    // ── Lab Report ─────────────────────────────────────────────
+    labTests?: LabTestResult[];         // test name + value + unit + range + status
+    labName?: string;                   // e.g. "Apollo Diagnostics"
+    referredBy?: string;                // referring doctor
+
+    // ── Imaging ────────────────────────────────────────────────
+    modality?: string;                  // X-ray | MRI | CT | Ultrasound | PET
+    bodyPart?: string;                  // e.g. "Chest", "Right Knee"
+    findings?: string;                  // verbatim findings paragraph
+    impression?: string;                // radiologist's impression
+    radiologist?: string;
+
+    // ── Hospital / Discharge ───────────────────────────────────
+    admissionDate?: string;
+    dischargeDate?: string;
+    procedures?: string[];              // surgeries / procedures performed
+    surgeons?: string[];
+    wardInfo?: string;                  // ward / bed / room
+    dischargeInstructions?: string;
+
+    // ── Consultation ───────────────────────────────────────────
+    chiefComplaint?: string;
+    examinationFindings?: string;
+    treatmentPlan?: string;
+    followUpDate?: string;
+    advice?: string[];
+
+    // ── Insurance ──────────────────────────────────────────────
+    policyNumber?: string;
+    insurer?: string;
+    policyHolder?: string;
+    coverageAmount?: string;
+    validityPeriod?: string;
+    coveredConditions?: string[];
+
+    // ── Vaccination ────────────────────────────────────────────
+    vaccineName?: string;
+    doseNumber?: string;
+    nextDueDate?: string;
+    administeredBy?: string;
+    batchNumber?: string;
+}
+
+/** A single medication with structured dosage details */
+export interface MedicationDetail {
+    name: string;
+    dosage?: string;       // e.g. "500mg"
+    frequency?: string;    // e.g. "Twice Daily", "OD", "TDS"
+    duration?: string;     // e.g. "7 days"
+    route?: string;        // e.g. "Oral", "Topical", "IV"
+    instructions?: string; // e.g. "After food", "With water"
+}
+
+/** A single lab test result */
+export interface LabTestResult {
+    name: string;
+    value?: string;
+    unit?: string;
+    referenceRange?: string;
+    status?: "Normal" | "Low" | "High" | "Critical";
 }
 
 /** A single vital reading */

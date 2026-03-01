@@ -113,7 +113,6 @@
     border-radius: var(--radius-xl);
     overflow: hidden;
     background: var(--color-bg-primary);
-    min-height: 60px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -446,4 +445,196 @@
         transform: translateY(0);
         opacity: 1;
     }
+}
+
+/* ──────────────────────────────────────────────────────────
+   Rich metadata display
+────────────────────────────────────────────────────────── */
+
+/* Summary paragraph */
+.summaryText {
+    font-size: var(--text-sm);
+    color: var(--color-text-secondary);
+    line-height: 1.6;
+    margin: 0;
+    padding: var(--space-3);
+    background: var(--color-bg-primary);
+    border-radius: var(--radius-lg);
+    border-left: 3px solid var(--color-accent);
+}
+
+/* Long text blocks (findings, instructions, etc.) */
+.textBlock {
+    font-size: var(--text-sm);
+    color: var(--color-text-secondary);
+    line-height: 1.55;
+    padding: var(--space-3);
+    background: var(--color-bg-primary);
+    border-radius: var(--radius-lg);
+    margin: 0;
+}
+
+.textBlock strong {
+    color: var(--color-text-primary);
+    margin-right: 4px;
+}
+
+/* Meta note (lab name, imaging modality subline) */
+.metaNote {
+    font-size: var(--text-xs);
+    color: var(--color-text-tertiary);
+    margin: 0;
+}
+
+/* ---- Medications table ---- */
+.medTable {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.medRow {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: var(--space-3);
+    background: var(--color-bg-primary);
+    border-radius: var(--radius-lg);
+    border-left: 3px solid #10b981;
+}
+
+.medName {
+    font-size: var(--text-sm);
+    font-weight: var(--font-semibold);
+    color: var(--color-text-primary);
+}
+
+.medDetails {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.medTag {
+    font-size: 11px;
+    padding: 1px 8px;
+    border-radius: var(--radius-full);
+    background: rgba(16, 185, 129, 0.12);
+    color: #10b981;
+    border: 1px solid rgba(16, 185, 129, 0.25);
+    font-weight: var(--font-semibold);
+}
+
+.medTagAlt {
+    font-size: 11px;
+    padding: 1px 8px;
+    border-radius: var(--radius-full);
+    background: var(--color-bg-tertiary);
+    color: var(--color-text-secondary);
+    border: 1px solid var(--color-border);
+}
+
+.medNote {
+    font-size: 11px;
+    color: var(--color-text-tertiary);
+    font-style: italic;
+}
+
+/* ---- Lab results table ---- */
+.labTable {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    border: 1px solid var(--color-border);
+}
+
+.labRow {
+    display: grid;
+    grid-template-columns: 1fr auto auto auto;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    background: var(--color-bg-primary);
+    font-size: var(--text-xs);
+}
+
+.labRow:nth-child(even) {
+    background: var(--color-bg-secondary);
+}
+
+.labName {
+    color: var(--color-text-primary);
+    font-weight: var(--font-medium);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.labValue {
+    font-family: var(--font-mono, monospace);
+    color: var(--color-text-primary);
+    white-space: nowrap;
+}
+
+.labRange {
+    color: var(--color-text-tertiary);
+    white-space: nowrap;
+}
+
+.labStatus {
+    font-size: 10px;
+    font-weight: var(--font-bold);
+    padding: 1px 6px;
+    border-radius: var(--radius-full);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+}
+
+.labStatusNormal {
+    background: rgba(16, 185, 129, 0.12);
+    color: #10b981;
+}
+
+.labStatusLow {
+    background: rgba(99, 102, 241, 0.12);
+    color: #6366f1;
+}
+
+.labStatusHigh {
+    background: rgba(245, 158, 11, 0.12);
+    color: #d97706;
+}
+
+.labStatusCritical {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+}
+
+/* ---- Info grid (hospital, insurance, vaccination) ---- */
+.infoGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: var(--space-2);
+}
+
+.infoItem {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: var(--space-2) var(--space-3);
+    background: var(--color-bg-primary);
+    border-radius: var(--radius-lg);
+    font-size: var(--text-xs);
+    color: var(--color-text-primary);
+}
+
+.infoLabel {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-text-tertiary);
+    font-weight: var(--font-semibold);
 }

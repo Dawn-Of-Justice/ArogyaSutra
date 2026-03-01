@@ -269,6 +269,51 @@ export default function DoctorDashboard({ onNavigate, doctorName }: Props) {
     // Active annotation for body model
     const activeAnnotation = patient?.annotations?.[0] || null;
 
+    // ---- Schedule appointment (doctor sets next visit) ----
+    const [schedOpen, setSchedOpen] = useState(false);
+    const [schedDate, setSchedDate] = useState("");
+    const [schedTime, setSchedTime] = useState("");
+    const [schedSpecialty, setSchedSpecialty] = useState("");
+    const [schedLocation, setSchedLocation] = useState("");
+    const [schedNotes, setSchedNotes] = useState("");
+    const [schedSaving, setSchedSaving] = useState(false);
+    const [schedDone, setSchedDone] = useState(false);
+    const [schedError, setSchedError] = useState("");
+
+    const handleScheduleAppointment = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!patient || !schedDate) return;
+        setSchedSaving(true);
+        setSchedError("");
+        try {
+            const res = await fetch("/api/appointments", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    patientId: patient.cardId,
+                    appointmentDate: schedDate,
+                    time: schedTime || undefined,
+                    doctorName: doctorName || "Doctor",
+                    specialty: schedSpecialty || undefined,
+                    location: schedLocation || undefined,
+                    notes: schedNotes || undefined,
+                }),
+            });
+            if (!res.ok) throw new Error("Failed");
+            setSchedDone(true);
+            setTimeout(() => {
+                setSchedOpen(false);
+                setSchedDone(false);
+                setSchedDate(""); setSchedTime(""); setSchedSpecialty("");
+                setSchedLocation(""); setSchedNotes("");
+            }, 2000);
+        } catch {
+            setSchedError("Could not save appointment. Please try again.");
+        } finally {
+            setSchedSaving(false);
+        }
+    };
+
     return (
         <div className={styles.doctorDashboard}>
             {/* ---- Left Column: 3D Body Model ---- */}
@@ -560,7 +605,7 @@ export default function DoctorDashboard({ onNavigate, doctorName }: Props) {
                                 </div>
                             </div>
 
-                            {/* Action buttons — no Schedule */}
+                            {/* Action buttons */}
                             <div className={styles.actionBar}>
                                 <button className={styles.actionBtn}>
                                     {Icon.edit} Add Notes
@@ -568,7 +613,98 @@ export default function DoctorDashboard({ onNavigate, doctorName }: Props) {
                                 <button className={`${styles.actionBtn} ${styles.actionBtnPrimary}`}>
                                     {Icon.filePlus} Add Prescription
                                 </button>
+                                <button
+                                    className={`${styles.actionBtn} ${styles.actionBtnSchedule}`}
+                                    onClick={() => { setSchedOpen(o => !o); setSchedDone(false); setSchedError(""); }}
+                                >
+                                    {Icon.calendar} Schedule Appointment
+                                </button>
                             </div>
+
+                            {/* Schedule appointment form */}
+                            {schedOpen && (
+                                <form className={styles.apptForm} onSubmit={handleScheduleAppointment}>
+                                    <h4 className={styles.apptFormTitle}>Next Appointment</h4>
+                                    {schedDone && (
+                                        <div className={styles.apptSuccess}>
+                                            ✓ Appointment scheduled successfully
+                                        </div>
+                                    )}
+                                    {schedError && (
+                                        <div className={styles.apptError}>{schedError}</div>
+                                    )}
+                                    <div className={styles.apptFormRow}>
+                                        <div className={styles.apptFormGroup}>
+                                            <label className={styles.verifyLabel}>Date *</label>
+                                            <input
+                                                type="date"
+                                                className={`${styles.verifyInput} ${styles.verifyInputNormal}`}
+                                                value={schedDate}
+                                                min={new Date().toISOString().slice(0, 10)}
+                                                onChange={e => setSchedDate(e.target.value)}
+                                                required
+                                            />
+                                        </div>
+                                        <div className={styles.apptFormGroup}>
+                                            <label className={styles.verifyLabel}>Time</label>
+                                            <input
+                                                type="time"
+                                                className={`${styles.verifyInput} ${styles.verifyInputNormal}`}
+                                                value={schedTime}
+                                                onChange={e => setSchedTime(e.target.value)}
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className={styles.apptFormRow}>
+                                        <div className={styles.apptFormGroup}>
+                                            <label className={styles.verifyLabel}>Specialty</label>
+                                            <input
+                                                type="text"
+                                                className={styles.verifyInput}
+                                                placeholder="e.g. Cardiology"
+                                                value={schedSpecialty}
+                                                onChange={e => setSchedSpecialty(e.target.value)}
+                                            />
+                                        </div>
+                                        <div className={styles.apptFormGroup}>
+                                            <label className={styles.verifyLabel}>Location</label>
+                                            <input
+                                                type="text"
+                                                className={styles.verifyInput}
+                                                placeholder="e.g. Room 204"
+                                                value={schedLocation}
+                                                onChange={e => setSchedLocation(e.target.value)}
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className={styles.apptFormGroup}>
+                                        <label className={styles.verifyLabel}>Notes</label>
+                                        <input
+                                            type="text"
+                                            className={styles.verifyInput}
+                                            placeholder="Instructions for patient (optional)"
+                                            value={schedNotes}
+                                            onChange={e => setSchedNotes(e.target.value)}
+                                        />
+                                    </div>
+                                    <div className={styles.apptFormActions}>
+                                        <button
+                                            type="button"
+                                            className={styles.actionBtn}
+                                            onClick={() => setSchedOpen(false)}
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            className={`${styles.actionBtn} ${styles.actionBtnPrimary}`}
+                                            disabled={schedSaving || !schedDate}
+                                        >
+                                            {schedSaving ? "Saving..." : "Confirm Appointment"}
+                                        </button>
+                                    </div>
+                                </form>
+                            )}
 
 
                         </div>

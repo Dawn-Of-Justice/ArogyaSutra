@@ -1,0 +1,1 @@
+[{"IndexName":"by-date","KeySchema":[{"AttributeName":"patientId","KeyType":"HASH"},{"AttributeName":"appointmentDate","KeyType":"RANGE"}],"Projection":{"ProjectionType":"ALL"}}]

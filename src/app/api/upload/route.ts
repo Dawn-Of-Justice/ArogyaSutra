@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
         const imageBytes = Buffer.from(arrayBuffer);
 
         // ---- Run Textract + Comprehend ----
-        const extractionResult = await analyzeDocument(imageBytes);
+        const extractionResult = await analyzeDocument(imageBytes, file.name);
 
         // ---- Upload original to S3 ----
         const ext = file.name.split(".").pop() ?? "jpg";

@@ -21,8 +21,7 @@ import { v4 as uuidv4 } from "uuid";
 const conversations = new Map<string, ChatConversation>();
 
 const MEDICAL_DISCLAIMER =
-    "⚕️ This is AI-generated information, not medical advice. " +
-    "Always consult a qualified healthcare professional for diagnosis and treatment decisions.";
+    "AI-generated summary based on your health records. Your doctor makes all clinical decisions.";
 
 /**
  * Sends a query to the RAG assistant.
@@ -49,7 +48,7 @@ export async function query(ragQuery: RAGQuery): Promise<RAGResponse> {
         answer: result.answer,
         citations,
         confidence: citations.length > 0 ? 80 : 50,
-        modelId: "anthropic.claude-3-sonnet",
+        modelId: process.env.BEDROCK_MODEL_ID || "us.amazon.nova-pro-v1:0",
         generatedAt: new Date().toISOString(),
         conversationId,
         disclaimer: MEDICAL_DISCLAIMER,

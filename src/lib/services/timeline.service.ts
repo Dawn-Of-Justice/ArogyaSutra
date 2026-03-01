@@ -107,9 +107,9 @@ export async function confirmAndSave(
         confidenceScore: extraction.overallConfidence,
         addedBy: { type: "PATIENT", userId: patientId, name: patientId },
         metadata: {
-            medications: extraction.clinicalEntities.medications.map((m) => m.name),
+            medications: extraction.clinicalEntities.medications.map((m) => ({ name: m.name })),
             diagnoses: extraction.clinicalEntities.diagnoses.map((d) => d.name),
-            labTests: extraction.clinicalEntities.labResults.map((l) => l.testName),
+            labTests: extraction.clinicalEntities.labResults.map((l) => ({ name: l.testName })),
         },
     };
 

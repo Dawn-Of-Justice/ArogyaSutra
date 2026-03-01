@@ -9,12 +9,14 @@ import { useAuth } from "../../hooks/useAuth";
 import { useTimeline } from "../../hooks/useTimeline";
 import styles from "./Dashboard.module.css";
 import {
-    Ruler, Weight, HeartPulse, Thermometer,
     ScanLine, ClipboardList, FileText, FlaskConical,
-    Building2, Stethoscope, ImageIcon,
+    Building2, Stethoscope, ImageIcon, CalendarClock,
 } from "lucide-react";
 import { GeminiIcon } from "../common/GeminiIcon";
 import ScanModal from "../scan/ScanModal";
+import EntryDetailModal from "../timeline/EntryDetailModal";
+import type { HealthEntry } from "../../lib/types/timeline";
+import type { Appointment } from "../../lib/types/appointment";
 
 interface DashboardProps {
     onNavigate: (screen: string) => void;
@@ -38,17 +40,109 @@ const TAG_STYLES: Record<string, string> = {
     Other: styles.tagOther,
 };
 
-// Mock recent doctor visits (replace with real data when available)
-const MOCK_DOCTOR_VISITS = [
-    { name: "Dr. Priya Sharma", specialty: "General Physician", date: "24 Feb 2026", icon: "🩺" },
-    { name: "Dr. Arun Mehta", specialty: "Cardiologist", date: "10 Feb 2026", icon: "🫀" },
-    { name: "Dr. Nisha Patel", specialty: "Dermatologist", date: "02 Jan 2026", icon: "💆" },
-];
+function daysFromNow(date: Date): string {
+    const diff = Math.round((date.getTime() - Date.now()) / 86400000);
+    if (diff === 0) return "Today";
+    if (diff === 1) return "Tomorrow";
+    return `In ${diff} days`;
+}
+
+function dayKey(date: Date) {
+    return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+}
+
+const DOC_TYPE_ICON_MAP: Record<string, string> = {
+    Consult: "🩺",
+    H: "🏥",
+    RX: "💊",
+    Lab: "🧪",
+    Imaging: "🧠",
+    Vacc: "💉",
+};
 
 export default function Dashboard({ onNavigate }: DashboardProps) {
     const { patient } = useAuth();
     const { entries, loadTimeline, isLoading } = useTimeline();
     const [scanOpen, setScanOpen] = useState(false);
+    const [selectedEntry, setSelectedEntry] = useState<HealthEntry | null>(null);
+    const [hoveredDay, setHoveredDay] = useState<string | null>(null);
+    const [appointments, setAppointments] = useState<Appointment[]>([]);
+    const [apptLoading, setApptLoading] = useState(false);
+    const [reschedulingId, setReschedulingId] = useState<string | null>(null);
+    const [reschedDate, setReschedDate] = useState("");
+    const [reschedTime, setReschedTime] = useState("");
+    const [reschedSaving, setReschedSaving] = useState(false);
+
+    const handleReschedule = async () => {
+        if (!reschedulingId || !reschedDate || !patient?.patientId) return;
+        setReschedSaving(true);
+        try {
+            await fetch(`/api/appointments/${reschedulingId}?patientId=${encodeURIComponent(patient.patientId)}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ appointmentDate: reschedDate, time: reschedTime || undefined }),
+            });
+            // Refresh
+            const res = await fetch(`/api/appointments?patientId=${encodeURIComponent(patient.patientId)}`);
+            const data = await res.json();
+            setAppointments((data.appointments ?? []).filter(
+                (a: Appointment) => a.status === "scheduled" && new Date(a.appointmentDate).getTime() >= Date.now() - 86400000
+            ));
+            setReschedulingId(null);
+            setReschedDate("");
+            setReschedTime("");
+        } catch { /* silent */ } finally {
+            setReschedSaving(false);
+        }
+    };
+
+    // ---- Fetch scheduled appointments from dedicated table ----
+    useEffect(() => {
+        if (!patient?.patientId) return;
+        setApptLoading(true);
+        fetch(`/api/appointments?patientId=${encodeURIComponent(patient.patientId)}`)
+            .then(r => r.json())
+            .then(data => setAppointments((data.appointments ?? []).filter(
+                (a: Appointment) => a.status === "scheduled" && new Date(a.appointmentDate).getTime() >= Date.now() - 86400000
+            )))
+            .catch(() => setAppointments([]))
+            .finally(() => setApptLoading(false));
+    }, [patient?.patientId]);
+
+    // ---- Derive doctor visits from timeline entries ----
+    const doctorVisits = entries
+        .filter(e => (e.documentType === "Consult" || e.documentType === "H") && e.doctorName)
+        .map(e => ({
+            name: e.doctorName!,
+            specialty: e.sourceInstitution || (e.documentType === "H" ? "Hospitalisation" : "Consultation"),
+            date: new Date(e.date),
+            dateLabel: new Date(e.date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }),
+            icon: DOC_TYPE_ICON_MAP[e.documentType] || "🩺",
+        }));
+
+    // Shape appointments for display
+    const upcoming = appointments
+        .map(a => ({
+            name: a.doctorName,
+            specialty: a.specialty || "Appointment",
+            date: new Date(a.appointmentDate),
+            time: a.time || "—",
+            location: a.location || "—",
+            appointmentId: a.appointmentId,
+        }))
+        .sort((a, b) => a.date.getTime() - b.date.getTime());
+
+    // Build day → events lookup
+    const apptsByDay = new Map<string, typeof upcoming>();
+    for (const a of upcoming) {
+        const k = dayKey(a.date);
+        apptsByDay.set(k, [...(apptsByDay.get(k) ?? []), a]);
+    }
+    const visitsByDay = new Map<string, typeof doctorVisits>();
+    for (const v of doctorVisits) {
+        const k = dayKey(v.date);
+        visitsByDay.set(k, [...(visitsByDay.get(k) ?? []), v]);
+    }
 
     useEffect(() => {
         loadTimeline();
@@ -75,8 +169,6 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
             .then((data) => { if (data.url) setPhotoUrl(data.url); })
             .catch(() => { });
     }, [patient?.patientId]);
-
-    const latestVitals = extractLatestVitals(entries);
 
     // ---- Mini Calendar state ----
     const today = new Date();
@@ -153,7 +245,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                                         <div
                                             key={entry.entryId}
                                             className={styles.entryCard}
-                                            onClick={() => onNavigate(`entry/${entry.entryId}`)}
+                                            onClick={() => setSelectedEntry(entry)}
                                         >
                                             <div className={`${styles.entryTypeIcon} ${typeInfo.cls}`}>{typeInfo.icon}</div>
                                             <div className={styles.entryInfo}>
@@ -199,39 +291,9 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                                 )}
                             </div>
                         </div>
-                        <div className={styles.profileVitals}>
-                            <div className={styles.profileVitalItem}>
-                                <span className={styles.profileVitalIcon}><Ruler size={18} /></span>
-                                <div className={styles.profileVitalData}>
-                                    <span className={styles.profileVitalLabel}>Height</span>
-                                    <span className={styles.profileVitalValue}>{latestVitals.height || patient?.height || "—"} <small>cm</small></span>
-                                </div>
-                            </div>
-                            <div className={styles.profileVitalItem}>
-                                <span className={styles.profileVitalIcon}><Weight size={18} /></span>
-                                <div className={styles.profileVitalData}>
-                                    <span className={styles.profileVitalLabel}>Weight</span>
-                                    <span className={styles.profileVitalValue}>{latestVitals.weight || patient?.weight || "—"} <small>kg</small></span>
-                                </div>
-                            </div>
-                            <div className={styles.profileVitalItem}>
-                                <span className={styles.profileVitalIcon}><HeartPulse size={18} /></span>
-                                <div className={styles.profileVitalData}>
-                                    <span className={styles.profileVitalLabel}>BP</span>
-                                    <span className={styles.profileVitalValue}>{latestVitals.bp || "—"} <small>mmHg</small></span>
-                                </div>
-                            </div>
-                            <div className={styles.profileVitalItem}>
-                                <span className={styles.profileVitalIcon}><Thermometer size={18} /></span>
-                                <div className={styles.profileVitalData}>
-                                    <span className={styles.profileVitalLabel}>Temp</span>
-                                    <span className={styles.profileVitalValue}>{latestVitals.temp || "—"} <small>°C</small></span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                                    </div>
 
-                    {/* Mini Calendar */}
+                    {/* Mini Calendar + Upcoming Appointments */}
                     <div className={styles.calendarCard}>
                         <div className={styles.calHeader}>
                             <button className={styles.calNav} onClick={prevMonth}>‹</button>
@@ -242,38 +304,143 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                             {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map(d => (
                                 <span key={d} className={styles.calDayName}>{d}</span>
                             ))}
-                            {/* Empty cells before first day */}
                             {Array.from({ length: firstDay }).map((_, i) => (
                                 <span key={`e${i}`} />
                             ))}
-                            {/* Day cells */}
                             {Array.from({ length: daysInMonth }).map((_, i) => {
                                 const day = i + 1;
                                 const isToday = day === today.getDate() && calMonth === today.getMonth() && calYear === today.getFullYear();
+                                const k = `${calYear}-${calMonth}-${day}`;
+                                const appts = apptsByDay.get(k) ?? [];
+                                const visits = visitsByDay.get(k) ?? [];
+                                const hasAppt = appts.length > 0;
+                                const hasVisit = visits.length > 0;
                                 return (
-                                    <span key={day} className={`${styles.calDay} ${isToday ? styles.calDayToday : ""}`}>
-                                        {day}
-                                    </span>
+                                    <div
+                                        key={day}
+                                        className={styles.calDayWrapper}
+                                        onMouseEnter={() => (hasAppt || hasVisit) ? setHoveredDay(k) : undefined}
+                                        onMouseLeave={() => setHoveredDay(null)}
+                                    >
+                                        <span className={`${styles.calDay} ${isToday ? styles.calDayToday : ""} ${hasAppt && !isToday ? styles.calDayAppt : ""} ${hasVisit && !isToday && !hasAppt ? styles.calDayVisit : ""}`}>
+                                            {day}
+                                        </span>
+                                        {hoveredDay === k && (hasAppt || hasVisit) && (
+                                            <div className={styles.calTooltip}>
+                                                {appts.map((a, ai) => (
+                                                    <div key={`a${ai}`} className={styles.calTooltipRow}>
+                                                        <span className={styles.calTooltipDotAppt} />
+                                                        <div>
+                                                            <span className={styles.calTooltipName}>{a.name}</span>
+                                                            <span className={styles.calTooltipSub}>{a.time} · {a.location}</span>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                                {visits.map((v, vi) => (
+                                                    <div key={`v${vi}`} className={styles.calTooltipRow}>
+                                                        <span className={styles.calTooltipDotVisit} />
+                                                        <div>
+                                                            <span className={styles.calTooltipName}>{v.name}</span>
+                                                            <span className={styles.calTooltipSub}>{v.specialty}</span>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
                                 );
                             })}
                         </div>
+
+                        {/* Compact upcoming appointments */}
+                        {upcoming.length > 0 ? (
+                            <div className={styles.calApptList}>
+                                <span className={styles.calApptHeading}>
+                                    <CalendarClock size={11} /> Upcoming
+                                </span>
+                                {upcoming.map((appt, i) => (
+                                    <div key={i}>
+                                        <div className={styles.calApptRow}>
+                                            <span className={styles.calApptDot} />
+                                            <div className={styles.calApptInfo}>
+                                                <span className={styles.calApptName}>{appt.name}</span>
+                                                <span className={styles.calApptSub}>{appt.date.toLocaleDateString("en-IN", { day: "numeric", month: "short" })} · {appt.time}</span>
+                                            </div>
+                                            <span className={styles.calApptBadge}>{daysFromNow(appt.date)}</span>
+                                            <button
+                                                className={styles.rescheduleLink}
+                                                onClick={() => {
+                                                    if (reschedulingId === appt.appointmentId) {
+                                                        setReschedulingId(null);
+                                                    } else {
+                                                        setReschedulingId(appt.appointmentId);
+                                                        setReschedDate(appt.date.toISOString().slice(0, 10));
+                                                        setReschedTime(appt.time === "—" ? "" : appt.time);
+                                                    }
+                                                }}
+                                            >
+                                                {reschedulingId === appt.appointmentId ? "Cancel" : "Reschedule"}
+                                            </button>
+                                        </div>
+                                        {reschedulingId === appt.appointmentId && (
+                                            <div className={styles.rescheduleForm}>
+                                                <div className={styles.rescheduleRow}>
+                                                    <input
+                                                        type="date"
+                                                        className={styles.rescheduleInput}
+                                                        value={reschedDate}
+                                                        min={new Date().toISOString().slice(0, 10)}
+                                                        onChange={e => setReschedDate(e.target.value)}
+                                                    />
+                                                    <input
+                                                        type="time"
+                                                        className={styles.rescheduleInput}
+                                                        value={reschedTime}
+                                                        onChange={e => setReschedTime(e.target.value)}
+                                                        style={{ maxWidth: 90 }}
+                                                    />
+                                                </div>
+                                                <div className={styles.rescheduleActions}>
+                                                    <button className={styles.rescheduleBtn} onClick={() => setReschedulingId(null)}>Cancel</button>
+                                                    <button
+                                                        className={`${styles.rescheduleBtn} ${styles.rescheduleBtnSave}`}
+                                                        onClick={handleReschedule}
+                                                        disabled={reschedSaving || !reschedDate}
+                                                    >
+                                                        {reschedSaving ? "Saving..." : "Save"}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        ) : !apptLoading && (
+                            <p className={styles.calNoAppt}>No upcoming appointments</p>
+                        )}
                     </div>
 
                     {/* Recent Doctor Visits */}
                     <div className={styles.visitsCard}>
                         <h3 className={styles.visitsTitle}>Recent Doctor Visits</h3>
-                        <div className={styles.visitsList}>
-                            {MOCK_DOCTOR_VISITS.map((v, i) => (
-                                <div key={i} className={styles.visitRow}>
-                                    <div className={styles.visitIcon}>{v.icon}</div>
-                                    <div className={styles.visitInfo}>
-                                        <span className={styles.visitName}>{v.name}</span>
-                                        <span className={styles.visitSpec}>{v.specialty}</span>
+                        {isLoading ? (
+                            <div className={styles.skeleton}>{[1,2].map(i => <div key={i} className={styles.skeletonLine} />)}</div>
+                        ) : doctorVisits.length === 0 ? (
+                            <p className={styles.calNoAppt}>No visits recorded yet.</p>
+                        ) : (
+                            <div className={styles.visitsList}>
+                                {doctorVisits.map((v, i) => (
+                                    <div key={i} className={styles.visitRow}>
+                                        <div className={styles.visitIcon}>{v.icon}</div>
+                                        <div className={styles.visitInfo}>
+                                            <span className={styles.visitName}>{v.name}</span>
+                                            <span className={styles.visitSpec}>{v.specialty}</span>
+                                        </div>
+                                        <span className={styles.visitDate}>{v.dateLabel}</span>
                                     </div>
-                                    <span className={styles.visitDate}>{v.date}</span>
-                                </div>
-                            ))}
-                        </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 </aside>
             </div >
@@ -282,8 +449,15 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                     onClose={() => setScanOpen(false)}
                     onSaved={() => { setScanOpen(false); loadTimeline(); }}
                 />
-            )
-            }
+            )}
+            {selectedEntry && (
+                <EntryDetailModal
+                    entry={selectedEntry}
+                    onClose={() => setSelectedEntry(null)}
+                    onDeleted={() => { setSelectedEntry(null); loadTimeline(); }}
+                    onUpdated={(updated) => setSelectedEntry(prev => prev ? { ...prev, ...updated } : prev)}
+                />
+            )}
         </>
     );
 }
@@ -304,23 +478,4 @@ function calculateAge(dob: string): number {
     const m = now.getMonth() - birth.getMonth();
     if (m < 0 || (m === 0 && now.getDate() < birth.getDate())) age--;
     return age;
-}
-
-interface LatestVitals { bp: string; weight: string; height: string; temp: string; }
-
-function extractLatestVitals(
-    entries: { metadata: { vitals?: { type: string; value: string }[] } }[]
-): LatestVitals {
-    const vitals: LatestVitals = { bp: "", weight: "", height: "", temp: "" };
-    for (const entry of entries) {
-        if (!entry.metadata?.vitals) continue;
-        for (const v of entry.metadata.vitals) {
-            if (v.type === "blood_pressure" && !vitals.bp) vitals.bp = v.value;
-            if (v.type === "weight" && !vitals.weight) vitals.weight = v.value;
-            if (v.type === "height" && !vitals.height) vitals.height = v.value;
-            if (v.type === "temperature" && !vitals.temp) vitals.temp = v.value;
-        }
-        if (vitals.bp && vitals.weight && vitals.height && vitals.temp) break;
-    }
-    return vitals;
 }

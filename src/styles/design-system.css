@@ -167,6 +167,49 @@
   --z-emergency: 500;
 }
 
+/* ---- Dark Mode overrides ---- */
+/*
+ * Deep navy palette — built around the brand-navy (#0d1f3c) family.
+ * Page is darker than the sidebar so cards visually "float" on the canvas.
+ * Coral accent is fully preserved.
+ */
+[data-theme="dark"] {
+  /* Backgrounds — deepest → lightest (all in the brand-navy family) */
+  --color-bg-primary:    #070e1a;   /* near-black navy — page canvas */
+  --color-bg-secondary:  #0d1b2e;   /* deep navy — card / panel surface */
+  --color-bg-tertiary:   #112338;   /* slightly lighter — secondary panels, inputs */
+  --color-bg-card:   rgba(13, 27, 46, 0.97);
+  --color-bg-glass:  rgba(13, 27, 46, 0.82);
+
+  /* Hover / active surfaces — coral tint kept */
+  --color-surface-hover:  rgba(240, 107, 107, 0.08);
+  --color-surface-active: rgba(240, 107, 107, 0.15);
+
+  /* Text — warm blue-white scale, easy on the eyes */
+  --color-text-primary:  #dde6f2;   /* bright enough, not stark white */
+  --color-text-secondary: #8aa3be;  /* medium blue-gray */
+  --color-text-tertiary:  #526a82;  /* muted / de-emphasised */
+  --color-text-inverse:   #07111f;
+
+  /* Borders — subtle blue tint instead of flat white */
+  --color-border:       rgba(100, 145, 195, 0.14);
+  --color-border-focus: rgba(240, 107, 107, 0.55);
+
+  /* Brand-light derivations — toned down for dark context */
+  --brand-navy-light:   #1a3258;
+
+  /* Glass morphism */
+  --glass-bg:     rgba(13, 27, 46, 0.76);
+  --glass-border: rgba(100, 145, 200, 0.12);
+
+  /* Deeper shadows for dark surfaces */
+  --shadow-sm: 0 1px 3px  rgba(0, 0, 0, 0.45);
+  --shadow-md: 0 4px 10px rgba(0, 0, 0, 0.50), 0 2px 4px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 10px 22px rgba(0, 0, 0, 0.55), 0 4px 8px  rgba(0, 0, 0, 0.35);
+  --shadow-xl: 0 20px 32px rgba(0, 0, 0, 0.60), 0 8px 12px rgba(0, 0, 0, 0.35);
+  --shadow-glow: 0 0 22px rgba(240, 107, 107, 0.22);
+}
+
 /* ---- Base Reset & Defaults ---- */
 *,
 *::before,
