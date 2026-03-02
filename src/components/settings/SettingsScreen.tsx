@@ -81,7 +81,7 @@ export default function SettingsScreen({ onNavigate }: SettingsScreenProps) {
     // ---- Language ----
     const handleSaveLanguage = async (lang: string) => {
         if (!patientId) return;
-        setLanguage(lang);
+        setLanguage(lang as SupportedLang);
         broadcastLangChange(lang as SupportedLang);
         setLangSaving(true);
         try {
