@@ -11,8 +11,19 @@ import {
     AdminGetUserCommand,
 } from "@aws-sdk/client-cognito-identity-provider";
 
+const explicitCredentials =
+    process.env.APP_AWS_ACCESS_KEY_ID && process.env.APP_AWS_SECRET_ACCESS_KEY
+        ? {
+              credentials: {
+                  accessKeyId: process.env.APP_AWS_ACCESS_KEY_ID,
+                  secretAccessKey: process.env.APP_AWS_SECRET_ACCESS_KEY,
+              },
+          }
+        : {};
+
 const cognito = new CognitoIdentityProviderClient({
     region: process.env.NEXT_PUBLIC_AWS_REGION || "ap-south-1",
+    ...explicitCredentials,
 });
 
 const DOCTOR_POOL_ID = process.env.NEXT_PUBLIC_COGNITO_DOCTOR_POOL_ID!;

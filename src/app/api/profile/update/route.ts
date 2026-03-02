@@ -68,7 +68,10 @@ export async function POST(req: NextRequest) {
                 if (doctorAttrs.length > 0) {
                     const { AdminUpdateUserAttributesCommand } = await import("@aws-sdk/client-cognito-identity-provider");
                     const { CognitoIdentityProviderClient } = await import("@aws-sdk/client-cognito-identity-provider");
-                    const client = new CognitoIdentityProviderClient({ region: process.env.NEXT_PUBLIC_AWS_REGION || "ap-south-1" });
+                    const creds = process.env.APP_AWS_ACCESS_KEY_ID && process.env.APP_AWS_SECRET_ACCESS_KEY
+                        ? { credentials: { accessKeyId: process.env.APP_AWS_ACCESS_KEY_ID, secretAccessKey: process.env.APP_AWS_SECRET_ACCESS_KEY } }
+                        : {};
+                    const client = new CognitoIdentityProviderClient({ region: process.env.NEXT_PUBLIC_AWS_REGION || "ap-south-1", ...creds });
                     await client.send(new AdminUpdateUserAttributesCommand({
                         UserPoolId: process.env.NEXT_PUBLIC_COGNITO_DOCTOR_POOL_ID!,
                         Username: userId,
