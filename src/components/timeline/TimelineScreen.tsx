@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { fmtDate, fmtMonthYear, fmtMonthYearLong } from "../../lib/utils/date";
 import DocThumbnail from "../scan/DocThumbnail";
+import ScanModal from "../scan/ScanModal";
 import EntryDetailModal from "./EntryDetailModal";
 import type { HealthEntry } from "../../lib/types/timeline";
 
@@ -69,7 +70,7 @@ interface MonthBucket {
 type Entry = ReturnType<typeof useTimeline>["entries"][number];
 
 export default function TimelineScreen({ onNavigate, patientId, initialEntryId, onEntryOpened }: TimelineScreenProps) {
-    const { entries, isLoading, loadTimeline, loadMore, hasMore } = useTimeline(patientId);
+    const { entries, isLoading, loadTimeline, loadMore, hasMore, updateEntry } = useTimeline(patientId);
     const [activeFilter, setActiveFilter] = useState<DocumentTypeTag | "ALL">("ALL");
     const [searchText, setSearchText] = useState("");
     const [hoveredMonth, setHoveredMonth] = useState<string | null>(null);

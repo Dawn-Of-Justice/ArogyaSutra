@@ -11,6 +11,7 @@ import {
 import type { HealthEntry, DocumentTypeTag } from "../../lib/types/timeline";
 import DocThumbnail from "../scan/DocThumbnail";
 import ZoomableImage from "../scan/ZoomableImage";
+import styles from "./EntryDetailModal.module.css";
 
 interface EntryDetailModalProps {
     entry: HealthEntry;

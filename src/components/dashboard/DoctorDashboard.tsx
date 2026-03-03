@@ -9,7 +9,8 @@
 import React, { useState, Suspense, lazy } from "react";
 import { isValidCardId, normalizeCardInput } from "../../lib/utils/cardId";
 import type { CheckupEntry } from "../../lib/aws/dynamodb";
-import { fmtDateShort } from "../../lib/utils/date";
+import { fmtDate, fmtDateShort } from "../../lib/utils/date";
+import styles from "./DoctorDashboard.module.css";
 
 // Lazy-load the 3D body model to avoid SSR issues with Three.js
 const BodyModel3D = lazy(() => import("../body3d/BodyModel3D"));
