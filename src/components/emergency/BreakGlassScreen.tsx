@@ -139,6 +139,7 @@ export default function BreakGlassScreen({ onClose }: Props) {
                                     onChange={(e) => setForm({ ...form, patientId: e.target.value })}
                                     required
                                     autoFocus
+                                    maxLength={20}
                                 />
                             </div>
                             <div className={styles.row}>
@@ -150,6 +151,7 @@ export default function BreakGlassScreen({ onClose }: Props) {
                                         value={form.mciNumber}
                                         onChange={(e) => setForm({ ...form, mciNumber: e.target.value })}
                                         required
+                                        maxLength={30}
                                     />
                                 </div>
                                 <div className={styles.fieldGroup}>
@@ -160,6 +162,7 @@ export default function BreakGlassScreen({ onClose }: Props) {
                                         value={form.name}
                                         onChange={(e) => setForm({ ...form, name: e.target.value })}
                                         required
+                                        maxLength={80}
                                     />
                                 </div>
                             </div>
@@ -171,6 +174,7 @@ export default function BreakGlassScreen({ onClose }: Props) {
                                     value={form.institution}
                                     onChange={(e) => setForm({ ...form, institution: e.target.value })}
                                     required
+                                    maxLength={100}
                                 />
                             </div>
                             <div className={styles.fieldGroup}>
@@ -182,6 +186,7 @@ export default function BreakGlassScreen({ onClose }: Props) {
                                     onChange={(e) => setForm({ ...form, reason: e.target.value })}
                                     required
                                     rows={2}
+                                    maxLength={500}
                                 />
                             </div>
                             <div className={styles.geoNotice}>

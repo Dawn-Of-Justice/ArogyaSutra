@@ -8,6 +8,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { fmtDate } from "../../lib/utils/date";
+import { validateName, validatePhone, validateHeight, validateWeight, validatePincode, validateCommaList, validateMaxLen, firstError } from "../../lib/utils/validate";
 import { useAuth } from "../../hooks/useAuth";
 import styles from "./ProfileScreen.module.css";
 import {
@@ -254,6 +255,11 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
 
     // ---- Emergency Info: save ----
     const handleSaveEmergency = async () => {
+        const emErr = firstError(
+            validateCommaList(editEmAllergiesTxt, "Allergies"),
+            validateCommaList(editEmMedsTxt, "Critical Medications"),
+        );
+        if (emErr) { setEmergencyError(emErr); return; }
         setEmergencySaving(true);
         setEmergencyError("");
         try {
@@ -332,6 +338,23 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
 
     // ---- Save profile edits ----
     const handleSave = async () => {
+        const err = isDoctor
+            ? firstError(
+                validateName(editName),
+                validatePhone(editPhone),
+                validateMaxLen(editInstitution, "Institution", 100),
+                validateMaxLen(editDesignation, "Designation", 80),
+            )
+            : firstError(
+                validateName(editName),
+                validatePincode(editPincode),
+                validateHeight(editHeight),
+                validateWeight(editWeight),
+                validateMaxLen(editLine1, "Address", 100),
+                validateMaxLen(editCity, "City", 60),
+                validateMaxLen(editState, "State", 60),
+            );
+        if (err) { setError(err); return; }
         setSaving(true);
         try {
             // 1. Update in-context immediately (optimistic UI)
@@ -480,7 +503,7 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
                                 <div className={styles.field}>
                                     <span className={styles.fieldLabel}>Full Name</span>
                                     {editing ? (
-                                        <input className={styles.fieldInput} value={editName} onChange={(e) => setEditName(e.target.value)} />
+                                        <input className={styles.fieldInput} value={editName} onChange={(e) => setEditName(e.target.value)} maxLength={80} />
                                     ) : (
                                         <span className={styles.fieldValue}>{patient.fullName}</span>
                                     )}
@@ -532,7 +555,7 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
                                 <div className={styles.field}>
                                     <span className={styles.fieldLabel}>Address Line 1</span>
                                     {editing ? (
-                                        <input className={styles.fieldInput} value={editLine1} onChange={(e) => setEditLine1(e.target.value)} placeholder="Street / Flat" />
+                                        <input className={styles.fieldInput} value={editLine1} onChange={(e) => setEditLine1(e.target.value)} placeholder="Street / Flat" maxLength={100} />
                                     ) : (
                                         <span className={styles.fieldValue}>{patient.address?.line1 || "—"}</span>
                                     )}
@@ -540,7 +563,7 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
                                 <div className={styles.field}>
                                     <span className={styles.fieldLabel}>City</span>
                                     {editing ? (
-                                        <input className={styles.fieldInput} value={editCity} onChange={(e) => setEditCity(e.target.value)} />
+                                        <input className={styles.fieldInput} value={editCity} onChange={(e) => setEditCity(e.target.value)} maxLength={60} />
                                     ) : (
                                         <span className={styles.fieldValue}>{patient.address?.city || "—"}</span>
                                     )}
@@ -548,7 +571,7 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
                                 <div className={styles.field}>
                                     <span className={styles.fieldLabel}>State</span>
                                     {editing ? (
-                                        <input className={styles.fieldInput} value={editState} onChange={(e) => setEditState(e.target.value)} />
+                                        <input className={styles.fieldInput} value={editState} onChange={(e) => setEditState(e.target.value)} maxLength={60} />
                                     ) : (
                                         <span className={styles.fieldValue}>{patient.address?.state || "—"}</span>
                                     )}
@@ -694,12 +717,12 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
 
                                 <div className={styles.emFormGroup}>
                                     <label className={styles.emLabel}>Known Allergies <span className={styles.emLabelHint}>(comma-separated)</span></label>
-                                    <textarea className={styles.emTextarea} rows={2} placeholder="e.g. Penicillin, Sulfa drugs, Peanuts" value={editEmAllergiesTxt} onChange={e => setEditEmAllergiesTxt(e.target.value)} />
+                                    <textarea className={styles.emTextarea} rows={2} placeholder="e.g. Penicillin, Sulfa drugs, Peanuts" value={editEmAllergiesTxt} onChange={e => setEditEmAllergiesTxt(e.target.value)} maxLength={500} />
                                 </div>
 
                                 <div className={styles.emFormGroup}>
                                     <label className={styles.emLabel}>Critical Medications <span className={styles.emLabelHint}>(comma-separated)</span></label>
-                                    <textarea className={styles.emTextarea} rows={2} placeholder="e.g. Warfarin 5mg daily, Insulin 10 units" value={editEmMedsTxt} onChange={e => setEditEmMedsTxt(e.target.value)} />
+                                    <textarea className={styles.emTextarea} rows={2} placeholder="e.g. Warfarin 5mg daily, Insulin 10 units" value={editEmMedsTxt} onChange={e => setEditEmMedsTxt(e.target.value)} maxLength={500} />
                                 </div>
 
                                 <div className={styles.emFormActions}>
@@ -791,7 +814,7 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
                                 <div className={styles.field}>
                                     <span className={styles.fieldLabel}>Full Name</span>
                                     {editing ? (
-                                        <input className={styles.fieldInput} value={editName} onChange={(e) => setEditName(e.target.value)} />
+                                        <input className={styles.fieldInput} value={editName} onChange={(e) => setEditName(e.target.value)} maxLength={80} />
                                     ) : (
                                         <span className={styles.fieldValue}>{doctor.fullName}</span>
                                     )}
@@ -803,7 +826,7 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
                                 <div className={styles.field}>
                                     <span className={styles.fieldLabel}>Designation</span>
                                     {editing ? (
-                                        <input className={styles.fieldInput} value={editDesignation} onChange={(e) => setEditDesignation(e.target.value)} />
+                                        <input className={styles.fieldInput} value={editDesignation} onChange={(e) => setEditDesignation(e.target.value)} maxLength={80} />
                                     ) : (
                                         <span className={styles.fieldValue}>{doctor.designation || "—"}</span>
                                     )}
@@ -811,7 +834,7 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
                                 <div className={styles.field}>
                                     <span className={styles.fieldLabel}>Institution</span>
                                     {editing ? (
-                                        <input className={styles.fieldInput} value={editInstitution} onChange={(e) => setEditInstitution(e.target.value)} />
+                                        <input className={styles.fieldInput} value={editInstitution} onChange={(e) => setEditInstitution(e.target.value)} maxLength={100} />
                                     ) : (
                                         <span className={styles.fieldValue}>{doctor.institution || "—"}</span>
                                     )}
@@ -833,7 +856,7 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
                                 <div className={styles.field}>
                                     <span className={styles.fieldLabel}>Phone</span>
                                     {editing ? (
-                                        <input className={styles.fieldInput} value={editPhone} onChange={(e) => setEditPhone(e.target.value)} />
+                                        <input className={styles.fieldInput} value={editPhone} onChange={(e) => setEditPhone(e.target.value)} maxLength={15} />
                                     ) : (
                                         <span className={styles.fieldValue}>{doctor.phone || "—"}</span>
                                     )}
@@ -865,11 +888,11 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
                                 {emergencySaved && <p className={styles.emSuccess}>✓ Saved</p>}
                                 <div className={styles.emFormGroup}>
                                     <label className={styles.emLabel}>Known Allergies <span className={styles.emLabelHint}>(comma-separated)</span></label>
-                                    <textarea className={styles.emTextarea} rows={2} placeholder="e.g. Penicillin, Sulfa drugs, Peanuts" value={editEmAllergiesTxt} onChange={e => setEditEmAllergiesTxt(e.target.value)} />
+                                    <textarea className={styles.emTextarea} rows={2} placeholder="e.g. Penicillin, Sulfa drugs, Peanuts" value={editEmAllergiesTxt} onChange={e => setEditEmAllergiesTxt(e.target.value)} maxLength={500} />
                                 </div>
                                 <div className={styles.emFormGroup}>
                                     <label className={styles.emLabel}>Critical Medications <span className={styles.emLabelHint}>(comma-separated)</span></label>
-                                    <textarea className={styles.emTextarea} rows={2} placeholder="e.g. Warfarin 5mg daily, Insulin 10 units" value={editEmMedsTxt} onChange={e => setEditEmMedsTxt(e.target.value)} />
+                                    <textarea className={styles.emTextarea} rows={2} placeholder="e.g. Warfarin 5mg daily, Insulin 10 units" value={editEmMedsTxt} onChange={e => setEditEmMedsTxt(e.target.value)} maxLength={500} />
                                 </div>
                                 <div className={styles.emFormActions}>
                                     <button className={styles.emCancelBtn} onClick={() => setEmergencyEditing(false)}>Cancel</button>

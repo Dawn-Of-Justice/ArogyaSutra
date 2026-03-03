@@ -10,6 +10,7 @@ import React, { useState, Suspense, lazy } from "react";
 import { isValidCardId, normalizeCardInput } from "../../lib/utils/cardId";
 import type { CheckupEntry } from "../../lib/aws/dynamodb";
 import { fmtDate, fmtDateShort } from "../../lib/utils/date";
+import { validateHeight, validateWeight, validateBpSys, validateBpDia, validateCommaList, validateMaxLen, firstError } from "../../lib/utils/validate";
 import styles from "./DoctorDashboard.module.css";
 
 // Lazy-load the 3D body model to avoid SSR issues with Three.js
@@ -429,6 +430,12 @@ export default function DoctorDashboard({ onNavigate, doctorName, onPatientVerif
     const handleScheduleAppointment = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!patient || !schedDate) return;
+        const err = firstError(
+            validateMaxLen(schedSpecialty, "Specialty", 60),
+            validateMaxLen(schedLocation, "Location", 100),
+            validateMaxLen(schedNotes, "Notes", 300),
+        );
+        if (err) { setSchedError(err); return; }
         setSchedSaving(true);
         setSchedError("");
         try {
@@ -463,6 +470,15 @@ export default function DoctorDashboard({ onNavigate, doctorName, onPatientVerif
     // ---- Save checkup (vitals + measurements + allergy/meds) ----
     const handleSaveCheckup = async () => {
         if (!patient) return;
+        const err = firstError(
+            validateHeight(editHeight),
+            validateWeight(editWeight),
+            validateBpSys(editBpSys),
+            validateBpDia(editBpDia, editBpSys),
+            validateCommaList(editAllergies, "Allergies"),
+            validateCommaList(editMeds, "Critical Medications"),
+        );
+        if (err) { setCheckupError(err); return; }
         setCheckupSaving(true);
         setCheckupError("");
         try {
@@ -766,25 +782,25 @@ export default function DoctorDashboard({ onNavigate, doctorName, onPatientVerif
                                         </div>
                                         <div className={styles.checkupField}>
                                             <label className={styles.checkupFieldLabel}>BP Systolic</label>
-                                            <input className={styles.checkupInput} type="number" placeholder="e.g. 120"
+                                            <input className={styles.checkupInput} type="number" placeholder="e.g. 120" min={50} max={300}
                                                 value={editBpSys} onChange={e => setEditBpSys(e.target.value)} />
                                         </div>
                                         <div className={styles.checkupField}>
                                             <label className={styles.checkupFieldLabel}>BP Diastolic</label>
-                                            <input className={styles.checkupInput} type="number" placeholder="e.g. 80"
+                                            <input className={styles.checkupInput} type="number" placeholder="e.g. 80" min={30} max={200}
                                                 value={editBpDia} onChange={e => setEditBpDia(e.target.value)} />
                                         </div>
                                     </div>
                                     <div className={styles.checkupAllergyRow}>
                                         <div className={styles.checkupAllergyField}>
                                             <label className={styles.checkupFieldLabel}>Allergies <span className={styles.checkupFieldHint}>(comma-separated)</span></label>
-                                            <textarea className={styles.checkupTextarea} rows={3}
+                                            <textarea className={styles.checkupTextarea} rows={3} maxLength={500}
                                                 placeholder="e.g. Penicillin, Aspirin"
                                                 value={editAllergies} onChange={e => setEditAllergies(e.target.value)} />
                                         </div>
                                         <div className={styles.checkupAllergyField}>
                                             <label className={styles.checkupFieldLabel}>Critical Medications <span className={styles.checkupFieldHint}>(comma-separated)</span></label>
-                                            <textarea className={styles.checkupTextarea} rows={3}
+                                            <textarea className={styles.checkupTextarea} rows={3} maxLength={500}
                                                 placeholder="e.g. Metformin 500mg"
                                                 value={editMeds} onChange={e => setEditMeds(e.target.value)} />
                                         </div>
@@ -909,6 +925,7 @@ export default function DoctorDashboard({ onNavigate, doctorName, onPatientVerif
                                                 placeholder="e.g. Cardiology"
                                                 value={schedSpecialty}
                                                 onChange={e => setSchedSpecialty(e.target.value)}
+                                                maxLength={60}
                                             />
                                         </div>
                                         <div className={styles.apptFormGroup}>
@@ -919,6 +936,7 @@ export default function DoctorDashboard({ onNavigate, doctorName, onPatientVerif
                                                 placeholder="e.g. Room 204"
                                                 value={schedLocation}
                                                 onChange={e => setSchedLocation(e.target.value)}
+                                                maxLength={100}
                                             />
                                         </div>
                                     </div>
@@ -930,6 +948,7 @@ export default function DoctorDashboard({ onNavigate, doctorName, onPatientVerif
                                             placeholder="Instructions for patient (optional)"
                                             value={schedNotes}
                                             onChange={e => setSchedNotes(e.target.value)}
+                                            maxLength={300}
                                         />
                                     </div>
                                     <div className={styles.apptFormActions}>

@@ -7,6 +7,7 @@
 
 import React, { useState, useRef, useCallback } from "react";
 import { useAuth } from "../../hooks/useAuth";
+import { validateRequired } from "../../lib/utils/validate";
 import styles from "./ScanModal.module.css";
 import {
     Camera, FolderOpen, X, RefreshCw, Check, ChevronDown,
@@ -128,6 +129,8 @@ export default function ScanModal({ onClose, onSaved }: ScanModalProps) {
 
     const handleSave = async () => {
         if (!extraction || !patient) return;
+        const titleErr = validateRequired(title, "Document title", 120);
+        if (titleErr) { setError(titleErr); return; }
         setStep("saving");
         setError(null);
         try {
@@ -287,6 +290,7 @@ export default function ScanModal({ onClose, onSaved }: ScanModalProps) {
                                     value={title}
                                     onChange={(e) => setTitle(e.target.value)}
                                     placeholder="e.g. Blood Test – CBC"
+                                    maxLength={120}
                                 />
                             </div>
 
