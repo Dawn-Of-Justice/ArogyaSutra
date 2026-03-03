@@ -15,6 +15,7 @@ import {
 import { GeminiIcon } from "../common/GeminiIcon";
 import { fmtDate, fmtDateShort } from "../../lib/utils/date";
 import EntryDetailModal from "../timeline/EntryDetailModal";
+import ScanModal from "../scan/ScanModal";
 import type { HealthEntry } from "../../lib/types/timeline";
 import type { Appointment } from "../../lib/types/appointment";
 
