@@ -290,7 +290,11 @@ ArogyaSutra/
    KMS_KEY_ID=
    DYNAMODB_AUDIT_TABLE=
    DYNAMODB_ACCESS_TABLE=
-   BEDROCK_MODEL_ID=anthropic.claude-3-sonnet
+   BEDROCK_MODEL_ID=us.amazon.nova-pro-v1:0
+   # Kimi K2 Instruct on Amazon Bedrock (cross-region inference)
+   # If unset, defaults to us.moonshot.kimi-k2-instruct-v1:0
+   # Falls back to Nova Pro (BEDROCK_MODEL_ID) automatically on error
+   KIMI_BEDROCK_MODEL=us.moonshot.kimi-k2-instruct-v1:0
    ```
 
 7. **Set up design system** in `src/styles/design-system.css`:

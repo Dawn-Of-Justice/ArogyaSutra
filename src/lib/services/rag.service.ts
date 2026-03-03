@@ -1,11 +1,13 @@
 // ============================================================
 // RAG Clinical Assistant Service
-// Patient & doctor AI assistant using Bedrock + HealthLake
+// Patient & doctor AI assistant using Agentic RAG Engine
+// (Kimi K2.5 primary → Amazon Bedrock Nova Pro fallback)
 // ============================================================
 
-import { invokeModel, generateInsights, type RAGContext } from "../aws/bedrock";
+import { generateInsights, type RAGContext } from "../aws/bedrock";
 import * as healthlake from "../aws/healthlake";
 import { logAccess, patientActor, doctorActor } from "./audit.service";
+import { ragQuery as agenticRagQuery } from "../rag/engine";
 import type {
     RAGQuery,
     RAGResponse,
@@ -24,40 +26,54 @@ const MEDICAL_DISCLAIMER =
     "AI-generated summary based on your health records. Your doctor makes all clinical decisions.";
 
 /**
- * Sends a query to the RAG assistant.
+ * Sends a query to the Agentic RAG assistant.
  *
- * 1. Retrieves relevant context from HealthLake
- * 2. Invokes Bedrock with context + query
- * 3. Parses citations from the response
- * 4. Returns structured RAG response
+ * 1. Classifies the query and selects the optimal RAG strategy
+ * 2. Retrieves and ranks relevant patient contexts from HealthLake
+ * 3. Generates an answer via Kimi K2.5 (→ Bedrock fallback)
+ * 4. Applies corrective / reflective loops based on strategy
+ * 5. Returns a structured RAG response with citations and confidence
  */
 export async function query(ragQuery: RAGQuery): Promise<RAGResponse> {
     const conversationId = ragQuery.conversationId || uuidv4();
 
-    // 1. Retrieve relevant patient data from HealthLake
-    const contexts = await retrieveContext(ragQuery.patientId, ragQuery.queryText);
+    // Retrieve conversation history for multi-turn context
+    const existingConversation = conversations.get(conversationId);
+    const conversationHistory = existingConversation?.messages.slice(-8).map((m) => ({
+        role: m.role as "user" | "assistant",
+        content: m.content,
+    }));
 
-    // 2. Invoke Bedrock
-    const result = await invokeModel(ragQuery.queryText, contexts);
+    // Run agentic RAG engine
+    const engineResult = await agenticRagQuery({
+        patientId: ragQuery.patientId,
+        queryText: ragQuery.queryText,
+        conversationHistory,
+        topK: 12,
+    });
 
-    // 3. Parse citations from the response
-    const citations = parseCitations(result.answer, contexts);
+    // Build SourceCitation array from scored contexts
+    const citations = buildCitations(engineResult.answer, engineResult.contexts);
 
-    // 4. Build response
+    // Confidence: combine engine confidence (0–1) → percentage (0–100)
+    const confidence = Math.round(
+        Math.max(engineResult.confidence, citations.length > 0 ? 0.7 : 0.45) * 100
+    );
+
     const response: RAGResponse = {
-        answer: result.answer,
+        answer: engineResult.answer,
         citations,
-        confidence: citations.length > 0 ? 80 : 50,
-        modelId: process.env.BEDROCK_MODEL_ID || "us.amazon.nova-pro-v1:0",
+        confidence,
+        modelId: engineResult.modelId,
         generatedAt: new Date().toISOString(),
         conversationId,
         disclaimer: MEDICAL_DISCLAIMER,
     };
 
-    // 5. Update conversation history
+    // Update conversation history
     updateConversation(conversationId, ragQuery, response);
 
-    // 6. Log the query
+    // Audit log
     const actor =
         ragQuery.queryBy === "DOCTOR"
             ? doctorActor(ragQuery.queryByUserId, ragQuery.queryByUserId, "")
@@ -67,25 +83,31 @@ export async function query(ragQuery: RAGQuery): Promise<RAGResponse> {
         ragQuery.patientId,
         "AI_QUERY",
         actor,
-        { query: ragQuery.queryText.slice(0, 100), citationCount: String(citations.length) }
+        {
+            query: ragQuery.queryText.slice(0, 100),
+            citationCount: String(citations.length),
+            strategy: engineResult.strategy,
+            queryType: engineResult.queryType,
+            provider: engineResult.provider,
+        }
     );
 
     return response;
 }
 
 /**
- * Generates proactive health insights for a patient.
+ * Generates proactive health insights for a patient using Bedrock.
+ * Uses HealthLake records as context for Bedrock's insight generation.
  */
 export async function getInsights(
     patientId: string
 ): Promise<HealthInsight[]> {
-    const contexts = await retrieveContext(patientId, "");
+    const contexts = await fetchInsightContexts(patientId);
     if (contexts.length === 0) return [];
 
     const result = await generateInsights(contexts);
 
-    // Parse structured insights from Bedrock response
-    return parseInsights(result.answer, patientId, contexts);
+    return parseInsights(result.answer, patientId);
 }
 
 /**
@@ -99,19 +121,18 @@ export function getConversation(
 
 // ---- Internal ----
 
-async function retrieveContext(
-    patientId: string,
-    queryText: string
-): Promise<RAGContext[]> {
+/** Fetch minimal RAGContext objects for the Bedrock insights endpoint. */
+async function fetchInsightContexts(patientId: string): Promise<RAGContext[]> {
     try {
         const resources = await healthlake.getPatientTimeline(patientId);
-
         return resources.slice(0, 10).map((resource, i) => ({
             entryId: (resource.id as string) || `ctx-${i}`,
-            title: (resource.description as string) ||
+            title:
+                (resource.description as string) ||
                 (resource.code as { text?: string })?.text ||
-                resource.resourceType as string,
-            date: (resource.effectiveDateTime as string) ||
+                (resource.resourceType as string),
+            date:
+                (resource.effectiveDateTime as string) ||
                 (resource.date as string) ||
                 (resource.recordedDate as string) ||
                 "",
@@ -123,9 +144,13 @@ async function retrieveContext(
     }
 }
 
-function parseCitations(
+/**
+ * Build SourceCitation array by matching [Source N] patterns in the answer
+ * against the scored contexts returned by the engine.
+ */
+function buildCitations(
     answer: string,
-    contexts: RAGContext[]
+    contexts: Array<{ entryId: string; title: string; documentType: string; date: string; content: string; relevanceScore?: number }>
 ): SourceCitation[] {
     const citations: SourceCitation[] = [];
     const sourcePattern = /\[Source (\d+)[^\]]*\]/g;
@@ -135,7 +160,6 @@ function parseCitations(
         const index = parseInt(match[1], 10) - 1;
         if (index >= 0 && index < contexts.length) {
             const ctx = contexts[index];
-            // Avoid duplicate citations
             if (!citations.find((c) => c.entryId === ctx.entryId)) {
                 citations.push({
                     entryId: ctx.entryId,
@@ -143,7 +167,7 @@ function parseCitations(
                     documentType: ctx.documentType as DocumentTypeTag,
                     date: ctx.date,
                     relevantExcerpt: ctx.content.slice(0, 200),
-                    relevanceScore: 0.8,
+                    relevanceScore: (ctx as { relevanceScore?: number }).relevanceScore ?? 0.8,
                 });
             }
         }
@@ -152,21 +176,14 @@ function parseCitations(
     return citations;
 }
 
-function parseInsights(
-    answer: string,
-    patientId: string,
-    contexts: RAGContext[]
-): HealthInsight[] {
+function parseInsights(answer: string, patientId: string): HealthInsight[] {
     const insights: HealthInsight[] = [];
     const lines = answer.split("\n");
-
     let current: Partial<HealthInsight> = {};
 
     for (const line of lines) {
         if (line.startsWith("TYPE:")) {
-            if (current.title) {
-                insights.push(finalizeInsight(current, patientId));
-            }
+            if (current.title) insights.push(finalizeInsight(current, patientId));
             current = { type: line.replace("TYPE:", "").trim() as HealthInsight["type"] };
         } else if (line.startsWith("SEVERITY:")) {
             current.severity = line.replace("SEVERITY:", "").trim() as HealthInsight["severity"];
@@ -177,17 +194,11 @@ function parseInsights(
         }
     }
 
-    if (current.title) {
-        insights.push(finalizeInsight(current, patientId));
-    }
-
+    if (current.title) insights.push(finalizeInsight(current, patientId));
     return insights;
 }
 
-function finalizeInsight(
-    partial: Partial<HealthInsight>,
-    patientId: string
-): HealthInsight {
+function finalizeInsight(partial: Partial<HealthInsight>, patientId: string): HealthInsight {
     return {
         insightId: uuidv4(),
         patientId,
