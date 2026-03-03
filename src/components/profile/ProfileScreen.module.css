@@ -539,7 +539,32 @@
     border: 1px solid rgba(220, 38, 38, 0.18);
     border-radius: var(--radius-md);
     padding: var(--space-2) var(--space-3);
+    margin: 0 0 var(--space-3) 0;
+}
+
+.emLastUpdated {
+    display: flex;
+    align-items: flex-start;
+    gap: 7px;
+    font-size: var(--text-xs);
+    color: var(--color-text-secondary);
+    background: color-mix(in srgb, var(--color-primary) 7%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 20%, transparent);
+    border-radius: var(--radius-md);
+    padding: var(--space-2) var(--space-3);
     margin: 0 0 var(--space-4) 0;
+    line-height: 1.5;
+}
+
+.emLastUpdatedStale {
+    background: rgba(245, 158, 11, 0.10);
+    border-color: rgba(245, 158, 11, 0.30);
+    color: var(--color-text-primary);
+}
+
+.emStaleWarning {
+    color: #b45309;
+    font-weight: 600;
 }
 
 .emForm {

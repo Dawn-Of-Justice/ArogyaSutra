@@ -10,10 +10,10 @@ import type { DocumentTypeTag, TimelineFilters } from "../../lib/types/timeline"
 import styles from "./TimelineScreen.module.css";
 import {
     ClipboardList, Pill, FlaskConical, Building2, Stethoscope,
-    Camera, FileCheck2, Search, X, Share2, Plus, ChevronLeft,
+    Camera, FileCheck2, Search, X, Plus, ChevronLeft,
     ChevronRight, Calendar,
 } from "lucide-react";
-import ScanModal from "../scan/ScanModal";
+import { fmtDate, fmtMonthYear, fmtMonthYearLong } from "../../lib/utils/date";
 import DocThumbnail from "../scan/DocThumbnail";
 import EntryDetailModal from "./EntryDetailModal";
 import type { HealthEntry } from "../../lib/types/timeline";
@@ -106,7 +106,7 @@ export default function TimelineScreen({ onNavigate, patientId, initialEntryId, 
             if (!map.has(key)) {
                 map.set(key, {
                     key,
-                    label: d.toLocaleDateString("en-IN", { month: "short", year: "numeric" }),
+                    label: fmtMonthYear(d),
                     year: d.getFullYear(),
                     month: d.getMonth(),
                     entries: [],
@@ -145,7 +145,7 @@ export default function TimelineScreen({ onNavigate, patientId, initialEntryId, 
         for (const entry of filteredEntries) {
             const d = new Date(entry.date);
             const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-            const label = d.toLocaleDateString("en-IN", { month: "long", year: "numeric" });
+            const label = fmtMonthYearLong(d);
             if (!map.has(key)) map.set(key, { label, entries: [] });
             map.get(key)!.entries.push(entry);
         }
@@ -206,9 +206,6 @@ export default function TimelineScreen({ onNavigate, patientId, initialEntryId, 
                         <ChevronLeft size={20} />
                     </button>
                     <h1 className={styles.title}>Health Timeline</h1>
-                    <button className={styles.exportButton} onClick={() => onNavigate("export")}>
-                        <Share2 size={18} />
-                    </button>
                 </header>
 
                 {/* ---- Visual Timeline Scrubber ---- */}
@@ -396,14 +393,14 @@ export default function TimelineScreen({ onNavigate, patientId, initialEntryId, 
                                                         <div className={styles.entryMeta}>
                                                             <span className={styles.entryTypeLabel} style={{ color: typeInfo.color }}>{typeInfo.label}</span>
                                                             <span className={styles.entryDate}>
-                                                                {new Date(entry.date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                                                                {fmtDate(entry.date)}
                                                             </span>
                                                         </div>
                                                         <h4 className={styles.entryTitle}>{entry.title}</h4>
                                                         {subline && <p className={styles.entrySubline}>{subline}</p>}
-                                                        {entry.statusFlags?.length > 0 && (
+                                                        {entry.statusFlags?.filter(f => f !== "AI-READ").length > 0 && (
                                                             <div className={styles.entryFlags}>
-                                                                {entry.statusFlags.map((flag) => (
+                                                                {entry.statusFlags.filter(f => f !== "AI-READ").map((flag) => (
                                                                     <span key={flag} className={styles.flagBadge}>{flag}</span>
                                                                 ))}
                                                             </div>
@@ -454,7 +451,10 @@ export default function TimelineScreen({ onNavigate, patientId, initialEntryId, 
                     entry={selectedEntry}
                     onClose={() => setSelectedEntry(null)}
                     onDeleted={() => { setSelectedEntry(null); loadTimeline(); }}
-                    onUpdated={(updated) => setSelectedEntry(prev => prev ? { ...prev, ...updated } : prev)}
+                    onUpdated={(updated) => {
+                        setSelectedEntry(prev => prev ? { ...prev, ...updated } : prev);
+                        if (selectedEntry?.entryId) updateEntry(selectedEntry.entryId, updated);
+                    }}
                 />
             )}
         </>

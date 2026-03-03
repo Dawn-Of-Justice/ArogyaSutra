@@ -7,7 +7,7 @@
 //   • Emergency — break-glass emergency access event
 // ============================================================
 
-"use client";
+import { fmtDate, fmtMonthYearLong } from "../../lib/utils/date";
 
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
@@ -53,7 +53,7 @@ function relativeTime(date: Date): string {
     if (diff < 86400) return `${Math.floor(diff / 3600)} hr ago`;
     if (diff < 172800) return "Yesterday";
     if (diff < 604800) return `${Math.floor(diff / 86400)} days ago`;
-    return date.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+    return fmtDate(date);
 }
 
 function groupLabel(date: Date): string {
@@ -65,7 +65,7 @@ function groupLabel(date: Date): string {
     if (diff === 1) return "Yesterday";
     if (diff < 7) return "This Week";
     if (diff < 30) return "This Month";
-    return date.toLocaleDateString("en-IN", { month: "long", year: "numeric" });
+    return fmtMonthYearLong(date);
 }
 
 // --------------- Component dot + badge helpers ---------------

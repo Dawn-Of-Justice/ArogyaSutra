@@ -6,7 +6,8 @@
 
 "use client";
 
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { fmtDate } from "../../lib/utils/date";
 import { useAuth } from "../../hooks/useAuth";
 import styles from "./ProfileScreen.module.css";
 import {
@@ -23,11 +24,12 @@ interface ProfileScreenProps {
 function formatDate(dateStr: string): string {
     if (!dateStr) return "—";
     try {
-        return new Date(dateStr).toLocaleDateString("en-IN", {
-            day: "numeric",
-            month: "long",
-            year: "numeric",
-        });
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return dateStr;
+        const dd = String(d.getDate()).padStart(2, "0");
+        const mm = String(d.getMonth() + 1).padStart(2, "0");
+        const yyyy = d.getFullYear();
+        return `${dd}/${mm}/${yyyy}`;
     } catch {
         return dateStr;
     }
@@ -95,6 +97,8 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
     const [emShowBloodGroup, setEmShowBloodGroup] = useState(true);
     const [emShowAllergies, setEmShowAllergies] = useState(true);
     const [emShowMeds, setEmShowMeds] = useState(true);
+    // Last updated timestamp (ISO string)
+    const [emergencyUpdatedAt, setEmergencyUpdatedAt] = useState<string | null>(null);
 
     // Load emergency info from localStorage for both roles
     useEffect(() => {
@@ -113,6 +117,7 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
                 setEmShowAllergies(data.showAllergies !== false);
                 setEmShowMeds(data.showMeds !== false);
             }
+            if (data.updatedAt) setEmergencyUpdatedAt(data.updatedAt);
         } catch { /* ignore */ }
     }, [userId, isDoctor]);
 
@@ -170,19 +175,22 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
     }, [userId, isDoctor, patient, updatePatient]);
 
     // ---- Load saved photo from localStorage (fast) + S3 (authoritative) ----
+    // photoVersion increments on every upload so stale GET responses are ignored
+    const photoVersionRef = useRef(0);
+
     useEffect(() => {
         if (!userId) return;
         // Restore from localStorage immediately for instant display
         const cached = localStorage.getItem(photoStorageKey);
         if (cached) setPhotoUrl(cached);
 
-        // Try to fetch the signed URL from our API (S3 KMS-encrypted)
+        // Capture current version — if user uploads before this resolves, discard result
+        const version = photoVersionRef.current;
         fetch(`/api/profile/photo?userId=${userId}&role=${isDoctor ? "doctor" : "patient"}`)
             .then((r) => r.json())
             .then((data) => {
-                if (data.url) {
+                if (data.url && photoVersionRef.current === version) {
                     setPhotoUrl(data.url);
-                    // Don't cache the presigned URL — it expires in 15 min
                 }
             })
             .catch(() => {/* silently fall back to cached */ });
@@ -195,6 +203,7 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
             if (!file || !userId) return;
 
             setUploading(true);
+            photoVersionRef.current += 1; // invalidate any in-flight S3 GET
             try {
                 // Read as base64 for preview + upload
                 const reader = new FileReader();
@@ -251,10 +260,12 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
             const toArr = (s: string) => s.split(",").map(x => x.trim()).filter(Boolean);
             const allergiesArr = toArr(editEmAllergiesTxt);
             const medsArr = toArr(editEmMedsTxt);
+            const nowIso = new Date().toISOString();
             if (isDoctor) {
                 localStorage.setItem(`arogyasutra_emergency_${userId}`, JSON.stringify({
                     allergies: editEmAllergiesTxt,
                     criticalMeds: editEmMedsTxt,
+                    updatedAt: nowIso,
                 }));
                 setDoctorEmAllergies(allergiesArr);
                 setDoctorEmMeds(medsArr);
@@ -265,9 +276,11 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
                     showBloodGroup: emShowBloodGroup,
                     showAllergies: emShowAllergies,
                     showMeds: emShowMeds,
+                    updatedAt: nowIso,
                 }));
                 setEmergencyAllergies(allergiesArr);
                 setEmergencyCriticalMeds(medsArr);
+                setEmergencyUpdatedAt(nowIso);
                 // Also persist to Cognito so doctors can see allergies/meds during consultation
                 try {
                     await fetch("/api/profile/update", {
@@ -499,10 +512,6 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
                                     )}
                                 </div>
                                 <div className={styles.field}>
-                                    <span className={styles.fieldLabel}>Language</span>
-                                    <span className={styles.fieldValue} style={{ textTransform: "uppercase" }}>{patient.language || "EN"}</span>
-                                </div>
-                                <div className={styles.field}>
                                     <span className={styles.fieldLabel}>Card ID</span>
                                     <span className={`${styles.fieldValue}`} style={{ fontFamily: "monospace" }}>{patient.patientId}</span>
                                 </div>
@@ -550,23 +559,6 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
                                         <input className={styles.fieldInput} value={editPincode} onChange={(e) => setEditPincode(e.target.value)} maxLength={6} />
                                     ) : (
                                         <span className={styles.fieldValue}>{patient.address?.pincode || "—"}</span>
-                                    )}
-                                </div>
-                                <div className={styles.field}>
-                                    <span className={styles.fieldLabel}>Language</span>
-                                    {editing ? (
-                                        <select className={styles.fieldInput} value={editLanguage} onChange={(e) => setEditLanguage(e.target.value)}>
-                                            <option value="en">English</option>
-                                            <option value="hi">Hindi</option>
-                                            <option value="ta">Tamil</option>
-                                            <option value="te">Telugu</option>
-                                            <option value="bn">Bengali</option>
-                                            <option value="mr">Marathi</option>
-                                            <option value="gu">Gujarati</option>
-                                            <option value="kn">Kannada</option>
-                                        </select>
-                                    ) : (
-                                        <span className={styles.fieldValue} style={{ textTransform: "uppercase" }}>{patient.language || "EN"}</span>
                                     )}
                                 </div>
                             </div>
@@ -657,14 +649,7 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
                                         : "—"}
                                 </span>
                             </div>
-                            <div className={styles.field}>
-                                <span className={styles.fieldLabel}>Temperature <span style={{ fontSize: 10, color: 'var(--brand-coral, #E53E3E)', fontWeight: 600, marginLeft: 4 }}>Doctor only</span></span>
-                                <span className={styles.fieldValue}>
-                                    {patient.temperature
-                                        ? `${patient.temperature} °F`
-                                        : "—"}
-                                </span>
-                            </div>
+
                         </div>
                     </div>
 
@@ -682,9 +667,24 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
                         </div>
 
                         {!emergencyEditing && (
-                            <p className={styles.emNote}>
-                                This information will be shown to emergency first responders
-                            </p>
+                            <>
+                                <p className={styles.emNote}>
+                                    This information will be shown to emergency first responders
+                                </p>
+                                {emergencyUpdatedAt && (() => {
+                                    const daysSince = Math.floor((Date.now() - new Date(emergencyUpdatedAt).getTime()) / 86400000);
+                                    const isStale = daysSince > 90;
+                                    return (
+                                        <div className={`${styles.emLastUpdated} ${isStale ? styles.emLastUpdatedStale : ""}`}>
+                                            <span>{isStale ? "⚠️" : "🕐"}</span>
+                                            <span>
+                                                <strong>Last updated:</strong> {fmtDate(emergencyUpdatedAt)}
+                                                {isStale && <span className={styles.emStaleWarning}>{" — "}{daysSince} days ago. Please keep this up to date.</span>}
+                                            </span>
+                                        </div>
+                                    );
+                                })()}
+                            </>
                         )}
 
                         {emergencyEditing ? (
@@ -879,6 +879,20 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
                                 </div>
                             </div>
                         ) : (
+                            <div>
+                                {emergencyUpdatedAt && (() => {
+                                    const daysSince = Math.floor((Date.now() - new Date(emergencyUpdatedAt).getTime()) / 86400000);
+                                    const isStale = daysSince > 90;
+                                    return (
+                                        <div className={`${styles.emLastUpdated} ${isStale ? styles.emLastUpdatedStale : ""}`}>
+                                            <span>{isStale ? "⚠️" : "🕐"}</span>
+                                            <span>
+                                                <strong>Last updated:</strong> {fmtDate(emergencyUpdatedAt)}
+                                                {isStale && <span className={styles.emStaleWarning}>{" — "}{daysSince} days ago. Please keep this up to date.</span>}
+                                            </span>
+                                        </div>
+                                    );
+                                })()}
                             <div className={styles.emergencyInfoGrid}>
                                 <div className={styles.emergencySection}>
                                     <span className={styles.emergencySectionLabel}>Allergies</span>
@@ -896,6 +910,7 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
                                         </div>
                                     ) : <span className={styles.emergencyEmpty}>None recorded</span>}
                                 </div>
+                            </div>
                             </div>
                         )}
                     </div>

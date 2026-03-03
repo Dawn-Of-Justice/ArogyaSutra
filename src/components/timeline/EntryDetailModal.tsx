@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../../hooks/useAuth";
-import styles from "./EntryDetailModal.module.css";
+import { fmtDate } from "../../lib/utils/date";
 import {
     X, Calendar, Building2, Stethoscope, Pill, FlaskConical,
     FileCheck2, FileText, Camera, ClipboardList, Pencil, Trash2,
@@ -54,7 +54,7 @@ export default function EntryDetailModal({ entry, onClose, onDeleted, onUpdated 
     const typeInfo = TYPE_OPTIONS.find(t => t.value === (mode === "edit" ? editType : entry.documentType)) ?? TYPE_OPTIONS[6];
 
     const formattedDate = (() => {
-        try { return new Date(entry.date).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" }); }
+        try { return fmtDate(entry.date); }
         catch { return entry.date; }
     })();
 

@@ -78,6 +78,7 @@ export async function POST(req: Request) {
             allergies: ["Penicillin", "Sulfonamides"],
             criticalMedications: ["Metformin 500mg", "Amlodipine 5mg"],
             activeConditions: ["Type 2 Diabetes", "Hypertension"],
+            updatedAt: new Date().toISOString(), // In production: from patient's custom:emergency_updated_at
         };
 
         return NextResponse.json({

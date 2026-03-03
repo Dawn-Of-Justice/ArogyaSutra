@@ -345,7 +345,6 @@ export interface CheckupEntry {
     checkupId: string;        // ISO timestamp used as sort key
     bpSystolic: number;
     bpDiastolic: number;
-    temperature: number;
     height?: string;
     weight?: string;
     recordedBy: string;       // doctor ID / name

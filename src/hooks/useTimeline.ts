@@ -70,6 +70,10 @@ export function useTimeline(overridePatientId?: string) {
         }
     }, [resolvedId, hasMore, page]);
 
+    const updateEntry = useCallback((entryId: string, changes: Partial<HealthEntry>) => {
+        setEntries(prev => prev.map(e => e.entryId === entryId ? { ...e, ...changes } : e));
+    }, []);
+
     return {
         entries,
         isLoading,
@@ -77,5 +81,6 @@ export function useTimeline(overridePatientId?: string) {
         hasMore,
         loadTimeline,
         loadMore,
+        updateEntry,
     };
 }

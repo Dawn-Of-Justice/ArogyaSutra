@@ -360,9 +360,13 @@ export default function AppShell({
             {/* ---- Sidebar ---- */}
             <aside className={styles.sidebar}>
                 {/* Logo */}
-                <div className={styles.sidebarLogo}>
+                <button
+                    className={styles.sidebarLogo}
+                    onClick={() => onNavigate(isDoctor ? "doctor-dashboard" : "dashboard")}
+                    style={{ background: "none", border: "none", cursor: "pointer", width: "100%" }}
+                >
                     <span className={styles.logoName}>Arogya<span className={styles.logoAccent}>Sutra</span></span>
-                </div>
+                </button>
 
                 {/* Main nav group */}
                 <div className={styles.navGroup}>

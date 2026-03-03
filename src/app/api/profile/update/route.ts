@@ -51,7 +51,6 @@ export async function POST(req: NextRequest) {
                 await cognito.updatePatientAttributes(updates.targetPatientId, {
                     bpSystolic: updates.bpSystolic,
                     bpDiastolic: updates.bpDiastolic,
-                    temperature: updates.temperature,
                     height: updates.height,
                     weight: updates.weight,
                     allergies: updates.allergies,

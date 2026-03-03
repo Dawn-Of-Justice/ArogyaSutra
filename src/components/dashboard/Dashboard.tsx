@@ -13,7 +13,7 @@ import {
     Building2, Stethoscope, ImageIcon, CalendarClock,
 } from "lucide-react";
 import { GeminiIcon } from "../common/GeminiIcon";
-import ScanModal from "../scan/ScanModal";
+import { fmtDate, fmtDateShort } from "../../lib/utils/date";
 import EntryDetailModal from "../timeline/EntryDetailModal";
 import type { HealthEntry } from "../../lib/types/timeline";
 import type { Appointment } from "../../lib/types/appointment";
@@ -62,7 +62,7 @@ const DOC_TYPE_ICON_MAP: Record<string, string> = {
 
 export default function Dashboard({ onNavigate }: DashboardProps) {
     const { patient } = useAuth();
-    const { entries, loadTimeline, isLoading } = useTimeline();
+    const { entries, loadTimeline, isLoading, updateEntry } = useTimeline();
     const [scanOpen, setScanOpen] = useState(false);
     const [selectedEntry, setSelectedEntry] = useState<HealthEntry | null>(null);
     const [hoveredDay, setHoveredDay] = useState<string | null>(null);
@@ -116,7 +116,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
             name: e.doctorName!,
             specialty: e.sourceInstitution || (e.documentType === "H" ? "Hospitalisation" : "Consultation"),
             date: new Date(e.date),
-            dateLabel: new Date(e.date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }),
+            dateLabel: fmtDate(e.date),
             icon: DOC_TYPE_ICON_MAP[e.documentType] || "🩺",
         }));
 
@@ -256,7 +256,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                                             </div>
                                             <div className={styles.entryMeta}>
                                                 <span className={styles.entryDate}>
-                                                    {new Date(entry.date).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+                                                    {fmtDateShort(entry.date)}
                                                 </span>
                                                 <span className={`${styles.docTag} ${tagStyle}`}>{entry.documentType}</span>
                                             </div>
@@ -364,7 +364,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                                             <span className={styles.calApptDot} />
                                             <div className={styles.calApptInfo}>
                                                 <span className={styles.calApptName}>{appt.name}</span>
-                                                <span className={styles.calApptSub}>{appt.date.toLocaleDateString("en-IN", { day: "numeric", month: "short" })} · {appt.time}</span>
+                                                <span className={styles.calApptSub}>{fmtDateShort(appt.date)} · {appt.time}</span>
                                             </div>
                                             <span className={styles.calApptBadge}>{daysFromNow(appt.date)}</span>
                                             <button
@@ -455,7 +455,10 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                     entry={selectedEntry}
                     onClose={() => setSelectedEntry(null)}
                     onDeleted={() => { setSelectedEntry(null); loadTimeline(); }}
-                    onUpdated={(updated) => setSelectedEntry(prev => prev ? { ...prev, ...updated } : prev)}
+                    onUpdated={(updated) => {
+                        setSelectedEntry(prev => prev ? { ...prev, ...updated } : prev);
+                        if (selectedEntry?.entryId) updateEntry(selectedEntry.entryId, updated);
+                    }}
                 />
             )}
         </>

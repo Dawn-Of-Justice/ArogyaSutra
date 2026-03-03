@@ -9,7 +9,7 @@
 import React, { useState, Suspense, lazy } from "react";
 import { isValidCardId, normalizeCardInput } from "../../lib/utils/cardId";
 import type { CheckupEntry } from "../../lib/aws/dynamodb";
-import styles from "./DoctorDashboard.module.css";
+import { fmtDateShort } from "../../lib/utils/date";
 
 // Lazy-load the 3D body model to avoid SSR issues with Three.js
 const BodyModel3D = lazy(() => import("../body3d/BodyModel3D"));
@@ -155,7 +155,6 @@ export interface PatientData {
     vitals: {
         bpSystolic: string;
         bpDiastolic: string;
-        temperature: string;
     };
     history: {
         type: string;
@@ -180,7 +179,7 @@ export interface DoctorPatientContext {
     age: number;
     gender: string;
     diagnosis: string;
-    vitals: { bpSystolic: string; bpDiastolic: string; temperature: string };
+    vitals: { bpSystolic: string; bpDiastolic: string };
     history: { type: string; label: string; date: string }[];
 }
 
@@ -191,9 +190,7 @@ function DoctorWelcomePanel({ doctorName }: { doctorName?: string }) {
     const hour = new Date().getHours();
     const greeting =
         hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
-    const today = new Date().toLocaleDateString("en-IN", {
-        weekday: "long", day: "numeric", month: "long", year: "numeric",
-    });
+    const today = new Date().toLocaleDateString("en-IN", { weekday: "long" }) + ", " + fmtDate(new Date());
 
     const tips = [
         "Verify a patient to view their 3D anatomical model and health records.",
@@ -315,7 +312,6 @@ export default function DoctorDashboard({ onNavigate, doctorName, onPatientVerif
             let height = "—";
             let bpSystolic = "";
             let bpDiastolic = "";
-            let temperature = "";
             let allergies: string[] = [];
             let criticalMeds: string[] = [];
 
@@ -337,7 +333,6 @@ export default function DoctorDashboard({ onNavigate, doctorName, onPatientVerif
                         height = data.patient.height || "—";
                         bpSystolic = data.patient.bpSystolic || "";
                         bpDiastolic = data.patient.bpDiastolic || "";
-                        temperature = data.patient.temperature || "";
                         allergies = data.patient.allergies || [];
                         criticalMeds = data.patient.criticalMeds || [];
                     }
@@ -365,7 +360,7 @@ export default function DoctorDashboard({ onNavigate, doctorName, onPatientVerif
                 weight,
                 bloodGroup,
                 diagnosis: "Refer to medical records",
-                vitals: { bpSystolic, bpDiastolic, temperature },
+                vitals: { bpSystolic, bpDiastolic },
                 history: [],
                 annotations: [],
                 allergies,
@@ -414,7 +409,6 @@ export default function DoctorDashboard({ onNavigate, doctorName, onPatientVerif
     const [checkupEditing, setCheckupEditing] = useState(false);
     const [editBpSys, setEditBpSys] = useState("");
     const [editBpDia, setEditBpDia] = useState("");
-    const [editTemp, setEditTemp] = useState("");
     const [editHeight, setEditHeight] = useState("");
     const [editWeight, setEditWeight] = useState("");
     const [editAllergies, setEditAllergies] = useState("");
@@ -486,7 +480,6 @@ export default function DoctorDashboard({ onNavigate, doctorName, onPatientVerif
                         targetPatientId: patient.cardId,
                         bpSystolic: editBpSys,
                         bpDiastolic: editBpDia,
-                        temperature: editTemp,
                         height: editHeight,
                         weight: editWeight,
                         allergies: editAllergies,
@@ -496,7 +489,7 @@ export default function DoctorDashboard({ onNavigate, doctorName, onPatientVerif
             });
 
             // 2. Persist checkup reading to DynamoDB for timeline history
-            if (editBpSys && editBpDia && editTemp) {
+            if (editBpSys && editBpDia) {
                 await fetch("/api/checkup", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
@@ -504,7 +497,6 @@ export default function DoctorDashboard({ onNavigate, doctorName, onPatientVerif
                         patientId: patient.cardId,
                         bpSystolic: Number(editBpSys),
                         bpDiastolic: Number(editBpDia),
-                        temperature: Number(editTemp),
                         height: editHeight || patient.height,
                         weight: editWeight || patient.weight,
                         recordedBy: doctorName || "doctor",
@@ -513,12 +505,11 @@ export default function DoctorDashboard({ onNavigate, doctorName, onPatientVerif
             }
 
             // 3. Update local patient state
-            const newEntry = editBpSys && editBpDia && editTemp ? {
+            const newEntry = editBpSys && editBpDia ? {
                 patientId: patient.cardId,
                 checkupId: new Date().toISOString(),
                 bpSystolic: Number(editBpSys),
                 bpDiastolic: Number(editBpDia),
-                temperature: Number(editTemp),
                 height: editHeight || undefined,
                 weight: editWeight || undefined,
                 recordedBy: doctorName || "doctor",
@@ -532,7 +523,6 @@ export default function DoctorDashboard({ onNavigate, doctorName, onPatientVerif
                 vitals: {
                     bpSystolic: editBpSys || prev.vitals.bpSystolic,
                     bpDiastolic: editBpDia || prev.vitals.bpDiastolic,
-                    temperature: editTemp || prev.vitals.temperature,
                 },
                 allergies: newAllergies.length > 0 ? newAllergies : prev.allergies,
                 criticalMeds: newMeds.length > 0 ? newMeds : prev.criticalMeds,
@@ -704,7 +694,6 @@ export default function DoctorDashboard({ onNavigate, doctorName, onPatientVerif
                                         } else {
                                             setEditBpSys(patient.vitals.bpSystolic);
                                             setEditBpDia(patient.vitals.bpDiastolic);
-                                            setEditTemp(patient.vitals.temperature);
                                             setEditHeight(patient.height === "—" ? "" : patient.height);
                                             setEditWeight(patient.weight === "—" ? "" : patient.weight);
                                             setEditAllergies(patient.allergies.join(", "));
@@ -756,7 +745,7 @@ export default function DoctorDashboard({ onNavigate, doctorName, onPatientVerif
                                 )}
                                 <div className={styles.lastUpdated}>
                                     <span className={styles.lastUpdatedDot} />
-                                    Last updated {new Date().toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+                                    Last updated {fmtDateShort(new Date())}
                                 </div>
                             </div>
 
@@ -783,11 +772,6 @@ export default function DoctorDashboard({ onNavigate, doctorName, onPatientVerif
                                             <label className={styles.checkupFieldLabel}>BP Diastolic</label>
                                             <input className={styles.checkupInput} type="number" placeholder="e.g. 80"
                                                 value={editBpDia} onChange={e => setEditBpDia(e.target.value)} />
-                                        </div>
-                                        <div className={`${styles.checkupField} ${styles.checkupFieldFull}`}>
-                                            <label className={styles.checkupFieldLabel}>Temperature (°C)</label>
-                                            <input className={styles.checkupInput} type="number" step="0.1" placeholder="e.g. 37.2"
-                                                value={editTemp} onChange={e => setEditTemp(e.target.value)} />
                                         </div>
                                     </div>
                                     <div className={styles.checkupAllergyRow}>
@@ -833,22 +817,7 @@ export default function DoctorDashboard({ onNavigate, doctorName, onPatientVerif
                                             color="var(--dd-accent)"
                                         />
                                     </div>
-                                    <div className={styles.vitalCard}>
-                                        <div className={styles.vitalCardTop}>
-                                            <span className={styles.vitalIcon}>{Icon.heart}</span>
-                                            <div className={styles.vitalData}>
-                                                <span className={styles.vitalLabel}>Temperature</span>
-                                                <span className={styles.vitalValue}>
-                                                    {patient.vitals.temperature || "—"}
-                                                    {patient.vitals.temperature && <span className={styles.vitalUnit}>°C</span>}
-                                                </span>
-                                            </div>
-                                        </div>
-                                        <Sparkline
-                                            values={[...patient.checkupHistory].reverse().map(c => c.temperature).filter(Boolean)}
-                                            color="#f59e0b"
-                                        />
-                                    </div>
+
                                 </div>
                             )}
 

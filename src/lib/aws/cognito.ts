@@ -157,7 +157,6 @@ export async function updatePatientAttributes(
         bloodGroup?: string;
         bpSystolic?: string;
         bpDiastolic?: string;
-        temperature?: string;
         city?: string;
         state?: string;
         pincode?: string;
@@ -177,7 +176,6 @@ export async function updatePatientAttributes(
     if (updates.bloodGroup !== undefined) attrs.push({ Name: "custom:blood_group", Value: updates.bloodGroup });
     if (updates.bpSystolic !== undefined) attrs.push({ Name: "custom:bp_systolic", Value: updates.bpSystolic });
     if (updates.bpDiastolic !== undefined) attrs.push({ Name: "custom:bp_diastolic", Value: updates.bpDiastolic });
-    if (updates.temperature !== undefined) attrs.push({ Name: "custom:temperature", Value: updates.temperature });
     if (updates.city !== undefined) attrs.push({ Name: "custom:city", Value: updates.city });
     if (updates.state !== undefined) attrs.push({ Name: "custom:state", Value: updates.state });
     if (updates.pincode !== undefined) attrs.push({ Name: "custom:pincode", Value: updates.pincode });

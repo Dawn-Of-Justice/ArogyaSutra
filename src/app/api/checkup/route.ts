@@ -10,7 +10,7 @@ import { putCheckup, getCheckupHistory } from "../../../lib/aws/dynamodb";
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
-        const { patientId, bpSystolic, bpDiastolic, temperature, height, weight, recordedBy } = body;
+        const { patientId, bpSystolic, bpDiastolic, height, weight, recordedBy } = body;
 
         if (!patientId || !recordedBy) {
             return NextResponse.json({ error: "patientId and recordedBy are required" }, { status: 400 });
@@ -22,7 +22,6 @@ export async function POST(req: NextRequest) {
             checkupId: now,
             bpSystolic: Number(bpSystolic) || 0,
             bpDiastolic: Number(bpDiastolic) || 0,
-            temperature: Number(temperature) || 0,
             height: height || undefined,
             weight: weight || undefined,
             recordedBy,

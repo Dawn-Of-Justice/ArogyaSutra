@@ -10,6 +10,7 @@
 import React, { useState } from "react";
 import { useCountdown } from "../../hooks/useCountdown";
 import type { BreakGlassResponse, GeoLocation } from "../../lib/types/emergency";
+import { fmtDate } from "../../lib/utils/date";
 import styles from "./BreakGlassScreen.module.css";
 
 interface Props {
@@ -216,6 +217,24 @@ export default function BreakGlassScreen({ onClose }: Props) {
 
                         <h2 className={styles.dataTitle}>Critical Emergency Information</h2>
                         <p className={styles.dataSubtitle}>Critical-Only View • Audit logged • Patient notified</p>
+                        {emergencyData.updatedAt && (() => {
+                            const updatedMs = new Date(emergencyData.updatedAt).getTime();
+                            const daysSince = Math.floor((Date.now() - updatedMs) / 86400000);
+                            const isStale = daysSince > 90;
+                            return (
+                                <div className={`${styles.lastUpdated} ${isStale ? styles.lastUpdatedStale : ""}`}>
+                                    <span className={styles.lastUpdatedIcon}>{isStale ? "⚠️" : "🕐"}</span>
+                                    <span>
+                                        <strong>Last updated:</strong> {fmtDate(emergencyData.updatedAt)}
+                                        {isStale && (
+                                            <span className={styles.staleWarning}>
+                                                {" — "}{daysSince} days ago. Verify with patient if conscious.
+                                            </span>
+                                        )}
+                                    </span>
+                                </div>
+                            );
+                        })()}
 
                         <div className={styles.dataGrid}>
                             {/* Blood Group — most critical */}
