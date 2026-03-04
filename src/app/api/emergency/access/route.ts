@@ -61,7 +61,6 @@ export async function POST(req: Request) {
             geoLocation: {
                 latitude: geolocation.latitude,
                 longitude: geolocation.longitude,
-                accuracy: geolocation.accuracy,
             },
         }).catch((dbErr) => console.error("DynamoDB audit log failed (non-blocking):", dbErr));
 
@@ -81,7 +80,6 @@ export async function POST(req: Request) {
             geoLocation: {
                 latitude: geolocation.latitude,
                 longitude: geolocation.longitude,
-                accuracy: geolocation.accuracy,
             },
         }).catch((dbErr) => console.error("DynamoDB BREAKGLASS_VIEW log failed (non-blocking):", dbErr));
 

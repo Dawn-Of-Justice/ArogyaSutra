@@ -27,7 +27,7 @@ export function useTimeline(overridePatientId?: string) {
 
     const viewerContext: ViewerContext | undefined =
         userRole === "doctor" && doctor
-            ? { viewerType: "DOCTOR", viewerId: doctor.doctorId, viewerName: doctor.name }
+            ? { viewerType: "DOCTOR", viewerId: doctor.doctorId, viewerName: doctor.fullName }
             : undefined;
 
     const loadTimeline = useCallback(

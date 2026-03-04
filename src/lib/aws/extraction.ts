@@ -18,7 +18,6 @@ import {
     BedrockRuntimeClient,
     InvokeModelCommand,
 } from "@aws-sdk/client-bedrock-runtime";
-import sharp from "sharp";
 import type {
     DocumentTypeTag,
     EntryMetadata,
@@ -151,6 +150,7 @@ export interface ExtractionResult {
 // ── Image normalisation ──────────────────────────────────────────────
 
 async function toJpegBuffer(imageBytes: Buffer): Promise<Buffer> {
+    const sharp = (await import("sharp")).default;
     return sharp(imageBytes).jpeg({ quality: 92 }).toBuffer();
 }
 

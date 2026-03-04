@@ -6,6 +6,7 @@ frontend:
         - npm config delete //registry.npmjs.org/:_authToken 2>/dev/null || true
         - npm cache clean --force
         - npm ci
+        - npm install --os=linux --cpu=x64 sharp
     build:
       commands:
         - npm run build
