@@ -4,7 +4,7 @@
 // (Kimi K2.5 primary → Amazon Bedrock Nova Pro fallback)
 // ============================================================
 
-import { generateInsights, type RAGContext } from "../aws/bedrock";
+import { generateInsights, invokeModel, type RAGContext } from "../aws/bedrock";
 import * as healthlake from "../aws/healthlake";
 import { logAccess, patientActor, doctorActor } from "./audit.service";
 import { ragQuery as agenticRagQuery } from "../rag/engine";
@@ -44,13 +44,34 @@ export async function query(ragQuery: RAGQuery): Promise<RAGResponse> {
         content: m.content,
     }));
 
-    // Run agentic RAG engine
-    const engineResult = await agenticRagQuery({
-        patientId: ragQuery.patientId,
-        queryText: ragQuery.queryText,
-        conversationHistory,
-        topK: 12,
-    });
+    // Run agentic RAG engine — with a hard fallback to direct Nova Pro if anything fails
+    let engineResult: Awaited<ReturnType<typeof agenticRagQuery>>;
+    try {
+        engineResult = await agenticRagQuery({
+            patientId: ragQuery.patientId,
+            queryText: ragQuery.queryText,
+            conversationHistory,
+            topK: 12,
+        });
+
+        // Guard: engine returned empty answer (shouldn't happen after kimi fix, but be safe)
+        if (!engineResult.answer?.trim()) {
+            throw new Error("Agentic engine returned empty answer");
+        }
+    } catch (engineErr) {
+        console.error("[rag.service] agentic engine failed, falling back to direct Bedrock:", engineErr);
+        const fallback = await invokeModel(ragQuery.queryText, [], undefined);
+        engineResult = {
+            answer: fallback.answer || "I'm sorry, I was unable to process your query. Please try again.",
+            contexts: [],
+            strategy: "DIRECT" as const,
+            queryType: "GENERAL" as const,
+            confidence: 0.5,
+            groundingScore: 0.5,
+            provider: "bedrock" as const,
+            modelId: process.env.BEDROCK_MODEL_ID || "us.amazon.nova-pro-v1:0",
+        };
+    }
 
     // Build SourceCitation array from scored contexts
     const citations = buildCitations(engineResult.answer, engineResult.contexts);

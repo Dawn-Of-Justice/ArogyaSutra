@@ -57,10 +57,10 @@ const bedrockRegion = ["us-east-1", "us-west-2"].includes(
 
 const kimiClient = new BedrockRuntimeClient({ region: bedrockRegion, ..._appCreds });
 
-// Cross-region inference profile for Kimi K2 Instruct on Bedrock
-// Override with KIMI_BEDROCK_MODEL if you use a different region/profile
+// Kimi K2.5 base model on Bedrock (confirmed ACTIVE via list-foundation-models)
+// Override with KIMI_BEDROCK_MODEL env var if needed
 const KIMI_MODEL_ID =
-    process.env.KIMI_BEDROCK_MODEL || "us.moonshot.kimi-k2-instruct-v1:0";
+    process.env.KIMI_BEDROCK_MODEL || "moonshotai.kimi-k2.5";
 
 // --------------- Core chat completion ---------------
 
@@ -146,12 +146,24 @@ async function kimiBedrockComplete(
         ...(systemText ? { system: [{ text: systemText } as SystemContentBlock] } : {}),
     };
 
-    const response = await kimiClient.send(new ConverseCommand(input));
+    // Timeout guard — Bedrock can hang under load; 25 s leaves headroom for Lambda
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 25_000);
+
+    const response = await kimiClient
+        .send(new ConverseCommand(input), { abortSignal: controller.signal })
+        .finally(() => clearTimeout(timer));
 
     const text =
         response.output?.message?.content
             ?.map((b) => ("text" in b ? b.text ?? "" : ""))
             .join("") ?? "";
+
+    // Empty text means the model was filtered, not available, or returned no content.
+    // Throw so the fallback can handle it rather than returning a silent empty answer.
+    if (!text.trim()) {
+        throw new Error(`Kimi K2 returned empty response (stopReason: ${response.stopReason ?? "unknown"})`);
+    }
 
     return {
         text,
@@ -171,8 +183,15 @@ async function bedrockNovaFallback(
     const systemMsg = messages.find((m) => m.role === "system")?.content ?? "";
     const userMessages = messages.filter((m) => m.role !== "system");
     const lastUser = userMessages.filter((m) => m.role === "user").pop();
-    const query = lastUser?.content ?? "";
+    let rawQuery = lastUser?.content ?? "";
 
+    // When runDirect embeds context in the user message ("Health records:\n...\n\nQuestion: X"),
+    // extract just the question so Nova Pro receives a clean prompt with an empty contextBlock.
+    // Otherwise Nova Pro gets confused by the duplicated structure.
+    const questionMatch = rawQuery.match(/\bQuestion:\s*([\s\S]+)$/i);
+    const query = questionMatch ? questionMatch[1].trim() : rawQuery;
+
+    // Pass prior assistant turns as lightweight context objects
     const contexts: RAGContext[] = userMessages
         .filter((m) => m.role === "assistant")
         .map((m, i) => ({
@@ -184,6 +203,10 @@ async function bedrockNovaFallback(
         }));
 
     const result = await invokeModel(query, contexts, systemMsg || undefined);
+
+    if (!result.answer.trim()) {
+        throw new Error("Nova Pro fallback also returned empty answer");
+    }
 
     return {
         text: result.answer,
