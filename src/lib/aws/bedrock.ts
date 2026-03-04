@@ -24,10 +24,10 @@ const bedrockRegion = ["us-east-1", "us-west-2"].includes(process.env.NEXT_PUBLI
     ? process.env.NEXT_PUBLIC_AWS_REGION!
     : "us-east-1";
 const bedrockClient = new BedrockRuntimeClient({ region: bedrockRegion, ..._appCreds });
-// Nova Pro is the guaranteed fallback — never changed by KIMI_BEDROCK_MODEL env var.
-// BEDROCK_MODEL_ID can override if needed but defaults to Nova Pro cross-region profile.
-const NOVA_MODEL_ID =
-    process.env.BEDROCK_MODEL_ID || "us.amazon.nova-pro-v1:0";
+// Nova Pro is the GUARANTEED fallback model — hardcoded, never configurable via env var.
+// Do NOT use BEDROCK_MODEL_ID here; if that var points to Kimi, we'd loop into the same failure.
+// Nova Pro cross-region inference profile works in us-east-1 with no Marketplace subscription.
+const NOVA_MODEL_ID = "us.amazon.nova-pro-v1:0";
 
 /** RAG context document */
 export interface RAGContext {
