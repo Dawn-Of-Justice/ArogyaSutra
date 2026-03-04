@@ -273,6 +273,51 @@
     box-shadow: 0 0 0 3px var(--color-accent-glow);
 }
 
+.fieldSelect {
+    width: 100%;
+    padding: var(--space-2) var(--space-3);
+    padding-right: 30px;
+    border: 1.5px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-tertiary);
+    color: var(--color-text-primary);
+    font-size: var(--text-sm);
+    font-family: var(--font-sans);
+    transition: border-color var(--transition-fast);
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238aa3be' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    cursor: pointer;
+}
+
+.fieldSelect:focus {
+    outline: none;
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 3px var(--color-accent-glow);
+}
+
+.fieldPincodeWrap {
+    position: relative;
+}
+
+.fieldPincodeSpinner {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 14px;
+    height: 14px;
+    border: 2px solid var(--color-border);
+    border-top-color: var(--color-accent);
+    border-radius: 50%;
+    animation: pinSpin 0.7s linear infinite;
+}
+
+@keyframes pinSpin {
+    to { transform: translateY(-50%) rotate(360deg); }
+}
+
 .fieldUnit {
     font-size: var(--text-xs);
     color: var(--color-text-tertiary);

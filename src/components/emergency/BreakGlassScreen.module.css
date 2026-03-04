@@ -449,6 +449,15 @@
     align-items: center;
     gap: 7px;
     flex-wrap: wrap;
+    min-width: 0;
+}
+
+.patientNameText {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+    flex-shrink: 1;
 }
 
 .patientIdPill {

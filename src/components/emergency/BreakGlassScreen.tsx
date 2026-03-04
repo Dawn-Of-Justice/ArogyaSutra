@@ -257,7 +257,9 @@ export default function BreakGlassScreen({ onClose }: Props) {
                             </div>
                             <div className={styles.patientHeaderInfo}>
                                 <p className={styles.patientName}>
-                                    {emergencyData.patientName || form.patientId.toUpperCase()}
+                                    <span className={styles.patientNameText}>
+                                        {emergencyData.patientName || form.patientId.toUpperCase()}
+                                    </span>
                                     {emergencyData.patientAge != null && (
                                         <span className={styles.patientAge}>{emergencyData.patientAge} yrs</span>
                                     )}

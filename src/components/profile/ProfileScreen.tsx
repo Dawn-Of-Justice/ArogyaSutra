@@ -46,12 +46,65 @@ function calcAge(dob: string): number {
     return age;
 }
 
+// ── India address data ──────────────────────────────────────
+const INDIA_STATES: string[] = [
+    "Andaman and Nicobar Islands", "Andhra Pradesh", "Arunachal Pradesh", "Assam",
+    "Bihar", "Chandigarh", "Chhattisgarh",
+    "Dadra and Nagar Haveli and Daman and Diu", "Delhi", "Goa", "Gujarat",
+    "Haryana", "Himachal Pradesh", "Jammu and Kashmir", "Jharkhand",
+    "Karnataka", "Kerala", "Ladakh", "Lakshadweep", "Madhya Pradesh",
+    "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland",
+    "Odisha", "Puducherry", "Punjab", "Rajasthan", "Sikkim",
+    "Tamil Nadu", "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand",
+    "West Bengal",
+];
+
+const INDIA_STATE_CITIES: Record<string, string[]> = {
+    "Andhra Pradesh": ["Visakhapatnam", "Vijayawada", "Guntur", "Tirupati", "Kurnool", "Nellore", "Rajahmundry", "Kakinada"],
+    "Arunachal Pradesh": ["Itanagar", "Naharlagun", "Pasighat", "Tawang"],
+    "Assam": ["Guwahati", "Silchar", "Dibrugarh", "Jorhat", "Nagaon", "Tinsukia", "Tezpur"],
+    "Bihar": ["Patna", "Gaya", "Bhagalpur", "Muzaffarpur", "Purnia", "Darbhanga", "Bihar Sharif", "Arrah"],
+    "Chhattisgarh": ["Raipur", "Bhilai", "Bilaspur", "Korba", "Durg", "Rajnandgaon"],
+    "Goa": ["Panaji", "Margao", "Vasco da Gama", "Mapusa", "Ponda"],
+    "Gujarat": ["Ahmedabad", "Surat", "Vadodara", "Rajkot", "Bhavnagar", "Jamnagar", "Gandhinagar", "Anand", "Nadiad"],
+    "Haryana": ["Gurugram", "Faridabad", "Panipat", "Ambala", "Hisar", "Rohtak", "Karnal", "Sonipat"],
+    "Himachal Pradesh": ["Shimla", "Dharamsala", "Solan", "Mandi", "Kullu", "Baddi"],
+    "Jammu and Kashmir": ["Srinagar", "Jammu", "Anantnag", "Baramulla", "Sopore", "Kathua"],
+    "Jharkhand": ["Ranchi", "Jamshedpur", "Dhanbad", "Bokaro", "Hazaribagh", "Deoghar"],
+    "Karnataka": ["Bengaluru", "Mysuru", "Hubli", "Mangaluru", "Belagavi", "Ballari", "Davangere", "Shivamogga", "Tumakuru"],
+    "Kerala": ["Thiruvananthapuram", "Kochi", "Kozhikode", "Thrissur", "Kollam", "Palakkad", "Alappuzha", "Kannur"],
+    "Madhya Pradesh": ["Bhopal", "Indore", "Jabalpur", "Gwalior", "Ujjain", "Sagar", "Dewas", "Satna"],
+    "Maharashtra": ["Mumbai", "Pune", "Nagpur", "Nashik", "Aurangabad", "Solapur", "Thane", "Kolhapur", "Amravati", "Navi Mumbai"],
+    "Manipur": ["Imphal", "Churachandpur", "Thoubal", "Bishnupur"],
+    "Meghalaya": ["Shillong", "Tura", "Jowai"],
+    "Mizoram": ["Aizawl", "Lunglei", "Champhai"],
+    "Nagaland": ["Kohima", "Dimapur", "Mokokchung", "Wokha"],
+    "Odisha": ["Bhubaneswar", "Cuttack", "Rourkela", "Brahmapur", "Sambalpur", "Puri", "Balasore"],
+    "Punjab": ["Ludhiana", "Amritsar", "Jalandhar", "Patiala", "Bathinda", "Mohali", "Hoshiarpur"],
+    "Rajasthan": ["Jaipur", "Jodhpur", "Udaipur", "Kota", "Ajmer", "Bikaner", "Alwar", "Bharatpur"],
+    "Sikkim": ["Gangtok", "Namchi", "Gyalshing"],
+    "Tamil Nadu": ["Chennai", "Coimbatore", "Madurai", "Tiruchirappalli", "Salem", "Tirunelveli", "Vellore", "Erode", "Tiruppur"],
+    "Telangana": ["Hyderabad", "Warangal", "Nizamabad", "Karimnagar", "Khammam", "Ramagundam", "Secunderabad"],
+    "Tripura": ["Agartala", "Udaipur", "Dharmanagar"],
+    "Uttar Pradesh": ["Lucknow", "Kanpur", "Agra", "Varanasi", "Meerut", "Allahabad", "Ghaziabad", "Noida", "Mathura", "Bareilly", "Gorakhpur"],
+    "Uttarakhand": ["Dehradun", "Haridwar", "Roorkee", "Rishikesh", "Nainital", "Haldwani"],
+    "West Bengal": ["Kolkata", "Howrah", "Durgapur", "Asansol", "Siliguri", "Bardhaman", "Malda"],
+    "Delhi": ["New Delhi", "Delhi"],
+    "Chandigarh": ["Chandigarh"],
+    "Puducherry": ["Puducherry", "Karaikal", "Mahe", "Yanam"],
+    "Ladakh": ["Leh", "Kargil"],
+    "Lakshadweep": ["Kavaratti", "Agatti"],
+    "Andaman and Nicobar Islands": ["Port Blair"],
+    "Dadra and Nagar Haveli and Daman and Diu": ["Silvassa", "Daman", "Diu"],
+};
+
 export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
     const { patient, doctor, userRole, logout, updatePatient, updateDoctor } = useAuth();
     const isDoctor = userRole === "doctor";
 
     const userId = isDoctor ? doctor?.doctorId : patient?.patientId;
     const photoStorageKey = `profilePhoto_${userId}`;
+
 
     // ---- Photo state ----
     const [photoUrl, setPhotoUrl] = useState<string | null>(null);
@@ -80,6 +133,8 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
     // Doctor-specific
     const [editInstitution, setEditInstitution] = useState("");
     const [editDesignation, setEditDesignation] = useState("");
+    // Pincode lookup state
+    const [pincodeLoading, setPincodeLoading] = useState(false);
 
     // ---- Emergency Info ----
     const [emergencyAllergies, setEmergencyAllergies] = useState<string[]>([]);
@@ -109,6 +164,26 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
     const [contactsSaving, setContactsSaving] = useState(false);
     const [contactsSaved, setContactsSaved] = useState(false);
     const [contactsError, setContactsError] = useState('');
+
+    // ---- Auto-fill city + state from pincode ----
+    useEffect(() => {
+        if (!editing) return;
+        if (editPincode.length !== 6 || !/^\d{6}$/.test(editPincode)) return;
+        const controller = new AbortController();
+        setPincodeLoading(true);
+        fetch(`https://api.postalpincode.in/pincode/${editPincode}`, { signal: controller.signal })
+            .then(r => r.json())
+            .then((data: Array<{ Status: string; PostOffice?: Array<{ State: string; District: string }> }>) => {
+                if (data?.[0]?.Status === "Success" && data[0].PostOffice?.length) {
+                    const po = data[0].PostOffice[0];
+                    if (po.State) setEditState(po.State);
+                    if (po.District) setEditCity(po.District);
+                }
+            })
+            .catch(() => { /* ignore abort / network errors */ })
+            .finally(() => setPincodeLoading(false));
+        return () => controller.abort();
+    }, [editPincode, editing]);
 
     // Load emergency info from localStorage for both roles
     useEffect(() => {
@@ -594,33 +669,71 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
                                 <div className={styles.field}>
                                     <span className={styles.fieldLabel}>Address Line 1</span>
                                     {editing ? (
-                                        <input className={styles.fieldInput} value={editLine1} onChange={(e) => setEditLine1(e.target.value)} placeholder="Street / Flat" maxLength={100} />
+                                        <input className={styles.fieldInput} value={editLine1} onChange={(e) => setEditLine1(e.target.value)} placeholder="Street / Flat / Building" maxLength={100} />
                                     ) : (
                                         <span className={styles.fieldValue}>{patient.address?.line1 || "—"}</span>
                                     )}
                                 </div>
                                 <div className={styles.field}>
-                                    <span className={styles.fieldLabel}>City</span>
+                                    <span className={styles.fieldLabel}>Pincode</span>
                                     {editing ? (
-                                        <input className={styles.fieldInput} value={editCity} onChange={(e) => setEditCity(e.target.value)} maxLength={60} />
+                                        <div className={styles.fieldPincodeWrap}>
+                                            <input
+                                                className={styles.fieldInput}
+                                                value={editPincode}
+                                                onChange={(e) => setEditPincode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                                                placeholder="6-digit PIN"
+                                                maxLength={6}
+                                                inputMode="numeric"
+                                            />
+                                            {pincodeLoading && <span className={styles.fieldPincodeSpinner} />}
+                                        </div>
                                     ) : (
-                                        <span className={styles.fieldValue}>{patient.address?.city || "—"}</span>
+                                        <span className={styles.fieldValue}>{patient.address?.pincode || "—"}</span>
                                     )}
                                 </div>
                                 <div className={styles.field}>
                                     <span className={styles.fieldLabel}>State</span>
                                     {editing ? (
-                                        <input className={styles.fieldInput} value={editState} onChange={(e) => setEditState(e.target.value)} maxLength={60} />
+                                        <select
+                                            className={styles.fieldSelect}
+                                            value={editState}
+                                            onChange={(e) => {
+                                                setEditState(e.target.value);
+                                                setEditCity(""); // reset city when state changes
+                                            }}
+                                        >
+                                            <option value="">Select state…</option>
+                                            {INDIA_STATES.map(s => (
+                                                <option key={s} value={s}>{s}</option>
+                                            ))}
+                                        </select>
                                     ) : (
                                         <span className={styles.fieldValue}>{patient.address?.state || "—"}</span>
                                     )}
                                 </div>
                                 <div className={styles.field}>
-                                    <span className={styles.fieldLabel}>Pincode</span>
+                                    <span className={styles.fieldLabel}>City / District</span>
                                     {editing ? (
-                                        <input className={styles.fieldInput} value={editPincode} onChange={(e) => setEditPincode(e.target.value)} maxLength={6} />
+                                        <>
+                                            <input
+                                                className={styles.fieldInput}
+                                                list={`city-list-${userId}`}
+                                                value={editCity}
+                                                onChange={(e) => setEditCity(e.target.value)}
+                                                placeholder={editState ? "Select or type city…" : "Select state first"}
+                                                disabled={!editState}
+                                                maxLength={60}
+                                                autoComplete="off"
+                                            />
+                                            <datalist id={`city-list-${userId}`}>
+                                                {(INDIA_STATE_CITIES[editState] ?? []).map(c => (
+                                                    <option key={c} value={c} />
+                                                ))}
+                                            </datalist>
+                                        </>
                                     ) : (
-                                        <span className={styles.fieldValue}>{patient.address?.pincode || "—"}</span>
+                                        <span className={styles.fieldValue}>{patient.address?.city || "—"}</span>
                                     )}
                                 </div>
                             </div>
