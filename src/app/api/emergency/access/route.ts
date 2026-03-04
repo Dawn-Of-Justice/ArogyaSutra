@@ -78,6 +78,7 @@ export async function POST(req: Request) {
                 sessionId,
                 institution,
                 reason,
+                accessedData: "blood_group,allergies,critical_medications,emergency_contacts",
                 lat: String(geolocation.latitude),
                 lng: String(geolocation.longitude),
             },
@@ -86,25 +87,6 @@ export async function POST(req: Request) {
                 longitude: geolocation.longitude,
             },
         }).catch((dbErr) => console.error("DynamoDB audit log failed (non-blocking):", dbErr));
-
-        // Also log BREAKGLASS_VIEW — personnel immediately sees the data
-        putAuditLog({
-            logId: randomUUID(),
-            patientId: patientId.toUpperCase(),
-            action: "BREAKGLASS_VIEW",
-            performedBy: {
-                type: "EMERGENCY_PERSONNEL",
-                userId: mciNumber,
-                name: personnelName,
-                mciNumber,
-            },
-            timestamp: new Date().toISOString(),
-            details: { sessionId, institution, accessedData: "blood_group,allergies,critical_medications,active_conditions" },
-            geoLocation: {
-                latitude: geolocation.latitude,
-                longitude: geolocation.longitude,
-            },
-        }).catch((dbErr) => console.error("DynamoDB BREAKGLASS_VIEW log failed (non-blocking):", dbErr));
 
         // Fetch live patient data from Cognito
         let patientName = "Unknown";
