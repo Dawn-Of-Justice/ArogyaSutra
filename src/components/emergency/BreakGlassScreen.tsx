@@ -114,20 +114,39 @@ export default function BreakGlassScreen({ onClose }: Props) {
 
     return (
         <div className={styles.overlay}>
-            {/* Header bar */}
+            {/* ─── Header ─── */}
             <div className={styles.header}>
-                <span className={styles.headerBadge}>🆘 EMERGENCY ACCESS</span>
+                <div className={styles.headerLogo}>
+                    <div className={styles.headerCross} aria-hidden="true" />
+                    <span className={styles.headerBrandName}>ArogyaSutra</span>
+                </div>
+                <div className={styles.headerDivider} />
+                <span className={styles.headerBadge}>
+                    <span className={styles.headerBadgeDot} />
+                    Emergency Access
+                </span>
+                <span className={styles.headerSpacer} />
                 <button className={styles.closeBtn} onClick={onClose} title="Cancel">✕</button>
             </div>
 
             <div className={styles.body}>
                 {step === "credentials" && (
                     <div className={styles.panel}>
+                        {/* Panel hero */}
+                        <div className={styles.panelHero}>
+                            <div className={styles.panelHeroIcon}>🚨</div>
+                            <h1 className={styles.panelHeroTitle}>Break-Glass Emergency Access</h1>
+                            <p className={styles.panelHeroSub}>
+                                For authorised first responders only. All access is cryptographically logged,
+                                geolocation-stamped, and the patient is notified immediately.
+                            </p>
+                        </div>
+
                         <div className={styles.warningBanner}>
                             <span className={styles.warningIcon}>⚠️</span>
                             <div>
-                                <strong>Break-Glass Protocol</strong>
-                                <p>This access is logged, geolocation-stamped, and the patient is notified immediately.</p>
+                                <strong>Break-Glass Protocol Active</strong>
+                                <p>Misuse of this access constitutes a criminal offence under applicable data-protection law.</p>
                             </div>
                         </div>
 
@@ -231,18 +250,29 @@ export default function BreakGlassScreen({ onClose }: Props) {
                             />
                         </div>
 
-                        <h2 className={styles.dataTitle}>Critical Emergency Information</h2>
-                        {emergencyData.patientName && (
-                            <p className={styles.patientName}>
-                                👤 {emergencyData.patientName}
-                                {emergencyData.patientAge != null && (
-                                    <span className={styles.patientAge}>{emergencyData.patientAge} yrs</span>
-                                )}
-                                &nbsp;·&nbsp;
-                                <span style={{ fontFamily: "monospace", fontWeight: 500 }}>{form.patientId.toUpperCase()}</span>
-                            </p>
-                        )}
-                        <p className={styles.dataSubtitle}>Critical-Only View • Audit logged • Patient notified</p>
+                        {/* Patient header */}
+                        <div className={styles.patientHeader}>
+                            <div className={styles.patientAvatarLg}>
+                                {emergencyData.patientName?.[0]?.toUpperCase() || "?"}
+                            </div>
+                            <div className={styles.patientHeaderInfo}>
+                                <p className={styles.patientName}>
+                                    {emergencyData.patientName || form.patientId.toUpperCase()}
+                                    {emergencyData.patientAge != null && (
+                                        <span className={styles.patientAge}>{emergencyData.patientAge} yrs</span>
+                                    )}
+                                </p>
+                                <div className={styles.patientMeta}>
+                                    <span className={styles.patientIdPill}>{form.patientId.toUpperCase()}</span>
+                                    <span className={styles.patientMetaTag}>·</span>
+                                    <span className={styles.patientMetaTag}>Critical-only view</span>
+                                    <span className={styles.patientMetaTag}>·</span>
+                                    <span className={styles.patientMetaTag}>Audit logged</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <h2 className={styles.dataTitle}>Medical Information</h2>
                         {emergencyData.updatedAt && (() => {
                             const updatedMs = new Date(emergencyData.updatedAt).getTime();
                             const daysSince = Math.floor((Date.now() - updatedMs) / 86400000);
@@ -314,22 +344,31 @@ export default function BreakGlassScreen({ onClose }: Props) {
 
                         {/* Emergency Contacts */}
                         {emergencyData.emergencyContacts && emergencyData.emergencyContacts.length > 0 && (
-                            <div className={styles.emContactsSection}>
-                                <span className={styles.emContactsTitle}>📞 Emergency Contacts</span>
-                                <div className={styles.emContactsList}>
-                                    {emergencyData.emergencyContacts.map((c, i) => (
-                                        <div key={i} className={styles.emContactCard}>
-                                            <div className={styles.emContactAvatar}>{c.name?.[0]?.toUpperCase() || "?"}</div>
-                                            <div className={styles.emContactInfo}>
-                                                <span className={styles.emContactName}>{c.name}</span>
-                                                <span className={styles.emContactMeta}>{c.relationship}</span>
+                            <>
+                                <div className={styles.sectionDivider} />
+                                <h2 className={styles.dataTitle}>Emergency Contacts</h2>
+                                <div className={styles.emContactsSection}>
+                                    <div className={styles.emContactsList}>
+                                        {emergencyData.emergencyContacts.map((c, i) => (
+                                            <div key={i} className={styles.emContactCard}>
+                                                <div className={styles.emContactAvatar}>{c.name?.[0]?.toUpperCase() || "?"}</div>
+                                                <div className={styles.emContactInfo}>
+                                                    <span className={styles.emContactName}>{c.name}</span>
+                                                    <span className={styles.emContactMeta}>{c.relationship}</span>
+                                                </div>
+                                                <a href={`tel:${c.phone}`} className={styles.emContactCall}>📲 {c.phone}</a>
                                             </div>
-                                            <a href={`tel:${c.phone}`} className={styles.emContactCall}>📲 {c.phone}</a>
-                                        </div>
-                                    ))}
+                                        ))}
+                                    </div>
                                 </div>
-                            </div>
+                            </>
                         )}
+
+                        {/* Audit notice */}
+                        <div className={styles.auditFooter}>
+                            <span className={styles.auditDot} />
+                            Access logged · Patient notified · Session ID: {sessionId.slice(0, 8)}
+                        </div>
                     </div>
                 )}
             </div>
