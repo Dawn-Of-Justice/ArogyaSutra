@@ -341,6 +341,44 @@
     color: var(--color-text-tertiary);
 }
 
+.contactRemoveBtn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 1.5px solid var(--color-border);
+    background: transparent;
+    color: var(--color-text-tertiary);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: border-color var(--transition-fast), color var(--transition-fast), background var(--transition-fast);
+}
+
+.contactRemoveBtn:hover {
+    border-color: var(--color-danger);
+    color: var(--color-danger);
+    background: rgba(220, 38, 38, 0.08);
+}
+
+.contactAddRow {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr auto;
+    gap: var(--space-2);
+    align-items: center;
+    padding: var(--space-3);
+    border: 1.5px dashed var(--color-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-bg-tertiary);
+}
+
+@media (max-width: 640px) {
+    .contactAddRow {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
 /* ---- Save Button ---- */
 .saveBtn {
     padding: var(--space-3) var(--space-6);

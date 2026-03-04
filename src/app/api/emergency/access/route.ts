@@ -7,6 +7,29 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { putAuditLog } from "../../../../lib/aws/dynamodb";
+import { getPatientUser } from "../../../../lib/aws/cognito";
+
+function attr(attrs: { Name?: string; Value?: string }[], name: string): string {
+    return attrs.find((a) => a.Name === name)?.Value ?? "";
+}
+
+function splitList(raw: string): string[] {
+    return raw
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+}
+
+function calcAge(birthdate: string): number | null {
+    if (!birthdate) return null;
+    const birth = new Date(birthdate);
+    if (isNaN(birth.getTime())) return null;
+    const now = new Date();
+    let age = now.getFullYear() - birth.getFullYear();
+    if (now.getMonth() < birth.getMonth() ||
+        (now.getMonth() === birth.getMonth() && now.getDate() < birth.getDate())) age--;
+    return age;
+}
 
 interface AccessRequest {
     patientId: string;
@@ -83,19 +106,42 @@ export async function POST(req: Request) {
             },
         }).catch((dbErr) => console.error("DynamoDB BREAKGLASS_VIEW log failed (non-blocking):", dbErr));
 
-        // TODO: Send SMS notification to patient (Req 6.8) — non-blocking
-        // This would use SNS/Twilio. Skipped here as patient phone is encrypted client-side.
+        // Fetch live patient data from Cognito
+        let patientName = "Unknown";
+        let patientAge: number | null = null;
+        let bloodGroup = "Unknown";
+        let allergies: string[] = [];
+        let criticalMedications: string[] = [];
+        let emergencyContacts: { name: string; relationship: string; phone: string }[] = [];
+        let updatedAt = new Date().toISOString();
 
-        // Return critical emergency data
-        // In production this would decrypt the patient's emergency_data custom attribute using
-        // a secondary emergency key (not the master key, which is ephemeral).
-        // For now returning mock data that would be replaced with real attribute lookup.
+        try {
+            const user = await getPatientUser(patientId.toUpperCase());
+            const attrs = user.UserAttributes ?? [];
+            patientName        = attr(attrs, "name") || patientId.toUpperCase();
+            patientAge         = calcAge(attr(attrs, "birthdate"));
+            bloodGroup         = attr(attrs, "custom:bloodGroup") || "Not recorded";
+            allergies          = splitList(attr(attrs, "custom:allergies"));
+            criticalMedications = splitList(attr(attrs, "custom:critical_meds"));
+            try {
+                const raw = attr(attrs, "custom:emergency_contacts");
+                if (raw) emergencyContacts = JSON.parse(raw);
+            } catch { /* malformed JSON — ignore */ }
+            updatedAt = user.UserLastModifiedDate?.toISOString() ?? updatedAt;
+        } catch (cognitoErr) {
+            console.error("Cognito patient lookup failed:", cognitoErr);
+            // Non-fatal — continue with defaults; emergency data is best-effort
+        }
+
         const emergencyData = {
-            bloodGroup: "B+",           // Fetched from Cognito custom:bloodGroup
-            allergies: ["Penicillin", "Sulfonamides"],
-            criticalMedications: ["Metformin 500mg", "Amlodipine 5mg"],
-            activeConditions: ["Type 2 Diabetes", "Hypertension"],
-            updatedAt: new Date().toISOString(), // In production: from patient's custom:emergency_updated_at
+            patientName,
+            patientAge,
+            bloodGroup,
+            allergies,
+            criticalMedications,
+            emergencyContacts,
+            activeConditions: [] as string[], // Requires HealthLake; returned from FHIR Condition resources
+            updatedAt,
         };
 
         return NextResponse.json({

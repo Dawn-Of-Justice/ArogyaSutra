@@ -42,7 +42,10 @@ export async function GET(req: NextRequest) {
                 bpSystolic: attr("custom:bp_systolic") || undefined,
                 bpDiastolic: attr("custom:bp_diastolic") || undefined,
                 temperature: attr("custom:temperature") || undefined,
-                emergencyContacts: [],
+                emergencyContacts: (() => {
+                    try { return JSON.parse(attr("custom:emergency_contacts") || "[]"); }
+                    catch { return []; }
+                })(),
                 createdAt: user.UserCreateDate?.toISOString() || "",
                 updatedAt: user.UserLastModifiedDate?.toISOString() || "",
             };

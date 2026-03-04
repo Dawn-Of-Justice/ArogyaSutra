@@ -287,6 +287,15 @@
     padding: 0 24px 12px;
 }
 
+.patientName {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--color-text-primary);
+    margin: 0;
+    padding: 2px 24px 8px;
+    letter-spacing: 0.01em;
+}
+
 .lastUpdated {
     display: flex;
     align-items: flex-start;
@@ -399,4 +408,102 @@
     color: #94a3b8;
     font-style: italic;
     margin: 0;
+}
+
+/* Patient age badge (inline with patientName) */
+.patientAge {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 8px;
+    padding: 1px 8px;
+    border-radius: 100px;
+    font-size: 11px;
+    font-weight: 700;
+    background: rgba(74, 144, 217, 0.15);
+    color: var(--color-accent, #4a90d9);
+    border: 1px solid rgba(74, 144, 217, 0.28);
+    vertical-align: middle;
+}
+
+/* Emergency contacts panel */
+.emContactsSection {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: 0 24px 20px;
+}
+
+.emContactsTitle {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--color-text-secondary);
+}
+
+.emContactsList {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.emContactCard {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    background: var(--color-bg-tertiary);
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+}
+
+.emContactAvatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, rgba(74,144,217,0.6), rgba(74,144,217,1));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    font-weight: 700;
+    color: white;
+    flex-shrink: 0;
+}
+
+.emContactInfo {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.emContactName {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-text-primary);
+}
+
+.emContactMeta {
+    font-size: 12px;
+    color: var(--color-text-tertiary);
+}
+
+.emContactCall {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 14px;
+    background: rgba(22, 163, 74, 0.15);
+    color: #4ade80;
+    border: 1px solid rgba(22, 163, 74, 0.30);
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    text-decoration: none;
+    flex-shrink: 0;
+    transition: background 0.15s;
+}
+
+.emContactCall:hover {
+    background: rgba(22, 163, 74, 0.28);
 }

@@ -24,9 +24,13 @@ export default function BreakGlassScreen({ onClose }: Props) {
         name: "",
         institution: "",
         patientId: "",
-        reason: "",
+        reason: "Unconscious / Unresponsive patient",
     });
-    const [emergencyData, setEmergencyData] = useState<BreakGlassResponse["emergencyData"] | null>(null);
+    const [emergencyData, setEmergencyData] = useState<BreakGlassResponse["emergencyData"] & {
+        patientName?: string;
+        patientAge?: number | null;
+        emergencyContacts?: { name: string; relationship: string; phone: string }[];
+    } | null>(null);
     const [sessionId, setSessionId] = useState<string>("");
     const [error, setError] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
@@ -179,15 +183,22 @@ export default function BreakGlassScreen({ onClose }: Props) {
                             </div>
                             <div className={styles.fieldGroup}>
                                 <label className={styles.label}>Emergency Reason</label>
-                                <textarea
-                                    className={styles.textarea}
-                                    placeholder="Briefly describe the emergency situation..."
+                                <select
+                                    className={styles.input}
                                     value={form.reason}
                                     onChange={(e) => setForm({ ...form, reason: e.target.value })}
                                     required
-                                    rows={2}
-                                    maxLength={500}
-                                />
+                                >
+                                    <option value="Unconscious / Unresponsive patient">Unconscious / Unresponsive patient</option>
+                                    <option value="Road traffic accident">Road traffic accident</option>
+                                    <option value="Cardiac arrest / CPR in progress">Cardiac arrest / CPR in progress</option>
+                                    <option value="Severe allergic reaction / Anaphylaxis">Severe allergic reaction / Anaphylaxis</option>
+                                    <option value="Drug overdose / Poisoning">Drug overdose / Poisoning</option>
+                                    <option value="Respiratory distress">Respiratory distress</option>
+                                    <option value="Stroke / Seizure">Stroke / Seizure</option>
+                                    <option value="Trauma / Major injury">Trauma / Major injury</option>
+                                    <option value="Other emergency">Other emergency</option>
+                                </select>
                             </div>
                             <div className={styles.geoNotice}>
                                 📍 Your location will be captured and logged when you proceed.
@@ -221,6 +232,16 @@ export default function BreakGlassScreen({ onClose }: Props) {
                         </div>
 
                         <h2 className={styles.dataTitle}>Critical Emergency Information</h2>
+                        {emergencyData.patientName && (
+                            <p className={styles.patientName}>
+                                👤 {emergencyData.patientName}
+                                {emergencyData.patientAge != null && (
+                                    <span className={styles.patientAge}>{emergencyData.patientAge} yrs</span>
+                                )}
+                                &nbsp;·&nbsp;
+                                <span style={{ fontFamily: "monospace", fontWeight: 500 }}>{form.patientId.toUpperCase()}</span>
+                            </p>
+                        )}
                         <p className={styles.dataSubtitle}>Critical-Only View • Audit logged • Patient notified</p>
                         {emergencyData.updatedAt && (() => {
                             const updatedMs = new Date(emergencyData.updatedAt).getTime();
@@ -290,6 +311,25 @@ export default function BreakGlassScreen({ onClose }: Props) {
                                 </div>
                             </div>
                         </div>
+
+                        {/* Emergency Contacts */}
+                        {emergencyData.emergencyContacts && emergencyData.emergencyContacts.length > 0 && (
+                            <div className={styles.emContactsSection}>
+                                <span className={styles.emContactsTitle}>📞 Emergency Contacts</span>
+                                <div className={styles.emContactsList}>
+                                    {emergencyData.emergencyContacts.map((c, i) => (
+                                        <div key={i} className={styles.emContactCard}>
+                                            <div className={styles.emContactAvatar}>{c.name?.[0]?.toUpperCase() || "?"}</div>
+                                            <div className={styles.emContactInfo}>
+                                                <span className={styles.emContactName}>{c.name}</span>
+                                                <span className={styles.emContactMeta}>{c.relationship}</span>
+                                            </div>
+                                            <a href={`tel:${c.phone}`} className={styles.emContactCall}>📲 {c.phone}</a>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
             </div>

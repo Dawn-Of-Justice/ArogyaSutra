@@ -44,6 +44,7 @@ export async function POST(req: NextRequest) {
                 line1: updates.line1,
                 allergies: updates.allergies,
                 criticalMeds: updates.criticalMeds,
+                emergencyContacts: updates.emergencyContacts,
             });
         } else if (role === "doctor") {
             // When a doctor updates a *patient's* vitals and health info

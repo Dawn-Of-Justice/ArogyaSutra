@@ -98,8 +98,17 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
     const [emShowBloodGroup, setEmShowBloodGroup] = useState(true);
     const [emShowAllergies, setEmShowAllergies] = useState(true);
     const [emShowMeds, setEmShowMeds] = useState(true);
+    const [emShowContacts, setEmShowContacts] = useState(true);
     // Last updated timestamp (ISO string)
     const [emergencyUpdatedAt, setEmergencyUpdatedAt] = useState<string | null>(null);
+
+    // Emergency Contacts editing
+    const [contactsEditing, setContactsEditing] = useState(false);
+    const [editContacts, setEditContacts] = useState<{name:string;relationship:string;phone:string}[]>([]);
+    const [newContact, setNewContact] = useState({name:'',relationship:'',phone:''});
+    const [contactsSaving, setContactsSaving] = useState(false);
+    const [contactsSaved, setContactsSaved] = useState(false);
+    const [contactsError, setContactsError] = useState('');
 
     // Load emergency info from localStorage for both roles
     useEffect(() => {
@@ -117,6 +126,7 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
                 setEmShowBloodGroup(data.showBloodGroup !== false);
                 setEmShowAllergies(data.showAllergies !== false);
                 setEmShowMeds(data.showMeds !== false);
+                setEmShowContacts(data.showContacts !== false);
             }
             if (data.updatedAt) setEmergencyUpdatedAt(data.updatedAt);
         } catch { /* ignore */ }
@@ -282,6 +292,7 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
                     showBloodGroup: emShowBloodGroup,
                     showAllergies: emShowAllergies,
                     showMeds: emShowMeds,
+                    showContacts: emShowContacts,
                     updatedAt: nowIso,
                 }));
                 setEmergencyAllergies(allergiesArr);
@@ -313,15 +324,17 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
     };
 
     // ---- Emergency visibility toggle (instant save) ----
-    const handleToggleVisibility = (field: "bloodGroup" | "allergies" | "meds") => {
+    const handleToggleVisibility = (field: "bloodGroup" | "allergies" | "meds" | "contacts") => {
         const next = {
             bloodGroup: field === "bloodGroup" ? !emShowBloodGroup : emShowBloodGroup,
             allergies: field === "allergies" ? !emShowAllergies : emShowAllergies,
             meds: field === "meds" ? !emShowMeds : emShowMeds,
+            contacts: field === "contacts" ? !emShowContacts : emShowContacts,
         };
         setEmShowBloodGroup(next.bloodGroup);
         setEmShowAllergies(next.allergies);
         setEmShowMeds(next.meds);
+        setEmShowContacts(next.contacts);
         if (userId) {
             try {
                 const raw = localStorage.getItem(`arogyasutra_emergency_${userId}`);
@@ -331,8 +344,34 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
                     showBloodGroup: next.bloodGroup,
                     showAllergies: next.allergies,
                     showMeds: next.meds,
+                    showContacts: next.contacts,
                 }));
             } catch { /* ignore */ }
+        }
+    };
+
+    // ---- Emergency Contacts: save ----
+    const handleSaveContacts = async () => {
+        setContactsSaving(true);
+        setContactsError('');
+        try {
+            const res = await fetch('/api/profile/update', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userId,
+                    role: 'patient',
+                    updates: { emergencyContacts: JSON.stringify(editContacts) },
+                }),
+            });
+            if (!res.ok) throw new Error(`Save failed (${res.status})`);
+            updatePatient({ emergencyContacts: editContacts });
+            setContactsSaved(true);
+            setTimeout(() => { setContactsSaved(false); setContactsEditing(false); }, 1200);
+        } catch {
+            setContactsError('Failed to save. Please try again.');
+        } finally {
+            setContactsSaving(false);
         }
     };
 
@@ -769,6 +808,10 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
                                             <span className={styles.emVisLabel}>Critical Medications</span>
                                             <button className={`${styles.emToggle} ${emShowMeds ? styles.emToggleOn : ""}`} onClick={() => handleToggleVisibility("meds")} aria-label="Toggle medications visibility" />
                                         </div>
+                                        <div className={styles.emVisRow}>
+                                            <span className={styles.emVisLabel}>Emergency Contacts</span>
+                                            <button className={`${styles.emToggle} ${emShowContacts ? styles.emToggleOn : ""}`} onClick={() => handleToggleVisibility("contacts")} aria-label="Toggle emergency contacts visibility" />
+                                        </div>
                                     </div>
                                 </div>
                             </>
@@ -776,27 +819,115 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
                     </div>
 
                     {/* Emergency Contacts */}
-                    {patient.emergencyContacts && patient.emergencyContacts.length > 0 && (
-                        <div className={`${styles.card} ${styles.cardFull}`}>
-                            <h2 className={styles.cardTitle}>
+                    <div className={`${styles.card} ${styles.cardFull}`}>
+                        <div className={styles.emCardHeader}>
+                            <h2 className={styles.cardTitle} style={{margin:0}}>
                                 <span className={styles.cardTitleIcon}><Shield size={16} /></span>
                                 Emergency Contacts
                             </h2>
-                            <div className={styles.contactList}>
-                                {patient.emergencyContacts.map((c, i) => (
-                                    <div key={i} className={styles.contactItem}>
-                                        <div className={styles.contactAvatar}>
-                                            {c.name?.[0]?.toUpperCase() || "?"}
-                                        </div>
-                                        <div className={styles.contactInfo}>
-                                            <div className={styles.contactName}>{c.name}</div>
-                                            <div className={styles.contactMeta}>{c.relationship} · {c.phone}</div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
+                            <button
+                                className={`${styles.editToggle} ${contactsEditing ? styles.editToggleActive : ""}`}
+                                onClick={() => {
+                                    if (contactsEditing) { setContactsEditing(false); return; }
+                                    setEditContacts(patient.emergencyContacts ? [...patient.emergencyContacts] : []);
+                                    setNewContact({name:'',relationship:'',phone:''});
+                                    setContactsError('');
+                                    setContactsSaved(false);
+                                    setContactsEditing(true);
+                                }}
+                            >
+                                {contactsEditing ? <><X size={14} /> Cancel</> : <><Pencil size={14} /> Edit</>}
+                            </button>
                         </div>
-                    )}
+
+                        {contactsEditing ? (
+                            <div className={styles.emForm}>
+                                {contactsError && <p className={styles.emError}>{contactsError}</p>}
+                                {contactsSaved && <p className={styles.emSuccess}>✓ Saved</p>}
+
+                                {editContacts.length > 0 && (
+                                    <div className={styles.contactList}>
+                                        {editContacts.map((c, i) => (
+                                            <div key={i} className={styles.contactItem}>
+                                                <div className={styles.contactAvatar}>{c.name?.[0]?.toUpperCase() || "?"}</div>
+                                                <div className={styles.contactInfo}>
+                                                    <div className={styles.contactName}>{c.name}</div>
+                                                    <div className={styles.contactMeta}>{c.relationship} · {c.phone}</div>
+                                                </div>
+                                                <button
+                                                    className={styles.contactRemoveBtn}
+                                                    onClick={() => setEditContacts(prev => prev.filter((_, j) => j !== i))}
+                                                    aria-label="Remove contact"
+                                                >
+                                                    <X size={14} />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                <div className={styles.contactAddRow}>
+                                    <input
+                                        className={styles.fieldInput}
+                                        placeholder="Name"
+                                        value={newContact.name}
+                                        onChange={e => setNewContact(p => ({...p, name: e.target.value}))}
+                                        maxLength={80}
+                                    />
+                                    <input
+                                        className={styles.fieldInput}
+                                        placeholder="Relationship"
+                                        value={newContact.relationship}
+                                        onChange={e => setNewContact(p => ({...p, relationship: e.target.value}))}
+                                        maxLength={60}
+                                    />
+                                    <input
+                                        className={styles.fieldInput}
+                                        placeholder="Phone"
+                                        value={newContact.phone}
+                                        onChange={e => setNewContact(p => ({...p, phone: e.target.value}))}
+                                        maxLength={20}
+                                    />
+                                    <button
+                                        className={styles.emCancelBtn}
+                                        disabled={!newContact.name.trim() || !newContact.phone.trim()}
+                                        onClick={() => {
+                                            if (!newContact.name.trim() || !newContact.phone.trim()) return;
+                                            setEditContacts(prev => [...prev, {
+                                                name: newContact.name.trim(),
+                                                relationship: newContact.relationship.trim(),
+                                                phone: newContact.phone.trim(),
+                                            }]);
+                                            setNewContact({name:'',relationship:'',phone:''});
+                                        }}
+                                    >+ Add</button>
+                                </div>
+
+                                <div className={styles.emFormActions}>
+                                    <button className={styles.emCancelBtn} onClick={() => setContactsEditing(false)}>Cancel</button>
+                                    <button className={styles.emSaveBtn} onClick={handleSaveContacts} disabled={contactsSaving}>
+                                        {contactsSaving ? "Saving…" : "Save"}
+                                    </button>
+                                </div>
+                            </div>
+                        ) : (
+                            patient.emergencyContacts && patient.emergencyContacts.length > 0 ? (
+                                <div className={styles.contactList}>
+                                    {patient.emergencyContacts.map((c, i) => (
+                                        <div key={i} className={styles.contactItem}>
+                                            <div className={styles.contactAvatar}>{c.name?.[0]?.toUpperCase() || "?"}</div>
+                                            <div className={styles.contactInfo}>
+                                                <div className={styles.contactName}>{c.name}</div>
+                                                <div className={styles.contactMeta}>{c.relationship} · {c.phone}</div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p className={styles.emergencyEmpty}>No emergency contacts added. Tap Edit to add one.</p>
+                            )
+                        )}
+                    </div>
                 </>
             )}
 

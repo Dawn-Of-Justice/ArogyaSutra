@@ -163,6 +163,7 @@ export async function updatePatientAttributes(
         line1?: string;
         allergies?: string;
         criticalMeds?: string;
+        emergencyContacts?: string; // JSON string of EmergencyContact[]
     }
 ): Promise<void> {
     const attrs: { Name: string; Value: string }[] = [];
@@ -182,6 +183,7 @@ export async function updatePatientAttributes(
     if (updates.line1 !== undefined) attrs.push({ Name: "custom:address_line1", Value: updates.line1 });
     if (updates.allergies !== undefined) attrs.push({ Name: "custom:allergies", Value: updates.allergies });
     if (updates.criticalMeds !== undefined) attrs.push({ Name: "custom:critical_meds", Value: updates.criticalMeds });
+    if (updates.emergencyContacts !== undefined) attrs.push({ Name: "custom:emergency_contacts", Value: updates.emergencyContacts });
 
     if (attrs.length === 0) return;
 
