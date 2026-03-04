@@ -146,9 +146,10 @@ async function kimiBedrockComplete(
         ...(systemText ? { system: [{ text: systemText } as SystemContentBlock] } : {}),
     };
 
-    // Timeout guard — Bedrock can hang under load; 25 s leaves headroom for Lambda
+    // Timeout guard — must stay well under Lambda's compute limit.
+    // Route has maxDuration=30s; leave ~15s budget for retrieval + generation overhead.
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 25_000);
+    const timer = setTimeout(() => controller.abort(), 12_000);
 
     const response = await kimiClient
         .send(new ConverseCommand(input), { abortSignal: controller.signal })
