@@ -5,10 +5,8 @@
 // ============================================================
 
 import { NextResponse } from "next/server";
-import { DynamoDBClient, PutItemCommand } from "@aws-sdk/client-dynamodb";
 import { randomUUID } from "crypto";
-
-const dynamo = new DynamoDBClient({ region: process.env.AWS_REGION || "ap-south-1" });
+import { putAuditLog } from "../../../../lib/aws/dynamodb";
 
 interface AccessRequest {
     patientId: string;
@@ -41,30 +39,51 @@ export async function POST(req: Request) {
         const sessionId = randomUUID();
         const now = new Date().toISOString();
 
-        // Log the break-glass access to DynamoDB (Req 6.7)
-        try {
-            await dynamo.send(new PutItemCommand({
-                TableName: process.env.DYNAMODB_AUDIT_TABLE || "arogyasutra-audit",
-                Item: {
-                    PK: { S: `PATIENT#${patientId.toUpperCase()}` },
-                    SK: { S: `BREAKGLASS#${now}` },
-                    sessionId: { S: sessionId },
-                    eventType: { S: "BREAK_GLASS_ACCESS" },
-                    mciNumber: { S: mciNumber },
-                    personnelName: { S: personnelName },
-                    institution: { S: institution },
-                    reason: { S: reason },
-                    latitude: { N: String(geolocation.latitude) },
-                    longitude: { N: String(geolocation.longitude) },
-                    accuracy: { N: String(geolocation.accuracy) },
-                    timestamp: { S: now },
-                    ttlExpiry: { N: String(Math.floor(Date.now() / 1000) + 300) },
-                },
-            }));
-        } catch (dbErr) {
-            console.error("DynamoDB audit log failed (non-blocking):", dbErr);
-            // Non-fatal — continue serving the emergency data
-        }
+        // Log the break-glass access to DynamoDB (Req 6.7) — non-blocking
+        putAuditLog({
+            logId: randomUUID(),
+            patientId: patientId.toUpperCase(),
+            action: "BREAKGLASS_INITIATE",
+            performedBy: {
+                type: "EMERGENCY_PERSONNEL",
+                userId: mciNumber,
+                name: personnelName,
+                mciNumber,
+            },
+            timestamp: now,
+            details: {
+                sessionId,
+                institution,
+                reason,
+                lat: String(geolocation.latitude),
+                lng: String(geolocation.longitude),
+            },
+            geoLocation: {
+                latitude: geolocation.latitude,
+                longitude: geolocation.longitude,
+                accuracy: geolocation.accuracy,
+            },
+        }).catch((dbErr) => console.error("DynamoDB audit log failed (non-blocking):", dbErr));
+
+        // Also log BREAKGLASS_VIEW — personnel immediately sees the data
+        putAuditLog({
+            logId: randomUUID(),
+            patientId: patientId.toUpperCase(),
+            action: "BREAKGLASS_VIEW",
+            performedBy: {
+                type: "EMERGENCY_PERSONNEL",
+                userId: mciNumber,
+                name: personnelName,
+                mciNumber,
+            },
+            timestamp: new Date().toISOString(),
+            details: { sessionId, institution, accessedData: "blood_group,allergies,critical_medications,active_conditions" },
+            geoLocation: {
+                latitude: geolocation.latitude,
+                longitude: geolocation.longitude,
+                accuracy: geolocation.accuracy,
+            },
+        }).catch((dbErr) => console.error("DynamoDB BREAKGLASS_VIEW log failed (non-blocking):", dbErr));
 
         // TODO: Send SMS notification to patient (Req 6.8) — non-blocking
         // This would use SNS/Twilio. Skipped here as patient phone is encrypted client-side.

@@ -79,7 +79,8 @@ export async function query(ragQuery: RAGQuery): Promise<RAGResponse> {
             ? doctorActor(ragQuery.queryByUserId, ragQuery.queryByUserId, "")
             : patientActor(ragQuery.queryByUserId, ragQuery.queryByUserId);
 
-    await logAccess(
+    // Fire-and-forget — a DynamoDB write failure must never block the AI response
+    logAccess(
         ragQuery.patientId,
         "AI_QUERY",
         actor,
@@ -90,7 +91,7 @@ export async function query(ragQuery: RAGQuery): Promise<RAGResponse> {
             queryType: engineResult.queryType,
             provider: engineResult.provider,
         }
-    );
+    ).catch((err) => console.error("[rag.service] audit log failed:", err));
 
     return response;
 }

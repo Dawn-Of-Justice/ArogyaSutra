@@ -131,15 +131,27 @@ export async function confirmAndSave(
     return healthEntry;
 }
 
+export interface ViewerContext {
+    viewerType: "DOCTOR";
+    viewerId: string;
+    viewerName: string;
+}
+
 /**
  * Retrieves timeline entries for a patient from DynamoDB.
  * Uses /api/timeline/entries — HealthLake is NOT available in ap-south-1.
  */
 export async function getTimeline(
     request: TimelineRequest,
-    _masterKey: CryptoKey
+    _masterKey: CryptoKey,
+    viewerContext?: ViewerContext
 ): Promise<TimelineResponse> {
     const params = new URLSearchParams({ patientId: request.patientId });
+    if (viewerContext) {
+        params.set("viewerType", viewerContext.viewerType);
+        params.set("viewerId", viewerContext.viewerId);
+        params.set("viewerName", viewerContext.viewerName);
+    }
 
     const res = await fetch(`/api/timeline/entries?${params.toString()}`);
     if (!res.ok) {

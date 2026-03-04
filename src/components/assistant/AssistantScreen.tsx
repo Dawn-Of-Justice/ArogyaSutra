@@ -133,6 +133,7 @@ export default function AssistantScreen({ onNavigate, doctorPatientContext }: As
                     body: JSON.stringify({ query: input, conversationId }),
                 });
                 const data = await res.json();
+                if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
                 answer = data.answer || "Sorry, I couldn't process that request.";
                 newConversationId = data.conversationId;
             } else {
@@ -155,6 +156,7 @@ export default function AssistantScreen({ onNavigate, doctorPatientContext }: As
                     }),
                 });
                 const data: RAGResponse = await res.json();
+                if (!res.ok) throw new Error((data as unknown as { error?: string }).error || `Request failed (${res.status})`);
                 answer = data.answer || "Sorry, I couldn't process that request.";
                 citations = data.citations;
                 newConversationId = data.conversationId;

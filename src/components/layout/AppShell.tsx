@@ -245,7 +245,13 @@ export default function AppShell({
         if (!isDoctor && entriesFetchedRef.current) return;
         entriesFetchedRef.current = true;
         setEntriesCache(null);
-        fetch(`/api/timeline/entries?patientId=${encodeURIComponent(fetchId)}`)
+        const prefetchParams = new URLSearchParams({ patientId: fetchId });
+        if (isDoctor && userId) {
+            prefetchParams.set("viewerType", "DOCTOR");
+            prefetchParams.set("viewerId", userId);
+            prefetchParams.set("viewerName", userName);
+        }
+        fetch(`/api/timeline/entries?${prefetchParams.toString()}`)
             .then((r) => r.json())
             .then((data) => { setEntriesCache(data.entries ?? []); })
             .catch(() => { /* silently ignore – search just won't show records */ });

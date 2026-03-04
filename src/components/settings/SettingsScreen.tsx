@@ -219,7 +219,7 @@ export default function SettingsScreen({ onNavigate }: SettingsScreenProps) {
             </div>
 
             {/* ======== Notifications ======== */}
-            <div className={styles.card}>
+            {userRole !== "doctor" && <div className={styles.card}>
                 <h3 className={styles.cardTitle}><span><Bell size={16} /></span> Notifications</h3>
 
                 <div className={styles.row}>
@@ -248,10 +248,10 @@ export default function SettingsScreen({ onNavigate }: SettingsScreenProps) {
                         aria-label="Toggle appointment reminders"
                     />
                 </div>
-            </div>
+            </div>}
 
             {/* ======== Data & Privacy ======== */}
-            <div className={styles.card}>
+            {userRole !== "doctor" && <div className={styles.card}>
                 <h3 className={styles.cardTitle}><span><Package size={16} /></span> Data &amp; Privacy</h3>
 
                 {/* Export */}
@@ -270,7 +270,7 @@ export default function SettingsScreen({ onNavigate }: SettingsScreenProps) {
                     </button>
                 </div>
 
-            </div>
+            </div>}
 
             {/* ======== Danger Zone ======== */}
             <div className={styles.dangerCard}>

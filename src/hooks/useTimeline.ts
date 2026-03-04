@@ -7,6 +7,7 @@
 
 import { useState, useCallback } from "react";
 import * as timelineService from "../lib/services/timeline.service";
+import type { ViewerContext } from "../lib/services/timeline.service";
 import type {
     HealthEntry,
     TimelineRequest,
@@ -15,7 +16,7 @@ import type {
 import { useAuth } from "./useAuth";
 
 export function useTimeline(overridePatientId?: string) {
-    const { patient } = useAuth();
+    const { patient, doctor, userRole } = useAuth();
     const [entries, setEntries] = useState<HealthEntry[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -23,6 +24,11 @@ export function useTimeline(overridePatientId?: string) {
     const [page, setPage] = useState(1);
 
     const resolvedId = overridePatientId || patient?.patientId;
+
+    const viewerContext: ViewerContext | undefined =
+        userRole === "doctor" && doctor
+            ? { viewerType: "DOCTOR", viewerId: doctor.doctorId, viewerName: doctor.name }
+            : undefined;
 
     const loadTimeline = useCallback(
         async (filters?: TimelineFilters) => {
@@ -36,7 +42,7 @@ export function useTimeline(overridePatientId?: string) {
                     filters: filters || {},
                     options: { page: 1, pageSize: 20, sortOrder: "newest", groupBy: "date" },
                 };
-                const response = await timelineService.getTimeline(request, null as unknown as CryptoKey);
+                const response = await timelineService.getTimeline(request, null as unknown as CryptoKey, viewerContext);
                 setEntries(response.entries);
                 setHasMore(response.hasMore);
                 setPage(1);
@@ -46,7 +52,8 @@ export function useTimeline(overridePatientId?: string) {
                 setIsLoading(false);
             }
         },
-        [resolvedId]
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [resolvedId, viewerContext?.viewerId]
     );
 
     const loadMore = useCallback(async () => {
@@ -59,7 +66,7 @@ export function useTimeline(overridePatientId?: string) {
                 filters: {},
                 options: { page: page + 1, pageSize: 20, sortOrder: "newest", groupBy: "date" },
             };
-            const response = await timelineService.getTimeline(request, null as unknown as CryptoKey);
+            const response = await timelineService.getTimeline(request, null as unknown as CryptoKey, viewerContext);
             setEntries((prev) => [...prev, ...response.entries]);
             setHasMore(response.hasMore);
             setPage((p) => p + 1);
@@ -68,7 +75,7 @@ export function useTimeline(overridePatientId?: string) {
         } finally {
             setIsLoading(false);
         }
-    }, [resolvedId, hasMore, page]);
+    }, [resolvedId, hasMore, page, viewerContext?.viewerId]);
 
     const updateEntry = useCallback((entryId: string, changes: Partial<HealthEntry>) => {
         setEntries(prev => prev.map(e => e.entryId === entryId ? { ...e, ...changes } : e));
