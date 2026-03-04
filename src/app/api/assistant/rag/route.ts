@@ -57,9 +57,16 @@ export async function POST(req: NextRequest) {
                 });
             } catch (fallbackErr) {
                 console.error("[assistant/rag] direct fallback also failed:", fallbackErr);
+                return NextResponse.json(
+                    { error: "Failed to process query", detail: (fallbackErr as Error).message },
+                    { status: 500 }
+                );
             }
         }
 
-        return NextResponse.json({ error: "Failed to process query" }, { status: 500 });
+        return NextResponse.json(
+            { error: "Failed to process query", detail: (err as Error).message },
+            { status: 500 }
+        );
     }
 }

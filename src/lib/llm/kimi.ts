@@ -211,7 +211,7 @@ async function bedrockNovaFallback(
 
     return {
         text: result.answer,
-        model: process.env.BEDROCK_MODEL_ID || "us.amazon.nova-pro-v1:0",
+        model: "us.amazon.nova-pro-v1:0",
         provider: "bedrock",
         promptTokens: result.inputTokens,
         completionTokens: result.outputTokens,

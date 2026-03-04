@@ -1,11 +1,14 @@
 // ============================================================
 // Amazon Bedrock Integration
-// RAG-powered clinical assistant using Claude/Llama
+// RAG-powered clinical assistant using Nova Pro
 // ============================================================
 
 import {
     BedrockRuntimeClient,
-    InvokeModelCommand,
+    ConverseCommand,
+    type ConverseCommandInput,
+    type Message,
+    type SystemContentBlock,
 } from "@aws-sdk/client-bedrock-runtime";
 
 // Amplify blocks "AWS_" prefix env vars — use APP_AWS_* workaround.
@@ -21,7 +24,9 @@ const bedrockRegion = ["us-east-1", "us-west-2"].includes(process.env.NEXT_PUBLI
     ? process.env.NEXT_PUBLIC_AWS_REGION!
     : "us-east-1";
 const bedrockClient = new BedrockRuntimeClient({ region: bedrockRegion, ..._appCreds });
-const MODEL_ID =
+// Nova Pro is the guaranteed fallback — never changed by KIMI_BEDROCK_MODEL env var.
+// BEDROCK_MODEL_ID can override if needed but defaults to Nova Pro cross-region profile.
+const NOVA_MODEL_ID =
     process.env.BEDROCK_MODEL_ID || "us.amazon.nova-pro-v1:0";
 
 /** RAG context document */
@@ -73,35 +78,35 @@ Guidelines:
 - Respond in the same language the user writes in (Hindi, English, etc.).
 - Keep answers focused and concise. Use bullet points or short paragraphs for readability.`;
 
-    const body = JSON.stringify({
-        messages: [
-            {
-                role: "user",
-                content: [{ text: `Here are the patient's relevant medical records:\n\n${contextBlock}\n\nQuestion: ${query}` }],
-            },
-        ],
-        system: [{ text: systemPrompt || defaultSystem }],
+    const userText = contextBlock
+        ? `Here are the patient's relevant medical records:\n\n${contextBlock}\n\nQuestion: ${query}`
+        : query;
+
+    const converseMessages: Message[] = [
+        { role: "user", content: [{ text: userText }] },
+    ];
+
+    const input: ConverseCommandInput = {
+        modelId: NOVA_MODEL_ID,
+        messages: converseMessages,
+        system: [{ text: systemPrompt || defaultSystem } as SystemContentBlock],
         inferenceConfig: {
             maxTokens: 2048,
             temperature: 0.3,
         },
-    });
+    };
 
-    const result = await bedrockClient.send(
-        new InvokeModelCommand({
-            modelId: MODEL_ID,
-            body: new TextEncoder().encode(body),
-            contentType: "application/json",
-            accept: "application/json",
-        })
-    );
+    const result = await bedrockClient.send(new ConverseCommand(input));
 
-    const responseBody = JSON.parse(new TextDecoder().decode(result.body));
+    const text =
+        result.output?.message?.content
+            ?.map((b) => ("text" in b ? b.text ?? "" : ""))
+            .join("") ?? "";
 
     return {
-        answer: responseBody.output?.message?.content?.[0]?.text || responseBody.content?.[0]?.text || "",
-        inputTokens: responseBody.usage?.inputTokens || responseBody.usage?.input_tokens || 0,
-        outputTokens: responseBody.usage?.outputTokens || responseBody.usage?.output_tokens || 0,
+        answer: text,
+        inputTokens: result.usage?.inputTokens ?? 0,
+        outputTokens: result.usage?.outputTokens ?? 0,
     };
 }
 
