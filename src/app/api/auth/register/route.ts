@@ -10,6 +10,7 @@ import {
     AdminSetUserPasswordCommand,
     MessageActionType,
 } from "@aws-sdk/client-cognito-identity-provider";
+import { randomInt } from "crypto";
 
 // Amplify blocks env vars starting with "AWS_" so we use APP_AWS_* as a workaround.
 const explicitCreds =
@@ -29,8 +30,8 @@ const cognito = new CognitoIdentityProviderClient({
 
 /** Generate a random ArogyaSutra Card ID like AS-7291-4038 */
 function generateCardId(): string {
-    const block1 = String(Math.floor(1000 + Math.random() * 9000));
-    const block2 = String(Math.floor(1000 + Math.random() * 9000));
+    const block1 = String(randomInt(1000, 10000));
+    const block2 = String(randomInt(1000, 10000));
     return `AS-${block1}-${block2}`;
 }
 
