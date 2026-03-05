@@ -15,7 +15,7 @@ interface HelpScreenProps {
 const FAQ_ITEMS = [
     {
         q: "What is the ArogyaSutra Card?",
-        a: "The ArogyaSutra Card is a physical card with your unique Patient ID (AS-XXXX-XXXX). It's used as the first layer of authentication and is part of the cryptographic key that protects your health data.",
+        a: "The ArogyaSutra Card is a physical card with your unique Patient ID (AS-XXXX-XXXX-XXXX). It's used as the first layer of authentication and is part of the cryptographic key that protects your health data.",
     },
     {
         q: "How does Zero-Knowledge encryption work?",

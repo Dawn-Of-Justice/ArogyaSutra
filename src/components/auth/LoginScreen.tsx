@@ -216,7 +216,7 @@ export default function LoginScreen({ onEmergencyAccess }: LoginScreenProps) {
                                         <input
                                             type="text"
                                             className={styles.input}
-                                            placeholder="AS-XXXX-XXXX"
+                                            placeholder="AS-XXXX-XXXX-XXXX"
                                             value={cardId}
                                             onChange={(e) => setCardId(normalizeCardInput(e.target.value))}
                                             maxLength={12}

@@ -56,7 +56,7 @@ export async function POST(req: Request) {
         }
 
         if (!patientId.match(/^AS-\d{4}-\d{4}$/i)) {
-            return NextResponse.json({ error: "Invalid Patient Card ID format. Expected AS-XXXX-XXXX" }, { status: 400 });
+            return NextResponse.json({ error: "Invalid Patient Card ID format. Expected AS-XXXX-XXXX-XXXX" }, { status: 400 });
         }
 
         const sessionId = randomUUID();

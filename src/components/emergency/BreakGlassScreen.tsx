@@ -157,7 +157,7 @@ export default function BreakGlassScreen({ onClose }: Props) {
                                 <label className={styles.label}>Patient ArogyaSutra Card ID</label>
                                 <input
                                     className={styles.input}
-                                    placeholder="AS-XXXX-XXXX"
+                                    placeholder="AS-XXXX-XXXX-XXXX"
                                     value={form.patientId}
                                     onChange={(e) => setForm({ ...form, patientId: e.target.value })}
                                     required

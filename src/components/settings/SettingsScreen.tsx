@@ -336,7 +336,7 @@ export default function SettingsScreen({ onNavigate }: SettingsScreenProps) {
                             <input
                                 className={styles.depInput}
                                 type="text"
-                                placeholder="Card ID — AS-XXXX-XXXX"
+                                placeholder="Card ID — AS-XXXX-XXXX-XXXX"
                                 value={depCardId}
                                 onChange={(e) => setDepCardId(e.target.value.toUpperCase())}
                                 maxLength={12}
