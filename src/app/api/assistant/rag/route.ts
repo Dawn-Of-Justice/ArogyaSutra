@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import * as ragService from "../../../../lib/services/rag.service";
 import { invokeModel } from "../../../../lib/aws/bedrock";
+import { checkRateLimit } from "../../../../lib/utils/rateLimit";
 import { v4 as uuidv4 } from "uuid";
 
 // Extend Lambda/Edge compute timeout to 30 s (Amplify Hosting supports up to 60 s)
@@ -27,6 +28,19 @@ export async function POST(req: NextRequest) {
             return NextResponse.json(
                 { error: "query and patientId are required" },
                 { status: 400 }
+            );
+        }
+
+        // Rate limit: patients 20 req/hr + 5/min burst; doctors 60 req/hr + 10/min burst
+        const rateLimitUserId = queryByUserId || patientId;
+        const rl = checkRateLimit(rateLimitUserId, queryBy, "rag");
+        if (!rl.allowed) {
+            return NextResponse.json(
+                { error: rl.reason },
+                {
+                    status: 429,
+                    headers: { "Retry-After": String(rl.retryAfterSeconds ?? 60) },
+                }
             );
         }
 

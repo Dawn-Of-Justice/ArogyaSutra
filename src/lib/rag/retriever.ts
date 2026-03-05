@@ -4,7 +4,7 @@
 // records table and scores them using keyword overlap + recency.
 // ============================================================
 
-import * as healthlake from "../aws/healthlake";
+// import * as healthlake from "../aws/healthlake"; // re-enable with HealthLake datastore
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, QueryCommand } from "@aws-sdk/lib-dynamodb";
 import type { ScoredContext, RetrievalOptions } from "./types";
@@ -17,6 +17,17 @@ const _creds =
 const _dynamoClient = new DynamoDBClient({ region: _region, ..._creds });
 const _db = DynamoDBDocumentClient.from(_dynamoClient);
 const HEALTH_RECORDS_TABLE = process.env.DYNAMODB_HEALTH_RECORDS_TABLE || "arogyasutra-health-records";
+
+// ── Production: per-patient resource cache ────────────────────────────────
+// Critical for QUERY_PLAN: N sub-queries all re-use the same DynamoDB scan.
+// TTL 45 s — short enough that a new upload is visible within the same session.
+const _resourceCache = new Map<string, { resources: Record<string, unknown>[]; ts: number }>();
+const RESOURCE_CACHE_TTL_MS = 45_000;
+
+/** Invalidate resource cache after upload/delete so next query is fresh. */
+export function invalidateResourceCache(patientId: string): void {
+    _resourceCache.delete(patientId);
+}
 
 const DEFAULT_OPTIONS: RetrievalOptions = {
     topK: 12,
@@ -114,29 +125,18 @@ export async function retrieveRefined(
 // --------------- Helpers ---------------
 
 async function fetchAllResources(patientId: string): Promise<Record<string, unknown>[]> {
-    // Fetch DynamoDB (primary) and HealthLake (FHIR) in parallel; both are best-effort
-    const [dynamoResults, healthlakeResults] = await Promise.all([
-        fetchDynamoRecords(patientId),
-        // HealthLake with timeout guard — cap at 8 s
-        Promise.race([
-            healthlake.getPatientTimeline(patientId) as Promise<Record<string, unknown>[]>,
-            new Promise<Record<string, unknown>[]>((resolve) =>
-                setTimeout(() => resolve([]), 8_000)
-            ),
-        ]).catch(() => [] as Record<string, unknown>[]),
-    ]);
+    // Serve from cache if fresh — prevents N DynamoDB calls per QUERY_PLAN sub-query
+    const cached = _resourceCache.get(patientId);
+    if (cached && Date.now() - cached.ts < RESOURCE_CACHE_TTL_MS) return cached.resources;
 
-    // DynamoDB entries are authoritative; deduplicate any HealthLake FHIR resources by id
-    const seen = new Set<string>(dynamoResults.map((r) => r.id as string).filter(Boolean));
-    const merged: Record<string, unknown>[] = [...dynamoResults];
-    for (const r of healthlakeResults) {
-        const rid = r.id as string;
-        if (!rid || !seen.has(rid)) {
-            merged.push(r);
-            if (rid) seen.add(rid);
-        }
-    }
-    return merged;
+    // DynamoDB is the single source of truth.
+    // HealthLake ($0.27/hr datastore fee) has been removed — delete the datastore
+    // in the AWS Console (HealthLake → Data stores → Delete) to stop billing.
+    // To re-enable FHIR: uncomment the healthlake import and the block below.
+    const resources = await fetchDynamoRecords(patientId);
+
+    _resourceCache.set(patientId, { resources, ts: Date.now() });
+    return resources;
 }
 
 /** Fetch all timeline entries for a patient directly from DynamoDB health-records table. */
@@ -148,6 +148,9 @@ async function fetchDynamoRecords(patientId: string): Promise<Record<string, unk
                 KeyConditionExpression: "patientId = :pid",
                 ExpressionAttributeValues: { ":pid": patientId },
                 ScanIndexForward: false,
+                // Cap at 150 most-recent records. Older records are rarely relevant to
+                // the current query and each extra item costs a DynamoDB read unit.
+                Limit: 150,
             })
         );
         return (result.Items ?? []).map((item) => {

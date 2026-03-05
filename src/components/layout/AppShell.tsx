@@ -202,10 +202,13 @@ export default function AppShell({
         if (!userId || typeof window === "undefined") return SHELL_NOTIFS;
         return applyReadIds(SHELL_NOTIFS, localReadIds(userId));
     });
+    // Only POST after the first DynamoDB GET hydration is complete — prevents spurious POSTs on mount
+    const notifHydratedRef = useRef(false);
 
     // On mount: fetch authoritative read state from DynamoDB and reconcile
     useEffect(() => {
         if (!userId) return;
+        notifHydratedRef.current = false;
         fetch(`/api/notifications/read-state?userId=${encodeURIComponent(userId)}`)
             .then((r) => r.json())
             .then(({ readIds }) => {
@@ -213,13 +216,14 @@ export default function AppShell({
                 saveLocalReadIds(userId, readIds);
                 setNotifications(applyReadIds(SHELL_NOTIFS, readIds));
             })
-            .catch(() => { /* silently keep localStorage state */ });
+            .catch(() => { /* silently keep localStorage state */ })
+            .finally(() => { notifHydratedRef.current = true; });
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [userId]);
 
-    // Persist to both localStorage (instant) and DynamoDB (durable) on every change
+    // Persist to both localStorage (instant) and DynamoDB (durable) on every user-driven change
     useEffect(() => {
-        if (!userId) return;
+        if (!userId || !notifHydratedRef.current) return;
         const readIds = notifications.filter((n) => !n.unread).map((n) => n.id);
         saveLocalReadIds(userId, readIds);
         fetch("/api/notifications/read-state", {

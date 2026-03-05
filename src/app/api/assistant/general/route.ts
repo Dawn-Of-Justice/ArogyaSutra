@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { invokeModel } from "../../../../lib/aws/bedrock";
+import { checkRateLimit } from "../../../../lib/utils/rateLimit";
 
 export const maxDuration = 30;
 
@@ -27,10 +28,27 @@ Guidelines:
 
 export async function POST(req: NextRequest) {
     try {
-        const { query, conversationId } = await req.json();
+        const { query, conversationId, doctorId: bodyDoctorId } = await req.json();
 
         if (!query?.trim()) {
             return NextResponse.json({ error: "query is required" }, { status: 400 });
+        }
+
+        // Rate limit: doctors 40 req/hr + 8/min burst
+        // Prefer explicit doctorId from body; fall back to x-user-id header; then IP
+        const doctorId: string =
+            bodyDoctorId ||
+            req.headers.get("x-user-id") ||
+            `ip-${req.headers.get("x-forwarded-for") || "unknown"}`;
+        const rl = checkRateLimit(doctorId, "DOCTOR", "general");
+        if (!rl.allowed) {
+            return NextResponse.json(
+                { error: rl.reason },
+                {
+                    status: 429,
+                    headers: { "Retry-After": String(rl.retryAfterSeconds ?? 60) },
+                }
+            );
         }
 
         const result = await invokeModel(query, [], DOCTOR_SYSTEM_PROMPT);

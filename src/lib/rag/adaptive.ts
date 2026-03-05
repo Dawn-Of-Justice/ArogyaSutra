@@ -62,19 +62,33 @@ export function selectStrategy(
     return bestStrategy;
 }
 
+// Batch buffer — flush to outcomes Map at most once every 500 ms
+// so hot-path ragQuery() never blocks on Map writes under high concurrency.
+const _pendingOutcomes: StrategyOutcome[] = [];
+let _flushTimer: ReturnType<typeof setTimeout> | null = null;
+
+function _flush(): void {
+    _flushTimer = null;
+    const batch = _pendingOutcomes.splice(0);
+    for (const outcome of batch) {
+        const key = `${outcome.queryType}:${outcome.strategy}`;
+        const existing = outcomes.get(key) || { totalConf: 0, count: 0, avgLatencyMs: 0 };
+        const count = existing.count + 1;
+        outcomes.set(key, {
+            totalConf: existing.totalConf + outcome.confidence,
+            count,
+            avgLatencyMs: (existing.avgLatencyMs * existing.count + outcome.latencyMs) / count,
+        });
+    }
+}
+
 /**
  * Record the outcome of a RAG run to improve future strategy selection.
+ * Writes are batched and flushed asynchronously to keep the hot path non-blocking.
  */
 export function recordOutcome(outcome: StrategyOutcome): void {
-    const key = `${outcome.queryType}:${outcome.strategy}`;
-    const existing = outcomes.get(key) || { totalConf: 0, count: 0, avgLatencyMs: 0 };
-
-    const count = existing.count + 1;
-    outcomes.set(key, {
-        totalConf: existing.totalConf + outcome.confidence,
-        count,
-        avgLatencyMs: (existing.avgLatencyMs * existing.count + outcome.latencyMs) / count,
-    });
+    _pendingOutcomes.push(outcome);
+    if (!_flushTimer) _flushTimer = setTimeout(_flush, 500);
 }
 
 /**

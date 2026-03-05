@@ -217,3 +217,24 @@ async function bedrockNovaFallback(
         completionTokens: result.outputTokens,
     };
 }
+
+// --------------- Nova Micro — fast, cheap path ---------------
+
+// Nova Micro pricing: $0.000035 / 1K input tokens  (vs Nova Pro $0.0008 = 22× cheaper)
+// Use for GENERAL and SIMPLE_FACTUAL queries where there is no patient-specific context.
+const NOVA_MICRO_MODEL_ID = "us.amazon.nova-micro-v1:0";
+
+/**
+ * Lightweight completion via Nova Micro.
+ * Skips Kimi entirely — lower latency, ~22× cheaper per token.
+ * Reserved for general-knowledge and simple-factual queries with no retrieval context.
+ */
+export async function completeFast(
+    messages: LLMMessage[],
+    options: Omit<LLMOptions, "model"> = {}
+): Promise<LLMResult> {
+    return kimiBedrockComplete(messages, {
+        ...options,
+        model: NOVA_MICRO_MODEL_ID,
+    });
+}

@@ -137,9 +137,14 @@ export interface ViewerContext {
     viewerName: string;
 }
 
+// In-memory cache — 30 s TTL. Deduplicates AppShell prefetch vs useTimeline hook.
+const _timelineCache = new Map<string, { response: TimelineResponse; ts: number }>();
+const TIMELINE_CACHE_TTL_MS = 30_000;
+
 /**
  * Retrieves timeline entries for a patient from DynamoDB.
  * Uses /api/timeline/entries — HealthLake is NOT available in ap-south-1.
+ * Results are cached for 30 s to avoid duplicate fetches from AppShell + useTimeline.
  */
 export async function getTimeline(
     request: TimelineRequest,
@@ -151,6 +156,12 @@ export async function getTimeline(
         params.set("viewerType", viewerContext.viewerType);
         params.set("viewerId", viewerContext.viewerId);
         params.set("viewerName", viewerContext.viewerName);
+    }
+
+    const cacheKey = params.toString();
+    const cached = _timelineCache.get(cacheKey);
+    if (cached && Date.now() - cached.ts < TIMELINE_CACHE_TTL_MS) {
+        return cached.response;
     }
 
     const res = await fetch(`/api/timeline/entries?${params.toString()}`);
@@ -184,13 +195,25 @@ export async function getTimeline(
     const start = (page - 1) * pageSize;
     const paged = filtered.slice(start, start + pageSize);
 
-    return {
+    const response: TimelineResponse = {
         entries: paged,
         totalCount: filtered.length,
         page,
         pageSize,
         hasMore: start + pageSize < filtered.length,
     };
+    // Populate cache so AppShell prefetch and useTimeline hook share one result
+    _timelineCache.set(cacheKey, { response, ts: Date.now() });
+    return response;
+}
+
+/** Clears the in-memory timeline cache for a patient (call after upload/delete). */
+export function invalidateTimelineCache(patientId: string): void {
+    for (const key of _timelineCache.keys()) {
+        if (key.startsWith(`patientId=${patientId}`)) {
+            _timelineCache.delete(key);
+        }
+    }
 }
 
 

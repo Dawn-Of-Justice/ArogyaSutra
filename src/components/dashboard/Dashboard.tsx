@@ -195,13 +195,17 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     const [photoUrl, setPhotoUrl] = useState<string | null>(null);
     useEffect(() => {
         if (!patient?.patientId) return;
-        const cached = localStorage.getItem(`profilePhoto_${patient.patientId}`);
-        if (cached) { setPhotoUrl(cached); return; }
-        // No local cache — fetch presigned URL from S3 (same as ProfileScreen)
-        fetch(`/api/profile/photo?userId=${patient.patientId}&role=patient`)
-            .then((r) => r.json())
-            .then((data) => { if (data.url) setPhotoUrl(data.url); })
-            .catch(() => { });
+        // Use localStorage cache set by AppShell's fetch — no duplicate network call
+        const key = `profilePhoto_${patient.patientId}`;
+        const cached = localStorage.getItem(key);
+        if (cached) setPhotoUrl(cached);
+        // Listen for AppShell's photo fetch result or any upload event
+        const handleUpdate = (e: Event) => {
+            const detail = (e as CustomEvent<{ key: string; url: string }>).detail;
+            if (detail.key === key) setPhotoUrl(detail.url);
+        };
+        window.addEventListener("profilePhotoUpdated", handleUpdate);
+        return () => window.removeEventListener("profilePhotoUpdated", handleUpdate);
     }, [patient?.patientId]);
 
     // ---- Mini Calendar state ----

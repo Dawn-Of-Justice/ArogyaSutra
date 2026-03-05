@@ -53,34 +53,45 @@ const MEDICAL_ENTITY_PATTERNS = [
 
 // --------------- Public API ---------------
 
+// Memoize results — classifyQuery is pure and often called 2-4× per QUERY_PLAN request.
+const _classifyCache = new Map<string, ClassifiedQuery>();
+
 /**
  * Classify a user query for optimal RAG routing.
- * Pure CPU — no LLM call, so sub-millisecond.
+ * Pure CPU — no LLM call, so sub-millisecond. Results are memoized (2 000 entry LRU).
  */
 export function classifyQuery(queryText: string): ClassifiedQuery {
+    const prior = _classifyCache.get(queryText);
+    if (prior) return prior;
     const normalized = normalize(queryText);
     const entities = extractEntities(queryText);
 
     for (const pattern of PATTERNS) {
         if (pattern.regex.test(queryText)) {
-            return {
+            const result: ClassifiedQuery = {
                 original: queryText,
                 queryType: pattern.type,
                 normalized,
                 entities,
                 complexity: pattern.complexity + (entities.length > 3 ? 1 : 0),
             };
+            if (_classifyCache.size >= 2000) _classifyCache.delete(_classifyCache.keys().next().value!);
+            _classifyCache.set(queryText, result);
+            return result;
         }
     }
 
     // Default: simple factual
-    return {
+    const classified: ClassifiedQuery = {
         original: queryText,
         queryType: "SIMPLE_FACTUAL",
         normalized,
         entities,
         complexity: 2,
     };
+    if (_classifyCache.size >= 2000) _classifyCache.delete(_classifyCache.keys().next().value!);
+    _classifyCache.set(queryText, classified);
+    return classified;
 }
 
 /**

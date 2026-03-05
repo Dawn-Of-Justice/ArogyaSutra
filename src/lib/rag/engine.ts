@@ -10,7 +10,7 @@
 // All strategies record outcomes for adaptive learning.
 // ============================================================
 
-import { complete } from "../llm/kimi";
+import { complete, completeFast } from "../llm/kimi";
 import { retrieve, retrieveRefined } from "./retriever";
 import { classifyQuery, topKForQueryType } from "./router";
 import { plan, executeSubQueries, mergeContexts } from "./planner";
@@ -24,6 +24,34 @@ import type {
     RAGStrategy,
     ScoredContext,
 } from "./types";
+
+// ── Production: in-flight dedup + LRU response cache + hard timeout ───────
+// In-flight map: concurrent identical (patientId, query) requests share one Promise
+const _inflight = new Map<string, Promise<RAGEngineResult>>();
+// LRU response cache: avoids full round-trips within a session (90 s TTL, 500 entries)
+const _responseCache = new Map<string, { result: RAGEngineResult; ts: number }>();
+const RESPONSE_CACHE_TTL_MS = 90_000;
+const RESPONSE_CACHE_MAX    = 500;
+// Hard deadline — leave ~5 s buffer before Next.js/Lambda's 30 s maxDuration
+const PIPELINE_TIMEOUT_MS   = 24_000;
+
+function _cacheKey(o: RAGEngineOptions): string {
+    return `${o.patientId}||${o.queryText.trim().toLowerCase().slice(0, 120)}`;
+}
+function _lruSet(key: string, result: RAGEngineResult): void {
+    if (_responseCache.size >= RESPONSE_CACHE_MAX) {
+        _responseCache.delete(_responseCache.keys().next().value!);
+    }
+    _responseCache.set(key, { result, ts: Date.now() });
+}
+function _withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+    return Promise.race([
+        p,
+        new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error(`RAG pipeline timeout after ${ms}ms`)), ms)
+        ),
+    ]);
+}
 
 // --------------- Generation Prompts ---------------
 
@@ -50,6 +78,30 @@ Do not add unnecessary disclaimers on every message.`;
  * Classifies the query, selects strategy, executes, and returns a structured result.
  */
 export async function ragQuery(options: RAGEngineOptions): Promise<RAGEngineResult> {
+    const key = _cacheKey(options);
+
+    // 1. LRU cache hit — skip LLM call entirely
+    const cached = _responseCache.get(key);
+    if (cached && Date.now() - cached.ts < RESPONSE_CACHE_TTL_MS) {
+        return cached.result;
+    }
+
+    // 2. In-flight dedup — share the existing Promise for identical concurrent requests
+    const inflight = _inflight.get(key);
+    if (inflight) return inflight;
+
+    // 3. Execute with a hard deadline
+    const promise = _withTimeout(_ragQueryInner(options), PIPELINE_TIMEOUT_MS)
+        .then((result) => {
+            _lruSet(key, result);
+            return result;
+        })
+        .finally(() => _inflight.delete(key));
+    _inflight.set(key, promise);
+    return promise;
+}
+
+async function _ragQueryInner(options: RAGEngineOptions): Promise<RAGEngineResult> {
     const startTime = Date.now();
 
     const classified = classifyQuery(options.queryText);
@@ -112,7 +164,7 @@ async function runDirectWithRetrieval(
     return runDirect(options, contexts, "DIRECT");
 }
 
-/** Core generation: build prompt from contexts, call Kimi */
+/** Core generation: build prompt from contexts, call Kimi (or Nova Micro for light queries) */
 async function runDirect(
     options: RAGEngineOptions,
     contexts: ScoredContext[],
@@ -137,7 +189,14 @@ async function runDirect(
             : options.queryText,
     });
 
-    const result = await complete(messages, { temperature: 0.35, maxTokens: 1200 });
+    // General knowledge + simple factual with no records → Nova Micro (22× cheaper, faster).
+    // All patient-specific contexts → Kimi K2.5 for richer reasoning.
+    const isLightQuery = generalMode || (classified.queryType === "SIMPLE_FACTUAL" && contexts.length === 0);
+    const llmCall = isLightQuery
+        ? completeFast(messages, { temperature: 0.3, maxTokens: 400 })
+        : complete(messages, { temperature: 0.35, maxTokens: 1200 });
+
+    const result = await llmCall;
 
     return {
         answer: result.text,

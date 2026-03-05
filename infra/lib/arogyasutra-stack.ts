@@ -229,110 +229,37 @@ export class ArogyaSutraStack extends cdk.Stack {
         });
 
         // ====================================================
-        // 8. Cognito — Patient User Pool
+        // 8. Cognito — Patient User Pool (imported — manually created)
+        // Pool ID: ap-south-1_w2sqbRjiR  (arogyasutra-patients)
+        // Triggers must be configured manually in the Cognito console.
         // ====================================================
-        const patientPool = new cognito.UserPool(this, "PatientUserPool", {
-            userPoolName: "arogyasutra-patients",
-            selfSignUpEnabled: false, // Patients are enrolled by admin only
-            signInAliases: {
-                username: true,
-            },
-            customAttributes: {
-                card_id: new cognito.StringAttribute({
-                    minLen: 12,
-                    maxLen: 12,
-                    mutable: false,
-                }),
-                dob: new cognito.StringAttribute({ mutable: false }),
-                language: new cognito.StringAttribute({ mutable: true }),
-                height: new cognito.StringAttribute({ mutable: true }),
-                weight: new cognito.StringAttribute({ mutable: true }),
-                blood_group: new cognito.StringAttribute({ mutable: true }),
-                bp_systolic: new cognito.StringAttribute({ mutable: true }),
-                bp_diastolic: new cognito.StringAttribute({ mutable: true }),
-                temperature: new cognito.StringAttribute({ mutable: true }),
-                city: new cognito.StringAttribute({ mutable: true }),
-                state: new cognito.StringAttribute({ mutable: true }),
-                pincode: new cognito.StringAttribute({ mutable: true }),
-                address_line1: new cognito.StringAttribute({ mutable: true }),
-            },
-            standardAttributes: {
-                phoneNumber: { required: true, mutable: true },
-                birthdate: { required: true, mutable: false },
-                fullname: { required: true, mutable: true },
-            },
-            passwordPolicy: {
-                minLength: 12,
-                requireUppercase: true,
-                requireDigits: true,
-                requireSymbols: true,
-                tempPasswordValidity: cdk.Duration.days(1),
-            },
-            accountRecovery: cognito.AccountRecovery.PHONE_ONLY_WITHOUT_MFA,
-            lambdaTriggers: {
-                defineAuthChallenge: defineAuthFn,
-                createAuthChallenge: createAuthFn,
-                verifyAuthChallengeResponse: verifyAuthFn,
-            },
-            removalPolicy: cdk.RemovalPolicy.RETAIN,
-        });
+        const patientPool = cognito.UserPool.fromUserPoolId(
+            this,
+            "PatientUserPool",
+            "ap-south-1_w2sqbRjiR"
+        );
 
-        const patientClient = patientPool.addClient("PatientAppClient", {
-            userPoolClientName: "arogyasutra-patient-web",
-            authFlows: {
-                custom: true,
-            },
-            preventUserExistenceErrors: true,
-            accessTokenValidity: cdk.Duration.hours(1),
-            idTokenValidity: cdk.Duration.hours(1),
-            refreshTokenValidity: cdk.Duration.days(30),
-        });
+        const patientClient = cognito.UserPoolClient.fromUserPoolClientId(
+            this,
+            "PatientAppClient",
+            "60pvg9tl8djpemup3sbpuo5vmu"
+        );
 
         // ====================================================
-        // 9. Cognito — Doctor User Pool
+        // 9. Cognito — Doctor User Pool (imported — pre-existing)
+        // Pool ID: ap-south-1_6LSVIxE5I  (arogyasutra-doctors)
         // ====================================================
-        const doctorPool = new cognito.UserPool(this, "DoctorUserPool", {
-            userPoolName: "arogyasutra-doctors",
-            selfSignUpEnabled: false, // Doctors are verified & enrolled by admin
-            signInAliases: {
-                username: true,
-                email: true,
-            },
-            customAttributes: {
-                mci_number: new cognito.StringAttribute({
-                    minLen: 5,
-                    maxLen: 20,
-                    mutable: false,
-                }),
-                institution: new cognito.StringAttribute({ mutable: true }),
-                designation: new cognito.StringAttribute({ mutable: true }),
-            },
-            standardAttributes: {
-                email: { required: true, mutable: true },
-                fullname: { required: true, mutable: true },
-                phoneNumber: { required: true, mutable: true },
-            },
-            passwordPolicy: {
-                minLength: 12,
-                requireUppercase: true,
-                requireDigits: true,
-                requireSymbols: true,
-            },
-            removalPolicy: cdk.RemovalPolicy.RETAIN,
-        });
+        const doctorPool = cognito.UserPool.fromUserPoolId(
+            this,
+            "DoctorUserPool",
+            "ap-south-1_6LSVIxE5I"
+        );
 
-        const doctorClient = doctorPool.addClient("DoctorAppClient", {
-            userPoolClientName: "arogyasutra-doctor-web",
-            authFlows: {
-                userSrp: true,
-                userPassword: true, // Required for USER_PASSWORD_AUTH flow
-                adminUserPassword: true, // Kept as fallback
-            },
-            preventUserExistenceErrors: true,
-            accessTokenValidity: cdk.Duration.hours(1),
-            idTokenValidity: cdk.Duration.hours(1),
-            refreshTokenValidity: cdk.Duration.days(7),
-        });
+        const doctorClient = cognito.UserPoolClient.fromUserPoolClientId(
+            this,
+            "DoctorAppClient",
+            "6llm8s6v6cr794uk01jmiitf47"
+        );
 
         // ====================================================
         // 10. HealthLake — NOT deployed via CDK

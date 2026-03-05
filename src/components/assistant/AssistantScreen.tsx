@@ -90,7 +90,7 @@ interface AssistantScreenProps {
 }
 
 export default function AssistantScreen({ onNavigate, doctorPatientContext }: AssistantScreenProps) {
-    const { patient } = useAuth();
+    const { patient, doctor } = useAuth();
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [input, setInput] = useState("");
     const [isLoading, setIsLoading] = useState(false);
@@ -130,7 +130,11 @@ export default function AssistantScreen({ onNavigate, doctorPatientContext }: As
                 const res = await fetch("/api/assistant/general", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ query: input, conversationId }),
+                    body: JSON.stringify({
+                        query: input,
+                        conversationId,
+                        doctorId: doctor?.doctorId,
+                    }),
                 });
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
@@ -172,11 +176,15 @@ export default function AssistantScreen({ onNavigate, doctorPatientContext }: As
                 timestamp: new Date().toISOString(),
             };
             setMessages((prev) => [...prev, assistantMsg]);
-        } catch {
+        } catch (err) {
+            const msg =
+                err instanceof Error && err.message
+                    ? err.message
+                    : "I apologize, but I encountered an error processing your query. Please try again.";
             const errorMsg: ChatMessage = {
                 messageId: `msg-${Date.now()}-err`,
                 role: "assistant",
-                content: "I apologize, but I encountered an error processing your query. Please try again.",
+                content: msg,
                 timestamp: new Date().toISOString(),
             };
             setMessages((prev) => [...prev, errorMsg]);
