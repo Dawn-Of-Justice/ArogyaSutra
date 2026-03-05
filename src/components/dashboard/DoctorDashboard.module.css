@@ -1240,8 +1240,6 @@
     flex-direction: column;
     gap: var(--space-5);
     padding: var(--space-6);
-    height: 100%;
-    overflow-y: auto;
 }
 
 .welcomeGreeting {

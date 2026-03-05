@@ -5,8 +5,6 @@
 .page {
     max-width: 860px;
     margin: 0 auto;
-    height: 100%;
-    overflow-y: auto;
     display: flex;
     flex-direction: column;
     gap: var(--space-4);
