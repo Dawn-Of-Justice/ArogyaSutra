@@ -16,14 +16,15 @@ import type {
 import { useAuth } from "./useAuth";
 
 export function useTimeline(overridePatientId?: string) {
-    const { patient, doctor, userRole } = useAuth();
+    const { patient, doctor, userRole, effectivePatient } = useAuth();
     const [entries, setEntries] = useState<HealthEntry[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [hasMore, setHasMore] = useState(false);
     const [page, setPage] = useState(1);
 
-    const resolvedId = overridePatientId || patient?.patientId;
+    // Use override → effectivePatient (handles guardian-dependent switching) → patient
+    const resolvedId = overridePatientId || effectivePatient?.patientId;
 
     const viewerContext: ViewerContext | undefined =
         userRole === "doctor" && doctor

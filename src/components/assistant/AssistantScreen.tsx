@@ -10,7 +10,7 @@ import { useAuth } from "../../hooks/useAuth";
 import type { DoctorPatientContext } from "../dashboard/DoctorDashboard";
 import type { RAGResponse, ChatMessage, SourceCitation } from "../../lib/types/rag";
 import styles from "./AssistantScreen.module.css";
-import { ChevronLeft, Paperclip, ArrowUp, Cross } from "lucide-react";
+import { ChevronLeft, Paperclip, ArrowUp, Cross, RotateCcw } from "lucide-react";
 import { GeminiIcon } from "../common/GeminiIcon";
 
 // ---------------------------------------------------------------------------
@@ -220,6 +220,16 @@ export default function AssistantScreen({ onNavigate, doctorPatientContext }: As
                             : "Powered by Amazon Bedrock"}
                     </span>
                 </div>
+                {messages.length > 0 && (
+                    <button
+                        className={styles.newChatBtn}
+                        onClick={() => { setMessages([]); setConversationId(undefined); }}
+                        title="New conversation"
+                        type="button"
+                    >
+                        <RotateCcw size={16} />
+                    </button>
+                )}
             </header>
 
             {/* Patient context banner for doctor mode */}

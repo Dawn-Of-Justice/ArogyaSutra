@@ -388,3 +388,169 @@
 .dangerBtnFull:hover:not(:disabled) { opacity: 0.85; }
 .dangerBtnFull:disabled { opacity: 0.45; cursor: not-allowed; }
 
+
+/* ── Guardian Access Card ──────────────────────────────── */
+.sectionDesc {
+    font-size: var(--text-sm);
+    color: var(--color-text-secondary);
+    margin: 0 0 var(--space-3);
+    line-height: 1.5;
+}
+
+.viewingRow {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: 8px 12px;
+    background: color-mix(in srgb, var(--color-accent) 8%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-accent) 25%, transparent);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--space-3);
+    flex-wrap: wrap;
+}
+
+.viewingPill {
+    font-size: var(--text-sm);
+    color: var(--color-text-primary);
+    flex: 1;
+}
+
+.depRow {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-2) 0;
+    border-bottom: 1px solid var(--color-border);
+}
+.depRow:last-of-type { border-bottom: none; }
+
+.depAvatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--color-bg-tertiary);
+    border: 1px solid var(--color-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: var(--font-semibold);
+    color: var(--color-text-secondary);
+    flex-shrink: 0;
+}
+
+.depInfo {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.depName {
+    font-size: var(--text-sm);
+    font-weight: var(--font-semibold);
+    color: var(--color-text-primary);
+}
+
+.depMeta {
+    font-size: var(--text-xs);
+    color: var(--color-text-tertiary);
+    margin-top: 1px;
+}
+
+.depBtns {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex-shrink: 0;
+}
+
+.depAction {
+    font-size: var(--text-xs);
+    font-weight: var(--font-semibold);
+    color: var(--color-accent);
+    background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
+    border-radius: var(--radius-md);
+    padding: 4px 10px;
+    cursor: pointer;
+    transition: background var(--transition-fast);
+    white-space: nowrap;
+}
+.depAction:hover { background: color-mix(in srgb, var(--color-accent) 18%, transparent); }
+
+.depActionActive {
+    font-size: var(--text-xs);
+    font-weight: var(--font-semibold);
+    color: var(--color-success, #16a34a);
+    background: color-mix(in srgb, #22c55e 10%, transparent);
+    border: 1px solid color-mix(in srgb, #22c55e 30%, transparent);
+    border-radius: var(--radius-md);
+    padding: 4px 10px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.depRemove {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border: none;
+    background: transparent;
+    color: var(--color-text-tertiary);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: background var(--transition-fast), color var(--transition-fast);
+}
+.depRemove:hover { background: var(--color-bg-tertiary); color: var(--color-danger); }
+
+.addDepBtn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: var(--space-3);
+    padding: 8px 14px;
+    font-size: var(--text-sm);
+    font-weight: var(--font-semibold);
+    color: var(--color-accent);
+    background: color-mix(in srgb, var(--color-accent) 8%, transparent);
+    border: 1px dashed color-mix(in srgb, var(--color-accent) 40%, transparent);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    width: 100%;
+    transition: background var(--transition-fast);
+}
+.addDepBtn:hover { background: color-mix(in srgb, var(--color-accent) 14%, transparent); }
+
+.addDepForm {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    margin-top: var(--space-3);
+    padding: var(--space-3);
+    background: var(--color-bg-tertiary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+}
+
+.addDepRow {
+    display: flex;
+    gap: var(--space-2);
+}
+
+.depInput {
+    flex: 1;
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--text-sm);
+    color: var(--color-text-primary);
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    width: 100%;
+    box-sizing: border-box;
+    transition: border-color var(--transition-fast);
+    font-family: inherit;
+}
+.depInput:focus { outline: none; border-color: var(--color-accent); }

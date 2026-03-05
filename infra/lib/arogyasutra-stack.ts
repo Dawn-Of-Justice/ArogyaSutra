@@ -143,6 +143,39 @@ export class ArogyaSutraStack extends cdk.Stack {
         });
 
         // ====================================================
+        // 7a. DynamoDB — Health Records Table
+        // ====================================================
+        const healthRecordsTable = new dynamodb.Table(this, "HealthRecordsTable", {
+            tableName: "arogyasutra-health-records",
+            partitionKey: { name: "patientId", type: dynamodb.AttributeType.STRING },
+            sortKey: { name: "entryId", type: dynamodb.AttributeType.STRING },
+            billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+            encryption: dynamodb.TableEncryption.AWS_MANAGED,
+            pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
+            removalPolicy: cdk.RemovalPolicy.RETAIN,
+        });
+
+        healthRecordsTable.addGlobalSecondaryIndex({
+            indexName: "by-date",
+            partitionKey: { name: "patientId", type: dynamodb.AttributeType.STRING },
+            sortKey: { name: "date", type: dynamodb.AttributeType.STRING },
+            projectionType: dynamodb.ProjectionType.ALL,
+        });
+
+        // ====================================================
+        // 7b. DynamoDB — Checkup Vitals Table
+        // ====================================================
+        const checkupsTable = new dynamodb.Table(this, "CheckupsTable", {
+            tableName: "arogyasutra-checkups",
+            partitionKey: { name: "patientId", type: dynamodb.AttributeType.STRING },
+            sortKey: { name: "checkupId", type: dynamodb.AttributeType.STRING },
+            billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+            encryption: dynamodb.TableEncryption.AWS_MANAGED,
+            pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
+            removalPolicy: cdk.RemovalPolicy.RETAIN,
+        });
+
+        // ====================================================
         // 7. SNS — Notifications Topic
         // ====================================================
         const notificationTopic = new sns.Topic(this, "NotificationsTopic", {
@@ -329,6 +362,8 @@ export class ArogyaSutraStack extends cdk.Stack {
         notificationTopic.grantPublish(appRole);
 
         appointmentsTable.grantReadWriteData(appRole);
+        healthRecordsTable.grantReadWriteData(appRole);
+        checkupsTable.grantReadWriteData(appRole);
 
         appRole.addToPolicy(
             new iam.PolicyStatement({

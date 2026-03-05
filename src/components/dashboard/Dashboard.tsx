@@ -10,7 +10,8 @@ import { useTimeline } from "../../hooks/useTimeline";
 import styles from "./Dashboard.module.css";
 import {
     ScanLine, ClipboardList, FileText, FlaskConical,
-    Building2, Stethoscope, ImageIcon, CalendarClock,
+    Building2, Stethoscope, ImageIcon, CalendarClock, Pill,
+    CheckCircle2, Circle,
 } from "lucide-react";
 import { GeminiIcon } from "../common/GeminiIcon";
 import { fmtDate, fmtDateShort } from "../../lib/utils/date";
@@ -18,6 +19,8 @@ import EntryDetailModal from "../timeline/EntryDetailModal";
 import ScanModal from "../scan/ScanModal";
 import type { HealthEntry } from "../../lib/types/timeline";
 import type { Appointment } from "../../lib/types/appointment";
+import { buildTodaySchedule, todayTakenKey, doseKey } from "../../lib/utils/medSchedule";
+import type { TimeSlot, ScheduledMed } from "../../lib/utils/medSchedule";
 
 interface DashboardProps {
     onNavigate: (screen: string) => void;
@@ -62,7 +65,7 @@ const DOC_TYPE_ICON_MAP: Record<string, string> = {
 };
 
 export default function Dashboard({ onNavigate }: DashboardProps) {
-    const { patient } = useAuth();
+    const { patient, effectivePatient } = useAuth();
     const { entries, loadTimeline, isLoading, updateEntry } = useTimeline();
     const [scanOpen, setScanOpen] = useState(false);
     const [selectedEntry, setSelectedEntry] = useState<HealthEntry | null>(null);
@@ -74,17 +77,47 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     const [reschedTime, setReschedTime] = useState("");
     const [reschedSaving, setReschedSaving] = useState(false);
 
+    // ---- Smart Medication Schedule ----
+    const todaySchedule = buildTodaySchedule(entries);
+    const hasTodayMeds = [...todaySchedule.values()].some((s) => s.length > 0);
+    const [takenDoses, setTakenDoses] = useState<Set<string>>(() => {
+        if (typeof window === "undefined") return new Set();
+        try {
+            const raw = localStorage.getItem(todayTakenKey("_tmp"));
+            return raw ? new Set(JSON.parse(raw) as string[]) : new Set();
+        } catch { return new Set(); }
+    });
+    // Re-read from localStorage once patientId is available
+    useEffect(() => {
+        if (!effectivePatient?.patientId) return;
+        try {
+            const raw = localStorage.getItem(todayTakenKey(effectivePatient.patientId));
+            if (raw) setTakenDoses(new Set(JSON.parse(raw) as string[]));
+        } catch { /* ignore */ }
+    }, [effectivePatient?.patientId]);
+
+    const toggleDose = (slot: TimeSlot, med: ScheduledMed) => {
+        if (!effectivePatient?.patientId) return;
+        const key = doseKey(slot, med.name);
+        setTakenDoses((prev) => {
+            const next = new Set(prev);
+            next.has(key) ? next.delete(key) : next.add(key);
+            try { localStorage.setItem(todayTakenKey(effectivePatient.patientId), JSON.stringify([...next])); } catch { /* ignore */ }
+            return next;
+        });
+    };
+
     const handleReschedule = async () => {
-        if (!reschedulingId || !reschedDate || !patient?.patientId) return;
+        if (!reschedulingId || !reschedDate || !effectivePatient?.patientId) return;
         setReschedSaving(true);
         try {
-            await fetch(`/api/appointments/${reschedulingId}?patientId=${encodeURIComponent(patient.patientId)}`, {
+            await fetch(`/api/appointments/${reschedulingId}?patientId=${encodeURIComponent(effectivePatient.patientId)}`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ appointmentDate: reschedDate, time: reschedTime || undefined }),
             });
             // Refresh
-            const res = await fetch(`/api/appointments?patientId=${encodeURIComponent(patient.patientId)}`);
+            const res = await fetch(`/api/appointments?patientId=${encodeURIComponent(effectivePatient.patientId)}`);
             const data = await res.json();
             setAppointments((data.appointments ?? []).filter(
                 (a: Appointment) => a.status === "scheduled" && new Date(a.appointmentDate).getTime() >= Date.now() - 86400000
@@ -99,16 +132,16 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
 
     // ---- Fetch scheduled appointments from dedicated table ----
     useEffect(() => {
-        if (!patient?.patientId) return;
+        if (!effectivePatient?.patientId) return;
         setApptLoading(true);
-        fetch(`/api/appointments?patientId=${encodeURIComponent(patient.patientId)}`)
+        fetch(`/api/appointments?patientId=${encodeURIComponent(effectivePatient.patientId)}`)
             .then(r => r.json())
             .then(data => setAppointments((data.appointments ?? []).filter(
                 (a: Appointment) => a.status === "scheduled" && new Date(a.appointmentDate).getTime() >= Date.now() - 86400000
             )))
             .catch(() => setAppointments([]))
             .finally(() => setApptLoading(false));
-    }, [patient?.patientId]);
+    }, [effectivePatient?.patientId]);
 
     // ---- Derive doctor visits from timeline entries ----
     const doctorVisits = entries
@@ -218,6 +251,57 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                             <span className={styles.actionHint}>View all records</span>
                         </button>
                     </div>
+
+                    {/* Smart Medication Schedule */}
+                    {hasTodayMeds && (
+                        <section className={styles.scheduleCard}>
+                            <div className={styles.scheduleHeader}>
+                                <Pill size={15} className={styles.scheduleHeaderIcon} />
+                                <h3 className={styles.scheduleTitle}>Today&apos;s Medications</h3>
+                                <span className={styles.scheduleBadge}>
+                                    {[...todaySchedule.values()].flat().filter((m, i, a) => a.findIndex(x => x.name === m.name) === i).length} active
+                                </span>
+                            </div>
+                            <div className={styles.scheduleSlots}>
+                                {(["Morning", "Afternoon", "Evening", "Night"] as TimeSlot[]).map((slot) => {
+                                    const meds = todaySchedule.get(slot) ?? [];
+                                    if (meds.length === 0) return null;
+                                    const slotEmoji = slot === "Morning" ? "🌅" : slot === "Afternoon" ? "☀️" : slot === "Evening" ? "🌆" : "🌙";
+                                    const allTaken = meds.every((m) => takenDoses.has(doseKey(slot, m.name)));
+                                    return (
+                                        <div key={slot} className={`${styles.scheduleSlot} ${allTaken ? styles.scheduleSlotDone : ""}`}>
+                                            <div className={styles.scheduleSlotLabel}>
+                                                <span className={styles.scheduleSlotEmoji}>{slotEmoji}</span>
+                                                <span className={styles.scheduleSlotName}>{slot}</span>
+                                                {allTaken && <span className={styles.scheduleSlotCheck}>✓ Done</span>}
+                                            </div>
+                                            <div className={styles.scheduleMedList}>
+                                                {meds.map((med) => {
+                                                    const taken = takenDoses.has(doseKey(slot, med.name));
+                                                    return (
+                                                        <button
+                                                            key={med.name}
+                                                            className={`${styles.scheduleMedRow} ${taken ? styles.scheduleMedTaken : ""}`}
+                                                            onClick={() => toggleDose(slot, med)}
+                                                            title={taken ? "Mark as not taken" : "Mark as taken"}
+                                                        >
+                                                            <span className={styles.scheduleMedCheck}>
+                                                                {taken ? <CheckCircle2 size={15} /> : <Circle size={15} />}
+                                                            </span>
+                                                            <span className={styles.scheduleMedName}>{med.name}</span>
+                                                            {med.dosage && <span className={styles.scheduleMedDose}>{med.dosage}</span>}
+                                                            {med.instructions && <span className={styles.scheduleMedInstr}>{med.instructions}</span>}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                            <p className={styles.scheduleSource}>From prescriptions in the last 30 days · Tap a pill to mark taken</p>
+                        </section>
+                    )}
 
 
                     {/* Recent Records */}

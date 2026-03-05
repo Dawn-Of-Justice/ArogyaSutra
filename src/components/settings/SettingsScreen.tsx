@@ -6,10 +6,11 @@
 
 import React, { useState, useEffect } from "react";
 import styles from "./SettingsScreen.module.css";
-import { Palette, Bell, Package, TriangleAlert, CalendarClock, Download, Trash2 } from "lucide-react";
+import { Palette, Bell, Package, TriangleAlert, CalendarClock, Download, Trash2, Users, Plus, X } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
 import { broadcastLangChange } from "../../hooks/useLanguage";
 import type { SupportedLang } from "../../lib/i18n/translations";
+import type { GuardianLink } from "../../hooks/useAuth";
 
 interface SettingsScreenProps {
     onNavigate: (screen: string) => void;
@@ -30,7 +31,7 @@ function savePref<T>(key: string, val: T) {
 }
 
 export default function SettingsScreen({ onNavigate }: SettingsScreenProps) {
-    const { patient, userRole, logout, updatePatient } = useAuth();
+    const { patient, userRole, logout, updatePatient, dependents, linkDependent, unlinkDependent, switchToDependent, viewingAs, switchToSelf } = useAuth();
     const patientId = patient?.patientId ?? "";
 
     // ---- Appearance ----
@@ -51,6 +52,14 @@ export default function SettingsScreen({ onNavigate }: SettingsScreenProps) {
     const [deleteInput, setDeleteInput] = useState("");
     const [deleting, setDeleting] = useState(false);
     const [deleteError, setDeleteError] = useState("");
+
+    // ---- Guardian Access ----
+    const [addingDep, setAddingDep] = useState(false);
+    const [depCardId, setDepCardId] = useState("");
+    const [depDob, setDepDob] = useState("");
+    const [depRelationship, setDepRelationship] = useState<GuardianLink["relationship"]>("child");
+    const [addDepLoading, setAddDepLoading] = useState(false);
+    const [addDepError, setAddDepError] = useState("");
 
     // Sync language when patient data loads
     useEffect(() => {
@@ -148,6 +157,38 @@ export default function SettingsScreen({ onNavigate }: SettingsScreenProps) {
             URL.revokeObjectURL(url);
         } catch { /* silent */ } finally {
             setExporting(false);
+        }
+    };
+
+    // ---- Guardian: Link dependent card ----
+    const handleLinkDependent = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!patientId || !depCardId || !depDob) return;
+        setAddDepLoading(true);
+        setAddDepError("");
+        try {
+            const res = await fetch("/api/guardian/validate", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ guardianId: patientId, dependentCardId: depCardId, dependentDob: depDob }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error ?? "Verification failed");
+            linkDependent({
+                cardId: data.cardId as string,
+                name: data.name as string,
+                dob: data.dob as string,
+                relationship: depRelationship,
+                linkedAt: new Date().toISOString(),
+            });
+            setAddingDep(false);
+            setDepCardId("");
+            setDepDob("");
+            setDepRelationship("child");
+        } catch (err) {
+            setAddDepError((err as Error).message);
+        } finally {
+            setAddDepLoading(false);
         }
     };
 
@@ -249,6 +290,88 @@ export default function SettingsScreen({ onNavigate }: SettingsScreenProps) {
                     />
                 </div>
             </div>}
+
+            {/* ======== Guardian Access ======== */}
+            {userRole !== "doctor" && (
+                <div className={styles.card}>
+                    <h3 className={styles.cardTitle}><span><Users size={16} /></span> Guardian Access</h3>
+                    <p className={styles.sectionDesc}>
+                        Link dependent cards (children, elderly parents) to view and manage their health records from this account.
+                    </p>
+
+                    {/* Currently viewing banner */}
+                    {viewingAs && (
+                        <div className={styles.viewingRow}>
+                            <span className={styles.viewingPill}>Viewing: <strong>{viewingAs.fullName}</strong> ({viewingAs.patientId})</span>
+                            <button className={styles.depAction} onClick={switchToSelf}>Back to my records</button>
+                        </div>
+                    )}
+
+                    {/* Linked dependents */}
+                    {dependents.map((dep) => (
+                        <div className={styles.depRow} key={dep.cardId}>
+                            <div className={styles.depAvatar}>
+                                {dep.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
+                            </div>
+                            <div className={styles.depInfo}>
+                                <span className={styles.depName}>{dep.name}</span>
+                                <span className={styles.depMeta}>{dep.cardId} · {dep.relationship}</span>
+                            </div>
+                            <div className={styles.depBtns}>
+                                {viewingAs?.patientId === dep.cardId ? (
+                                    <button className={styles.depActionActive} onClick={switchToSelf}>✔ Viewing</button>
+                                ) : (
+                                    <button className={styles.depAction} onClick={() => switchToDependent(dep)}>Switch</button>
+                                )}
+                                <button className={styles.depRemove} onClick={() => unlinkDependent(dep.cardId)} title="Remove">
+                                    <X size={13} />
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+
+                    {/* Add dependent form */}
+                    {addingDep ? (
+                        <form onSubmit={handleLinkDependent} className={styles.addDepForm}>
+                            <input
+                                className={styles.depInput}
+                                type="text"
+                                placeholder="Card ID — AS-XXXX-XXXX"
+                                value={depCardId}
+                                onChange={(e) => setDepCardId(e.target.value.toUpperCase())}
+                                maxLength={12}
+                                required
+                            />
+                            <div className={styles.addDepRow}>
+                                <input
+                                    className={styles.depInput}
+                                    type="date"
+                                    placeholder="Date of Birth"
+                                    value={depDob}
+                                    onChange={(e) => setDepDob(e.target.value)}
+                                    required
+                                />
+                                <select className={styles.select} value={depRelationship} onChange={(e) => setDepRelationship(e.target.value as GuardianLink["relationship"])}>
+                                    <option value="child">Child</option>
+                                    <option value="parent">Parent</option>
+                                    <option value="other">Other</option>
+                                </select>
+                            </div>
+                            {addDepError && <p className={styles.formError}>{addDepError}</p>}
+                            <div className={styles.formActions}>
+                                <button type="button" className={styles.cancelBtn} onClick={() => { setAddingDep(false); setAddDepError(""); }}>Cancel</button>
+                                <button type="submit" className={styles.actionBtn} disabled={addDepLoading}>
+                                    {addDepLoading ? "Verifying…" : "Link Card"}
+                                </button>
+                            </div>
+                        </form>
+                    ) : (
+                        <button className={styles.addDepBtn} onClick={() => setAddingDep(true)}>
+                            <Plus size={13} /> Link Dependent Card
+                        </button>
+                    )}
+                </div>
+            )}
 
             {/* ======== Data & Privacy ======== */}
             {userRole !== "doctor" && <div className={styles.card}>

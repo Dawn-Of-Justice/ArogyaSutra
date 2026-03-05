@@ -13,6 +13,16 @@ import type { Patient } from "../lib/types/patient";
 
 export type UserRole = "patient" | "doctor";
 
+/** A dependent patient that a guardian has linked to their account */
+export interface GuardianLink {
+    cardId: string;
+    name: string;
+    /** YYYY-MM-DD — stored locally so masterKey can be derived on-device */
+    dob: string;
+    relationship: "child" | "parent" | "other";
+    linkedAt: string; // ISO timestamp
+}
+
 export interface DoctorProfile {
     doctorId: string;
     fullName: string;
@@ -46,6 +56,17 @@ interface AuthContextType {
     updateDoctor: (partial: Partial<DoctorProfile>) => void;
 
     logout: () => Promise<void>;
+
+    // Guardian Access — link dependent cards
+    dependents: GuardianLink[];
+    /** The dependent currently being viewed, or null if viewing own records */
+    viewingAs: Patient | null;
+    /** The patient whose data is being displayed (dependent when active, otherwise self) */
+    effectivePatient: Patient | null;
+    linkDependent: (dep: GuardianLink) => void;
+    unlinkDependent: (cardId: string) => void;
+    switchToDependent: (link: GuardianLink) => void;
+    switchToSelf: () => void;
 
     error: string | null;
     isLoading: boolean;
@@ -98,6 +119,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [isLoading, setIsLoading] = useState(false);
     const [hydrated, setHydrated] = useState(false);
     const masterKeyRef = useRef<CryptoKey | null>(null);
+
+    // ---- Guardian Access ----
+    const [dependents, setDependents] = useState<GuardianLink[]>([]);
+    const [viewingAs, setViewingAs] = useState<Patient | null>(null);
+
+    // Load persisted guardian links when patient logs in
+    useEffect(() => {
+        if (!patient?.patientId) { setDependents([]); return; }
+        try {
+            const raw = localStorage.getItem(`guardian_links_${patient.patientId}`);
+            if (raw) setDependents(JSON.parse(raw) as GuardianLink[]);
+            else setDependents([]);
+        } catch { setDependents([]); }
+    }, [patient?.patientId]);
 
     // Restore persisted session after first client-side mount (avoids hydration mismatch).
     useEffect(() => {
@@ -233,8 +268,51 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(null);
         setState("UNAUTHENTICATED");
         setError(null);
+        setViewingAs(null);
+        setDependents([]);
         clearSession(); // Wipe persisted session
     }, [patient]);
+
+    // ---- Guardian helpers ----
+    const linkDependent = useCallback((dep: GuardianLink) => {
+        if (!patient?.patientId) return;
+        setDependents((prev) => {
+            const next = [...prev.filter((d) => d.cardId !== dep.cardId), dep];
+            try { localStorage.setItem(`guardian_links_${patient.patientId}`, JSON.stringify(next)); } catch { /* ignore */ }
+            return next;
+        });
+    }, [patient?.patientId]);
+
+    const unlinkDependent = useCallback((cardId: string) => {
+        if (!patient?.patientId) return;
+        setDependents((prev) => {
+            const next = prev.filter((d) => d.cardId !== cardId);
+            try { localStorage.setItem(`guardian_links_${patient.patientId}`, JSON.stringify(next)); } catch { /* ignore */ }
+            return next;
+        });
+        setViewingAs((prev) => (prev?.patientId === cardId ? null : prev));
+    }, [patient?.patientId]);
+
+    const switchToDependent = useCallback((link: GuardianLink) => {
+        // Build a minimal Patient object so all components work without changes
+        const depPatient: Patient = {
+            patientId: link.cardId,
+            fullName: link.name,
+            dateOfBirth: link.dob,
+            phone: "",
+            gender: "other",
+            address: { line1: "", city: "", state: "", pincode: "", country: "India" },
+            language: patient?.language ?? "en",
+            emergencyContacts: [],
+            createdAt: link.linkedAt,
+            updatedAt: link.linkedAt,
+        };
+        setViewingAs(depPatient);
+    }, [patient?.language]);
+
+    const switchToSelf = useCallback(() => { setViewingAs(null); }, []);
+
+    const effectivePatient = viewingAs ?? patient;
 
     // ---- Profile updates (merge partial → context + sessionStorage) ----
     const updatePatient = useCallback((partial: Partial<Patient>) => {
@@ -271,6 +349,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 updatePatient,
                 updateDoctor,
                 logout,
+                dependents,
+                viewingAs,
+                effectivePatient,
+                linkDependent,
+                unlinkDependent,
+                switchToDependent,
+                switchToSelf,
                 error,
                 isLoading,
                 hydrated,

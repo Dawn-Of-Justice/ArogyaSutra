@@ -13,7 +13,7 @@ import styles from "./AppShell.module.css";
 import {
     LayoutDashboard, ClipboardList, Camera, Link2,
     HelpCircle, Settings, Hospital, User, LogOut,
-    Bell, Search, MoreVertical, CheckCheck, ShieldCheck, X,
+    Bell, Search, MoreVertical, CheckCheck, ShieldCheck, X, Users,
 } from "lucide-react";
 import { GeminiIcon } from "../common/GeminiIcon";
 
@@ -72,7 +72,7 @@ export default function AppShell({
     activePatientId,
     onRecordSelect,
 }: AppShellProps) {
-    const { logout } = useAuth();
+    const { logout, viewingAs, switchToDependent, switchToSelf, dependents } = useAuth();
     const { t } = useLanguage();
     const isDoctor = userRole === "Doctor";
 
@@ -392,6 +392,22 @@ export default function AppShell({
                     <span className={styles.logoName}>Arogya<span className={styles.logoAccent}>Sutra</span></span>
                 </button>
 
+                {/* Viewing-as banner — shown when guardian is viewing a dependent's records */}
+                {viewingAs && (
+                    <div className={styles.viewingBanner}>
+                        <span className={styles.viewingBannerLabel}>Viewing</span>
+                        <span className={styles.viewingBannerName}>{viewingAs.fullName}</span>
+                        <button
+                            className={styles.viewingBannerClose}
+                            onClick={switchToSelf}
+                            title="Back to my records"
+                            aria-label="Switch back to my records"
+                        >
+                            <X size={11} />
+                        </button>
+                    </div>
+                )}
+
                 {/* Main nav group */}
                 <div className={styles.navGroup}>
                     <span className={styles.navGroupLabel}>{t("nav_group_menu")}</span>
@@ -460,6 +476,27 @@ export default function AppShell({
                             <button className={styles.popoverItem} onClick={() => { setMenuOpen(false); onNavigate("profile"); }}>
                                 <User size={14} /> {t("my_profile")}
                             </button>
+                            {/* Dependent account switcher (patients with linked cards only) */}
+                            {!isDoctor && dependents.length > 0 && (
+                                <>
+                                    <div className={styles.popoverDivider} />
+                                    <div className={styles.popoverSectionLabel}><Users size={11} /> Switch Account</div>
+                                    {viewingAs ? (
+                                        <button className={styles.popoverItem} onClick={() => { switchToSelf(); setMenuOpen(false); }}>
+                                            <User size={14} /> My Records
+                                        </button>
+                                    ) : null}
+                                    {dependents.map((dep) => (
+                                        <button
+                                            key={dep.cardId}
+                                            className={`${styles.popoverItem} ${viewingAs?.patientId === dep.cardId ? styles.popoverItemActive : ""}`}
+                                            onClick={() => { switchToDependent(dep); setMenuOpen(false); onNavigate("dashboard"); }}
+                                        >
+                                            <Users size={14} /> {dep.name}
+                                        </button>
+                                    ))}
+                                </>
+                            )}
                             <div className={styles.popoverDivider} />
                             <button className={`${styles.popoverItem} ${styles.popoverDanger}`} onClick={handleSignOut}>
                                 <LogOut size={14} /> {t("sign_out")}

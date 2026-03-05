@@ -405,6 +405,14 @@ export default function ScanModal({ onClose, onSaved }: ScanModalProps) {
                             <>
                                 <div className={styles.doneIcon}><Check size={32} /></div>
                                 <p>Record saved successfully!</p>
+                                {docType === "RX" && (extraction?.metadata.medications?.length ?? 0) > 0 && (
+                                    <div className={styles.scheduleConfirm}>
+                                        <Pill size={14} />
+                                        <span>
+                                            Smart Schedule updated with {extraction!.metadata.medications!.length} medication{extraction!.metadata.medications!.length !== 1 ? "s" : ""}
+                                        </span>
+                                    </div>
+                                )}
                             </>
                         )}
                     </div>

@@ -35,6 +35,12 @@ function AppRouter() {
   const [doctorPatientData, setDoctorPatientData] = useState<PatientData | null>(null);
   // When a record is selected from global search, store its entryId to pass to TimelineScreen
   const [pendingEntryId, setPendingEntryId] = useState<string | null>(null);
+  // AssistantScreen is lazily mounted on first visit and kept alive to preserve chat state across tab switches
+  const [assistantMounted, setAssistantMounted] = useState(false);
+  useEffect(() => {
+    if (screen === "assistant" && !assistantMounted) setAssistantMounted(true);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [screen]);
 
   // Sync language from Cognito patient data on login (for new devices)
   useEffect(() => {
@@ -80,7 +86,7 @@ function AppRouter() {
       case "timeline":
         return <TimelineScreen onNavigate={setScreen} patientId={doctorActivePatient?.cardId} initialEntryId={pendingEntryId} onEntryOpened={() => setPendingEntryId(null)} />;
       case "assistant":
-        return <AssistantScreen onNavigate={setScreen} doctorPatientContext={doctorActivePatient ?? undefined} />;
+        return null; // rendered persistently below
       case "settings":
         return <SettingsScreen onNavigate={setScreen} />;
       case "help":
@@ -127,7 +133,13 @@ function AppRouter() {
       activePatientId={doctorActivePatient?.cardId}
       onRecordSelect={handleRecordSelect}
     >
-      {renderScreen()}
+      {/* AssistantScreen stays mounted once visited — chat history survives tab switches */}
+      {assistantMounted && (
+        <div style={activeScreen !== "assistant" ? { display: "none" } : {}}>
+          <AssistantScreen onNavigate={setScreen} doctorPatientContext={doctorActivePatient ?? undefined} />
+        </div>
+      )}
+      {activeScreen !== "assistant" && renderScreen()}
     </AppShell>
   );
 }

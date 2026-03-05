@@ -320,6 +320,78 @@
     color: var(--color-danger);
 }
 
+.popoverSectionLabel {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 12px;
+    font-size: 10px;
+    font-weight: var(--font-semibold);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: rgba(255, 255, 255, 0.4);
+    cursor: default;
+    pointer-events: none;
+}
+
+.popoverItemActive {
+    background: rgba(255, 255, 255, 0.09);
+    color: #fff;
+}
+
+/* ---- Guardian: Viewing-as Banner ---- */
+.viewingBanner {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0 var(--space-3) var(--space-3);
+    padding: 7px 10px;
+    background: color-mix(in srgb, var(--brand-coral) 18%, transparent);
+    border: 1px solid color-mix(in srgb, var(--brand-coral) 40%, transparent);
+    border-radius: var(--radius-lg);
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.viewingBannerLabel {
+    font-size: 10px;
+    font-weight: var(--font-semibold);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--brand-coral);
+    flex-shrink: 0;
+}
+
+.viewingBannerName {
+    flex: 1;
+    font-weight: var(--font-semibold);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+}
+
+.viewingBannerClose {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border: none;
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 50%;
+    color: rgba(255, 255, 255, 0.8);
+    cursor: pointer;
+    padding: 0;
+    transition: background 0.15s;
+}
+
+.viewingBannerClose:hover {
+    background: rgba(255, 255, 255, 0.28);
+    color: #fff;
+}
+
 /* ---- Top Bar ---- */
 .topbar {
     grid-area: topbar;

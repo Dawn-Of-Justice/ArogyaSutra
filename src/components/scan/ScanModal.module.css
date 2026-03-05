@@ -537,3 +537,18 @@
         opacity: 1;
     }
 }
+
+/* ── Smart Schedule confirmation banner ─────────────────── */
+.scheduleConfirm {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 12px;
+    padding: 8px 14px;
+    background: color-mix(in srgb, #22c55e 12%, transparent);
+    color: #16a34a;
+    border: 1px solid color-mix(in srgb, #22c55e 30%, transparent);
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 500;
+}

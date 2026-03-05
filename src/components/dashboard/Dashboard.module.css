@@ -1121,4 +1121,172 @@
     align-self: center;
 }
 
+/* ── Smart Medication Schedule Card ──────────────────────── */
+.scheduleCard {
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-xl);
+    padding: var(--space-4);
+    margin-bottom: var(--space-4);
+}
+
+.scheduleHeader {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin-bottom: var(--space-3);
+    padding-bottom: var(--space-2);
+    border-bottom: 2px solid var(--brand-coral);
+}
+
+.scheduleHeaderIcon {
+    color: var(--brand-coral);
+    flex-shrink: 0;
+}
+
+.scheduleTitle {
+    font-size: var(--text-sm);
+    font-weight: var(--font-semibold);
+    color: var(--color-text-primary);
+    margin: 0;
+    flex: 1;
+}
+
+.scheduleBadge {
+    font-size: 11px;
+    font-weight: var(--font-semibold);
+    color: var(--brand-coral);
+    background: color-mix(in srgb, var(--brand-coral) 12%, transparent);
+    border-radius: 20px;
+    padding: 2px 8px;
+    white-space: nowrap;
+}
+
+.scheduleSlots {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+.scheduleSlot {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+}
+
+.scheduleSlotDone {
+    opacity: 0.7;
+}
+
+.scheduleSlotLabel {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 6px var(--space-3);
+    background: var(--color-bg-tertiary);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.scheduleSlotEmoji {
+    font-size: 13px;
+}
+
+.scheduleSlotName {
+    font-size: var(--text-xs);
+    font-weight: var(--font-semibold);
+    color: var(--color-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    flex: 1;
+}
+
+.scheduleSlotCheck {
+    font-size: 11px;
+    color: var(--color-success, #22c55e);
+    font-weight: var(--font-medium);
+}
+
+.scheduleMedList {
+    display: flex;
+    flex-direction: column;
+}
+
+.scheduleMedRow {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 8px var(--space-3);
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--color-border);
+    width: 100%;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.15s;
+    font-family: inherit;
+    color: var(--color-text-primary);
+}
+
+.scheduleMedRow:last-child {
+    border-bottom: none;
+}
+
+.scheduleMedRow:hover {
+    background: var(--color-bg-hover, color-mix(in srgb, var(--color-accent) 6%, transparent));
+}
+
+.scheduleMedTaken .scheduleMedName {
+    text-decoration: line-through;
+    opacity: 0.55;
+}
+
+.scheduleMedCheck {
+    flex-shrink: 0;
+    color: var(--color-text-tertiary);
+    display: flex;
+    align-items: center;
+}
+
+.scheduleMedTaken .scheduleMedCheck {
+    color: var(--color-success, #22c55e);
+}
+
+.scheduleMedName {
+    font-size: var(--text-sm);
+    font-weight: var(--font-medium);
+    flex: 1;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.scheduleMedDose {
+    font-size: 11px;
+    color: var(--color-text-secondary);
+    background: var(--color-bg-tertiary);
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    padding: 1px 7px;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.scheduleMedInstr {
+    font-size: 11px;
+    color: var(--color-text-tertiary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 120px;
+    flex-shrink: 0;
+}
+
+.scheduleSource {
+    font-size: 11px;
+    color: var(--color-text-tertiary);
+    margin: var(--space-3) 0 0;
+    text-align: center;
+}
+
 .rescheduleLink:hover { opacity: 1; }
