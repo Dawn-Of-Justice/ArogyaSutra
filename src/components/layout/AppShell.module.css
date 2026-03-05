@@ -833,3 +833,14 @@
     min-height: 0;
     height: calc(100vh - 70px);
 }
+
+/* Flush variant — no padding, no outer scroll (used for full-height pages like AI Assistant) */
+.contentFlush {
+    grid-area: content;
+    padding: 0;
+    overflow: hidden;
+    min-height: 0;
+    height: calc(100vh - 70px);
+    display: flex;
+    flex-direction: column;
+}

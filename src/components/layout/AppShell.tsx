@@ -652,7 +652,7 @@ export default function AppShell({
             </header>
 
             {/* ---- Main Content ---- */}
-            <main className={styles.content}>{children}</main>
+            <main className={activeScreen === "assistant" ? styles.contentFlush : styles.content}>{children}</main>
         </div>
     );
 }
