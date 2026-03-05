@@ -127,7 +127,6 @@ export async function registerPatient(
                 { Name: "phone_number", Value: phone },
                 { Name: "birthdate", Value: dob },
                 { Name: "name", Value: name },
-                { Name: "custom:card_id", Value: cardId },
             ],
         })
     );

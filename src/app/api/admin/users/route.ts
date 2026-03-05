@@ -10,6 +10,7 @@ import {
     AdminSetUserPasswordCommand,
     MessageActionType,
 } from "@aws-sdk/client-cognito-identity-provider";
+import { generateCardId } from "../../../../lib/utils/cardId";
 
 // Amplify blocks env vars starting with "AWS_" so we use APP_AWS_* as a workaround.
 const explicitCreds =
@@ -26,13 +27,6 @@ const cognito = new CognitoIdentityProviderClient({
     region: process.env.NEXT_PUBLIC_AWS_REGION || process.env.APP_AWS_REGION || "ap-south-1",
     ...explicitCreds,
 });
-
-/** Generate a random ArogyaSutra Card ID like AS-7291-4038 */
-function generateCardId(): string {
-    const block1 = String(Math.floor(1000 + Math.random() * 9000));
-    const block2 = String(Math.floor(1000 + Math.random() * 9000));
-    return `AS-${block1}-${block2}`;
-}
 
 export async function POST(req: NextRequest) {
     try {
@@ -97,7 +91,6 @@ async function createPatient(data: {
             { Name: "name", Value: name },
             { Name: "phone_number", Value: phone },
             { Name: "birthdate", Value: dob },
-            { Name: "custom:card_id", Value: cardId },
             { Name: "custom:dob", Value: dob },
         ],
         TemporaryPassword: internalPassword,

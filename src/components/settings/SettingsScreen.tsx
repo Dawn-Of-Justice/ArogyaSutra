@@ -339,7 +339,7 @@ export default function SettingsScreen({ onNavigate }: SettingsScreenProps) {
                                 placeholder="Card ID — AS-XXXX-XXXX-XXXX"
                                 value={depCardId}
                                 onChange={(e) => setDepCardId(e.target.value.toUpperCase())}
-                                maxLength={12}
+                                maxLength={17}
                                 required
                             />
                             <div className={styles.addDepRow}>

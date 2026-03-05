@@ -219,7 +219,7 @@ export default function LoginScreen({ onEmergencyAccess }: LoginScreenProps) {
                                             placeholder="AS-XXXX-XXXX-XXXX"
                                             value={cardId}
                                             onChange={(e) => setCardId(normalizeCardInput(e.target.value))}
-                                            maxLength={12}
+                                            maxLength={17}
                                             autoFocus
                                         />
                                         <p className={styles.hint}>Enter the Card ID printed on your ArogyaSutra card</p>

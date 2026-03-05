@@ -613,9 +613,9 @@ export default function DoctorDashboard({ onNavigate, doctorName, onPatientVerif
                             <form onSubmit={handleCardSubmit} className={styles.verifyForm}>
                                 <div>
                                     <label className={styles.verifyLabel}>Patient Card ID</label>
-                                    <input type="text" className={styles.verifyInput} placeholder="AS-XXXX-XXXX"
+                                    <input type="text" className={styles.verifyInput} placeholder="AS-XXXX-XXXX-XXXX"
                                         value={cardId} onChange={(e) => setCardId(normalizeCardInput(e.target.value))}
-                                        maxLength={12} autoFocus />
+                                        maxLength={17} autoFocus />
                                 </div>
                                 <p className={styles.verifyHint}>Enter the Card ID from the patient&apos;s ArogyaSutra card</p>
                                 <button type="submit" className={styles.verifyBtn} disabled={!isValidCardId(cardId)}>Continue</button>
