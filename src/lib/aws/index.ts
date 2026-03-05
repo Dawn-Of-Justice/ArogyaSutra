@@ -16,11 +16,15 @@ if (typeof process !== "undefined" && process.env.NEXT_RUNTIME === "nodejs") {
     if (!process.env.APP_AWS_ACCESS_KEY_ID)     missing.push("APP_AWS_ACCESS_KEY_ID");
     if (!process.env.APP_AWS_SECRET_ACCESS_KEY) missing.push("APP_AWS_SECRET_ACCESS_KEY");
     if (!process.env.KMS_KEY_ID)                missing.push("KMS_KEY_ID");
+    if (!process.env.DYNAMODB_HEALTH_RECORDS_TABLE) missing.push("DYNAMODB_HEALTH_RECORDS_TABLE");
+    if (!process.env.DYNAMODB_AUDIT_TABLE)      missing.push("DYNAMODB_AUDIT_TABLE");
     if (missing.length > 0) {
         console.error(
             `[ArogyaSutra] ⚠️  Missing environment variables: ${missing.join(", ")}.\n` +
             `  Set them in Amplify Console → Hosting → Environment variables, then redeploy.\n` +
-            `  AWS SDK will fall back to the IAM execution role — attach one if you removed the keys.`
+            `  Build: ${new Date().toISOString()}`
         );
+    } else {
+        console.log(`[ArogyaSutra] ✅ All required env vars present. Build: ${new Date().toISOString()}`);
     }
 }
