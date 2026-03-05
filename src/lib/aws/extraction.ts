@@ -24,6 +24,7 @@ import type {
     MedicationDetail,
     LabTestResult,
 } from "../types/timeline";
+import sharp from "sharp";
 
 const region = process.env.NEXT_PUBLIC_AWS_REGION || "ap-south-1";
 
@@ -150,7 +151,6 @@ export interface ExtractionResult {
 // ── Image normalisation ──────────────────────────────────────────────
 
 async function toJpegBuffer(imageBytes: Buffer): Promise<Buffer> {
-    const sharp = (await import("sharp")).default;
     return sharp(imageBytes).jpeg({ quality: 92 }).toBuffer();
 }
 

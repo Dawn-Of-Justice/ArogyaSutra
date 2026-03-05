@@ -298,6 +298,8 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
                     // Show preview immediately
                     setPhotoUrl(base64);
                     localStorage.setItem(photoStorageKey, base64);
+                    // Notify AppShell sidebar to refresh the avatar
+                    window.dispatchEvent(new CustomEvent("profilePhotoUpdated", { detail: { key: photoStorageKey, url: base64 } }));
 
                     // Upload to S3 via our API (KMS-encrypted at rest)
                     try {

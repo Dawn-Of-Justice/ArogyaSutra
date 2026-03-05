@@ -250,7 +250,9 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                                         >
                                             <div className={`${styles.entryTypeIcon} ${typeInfo.cls}`}>{typeInfo.icon}</div>
                                             <div className={styles.entryInfo}>
-                                                <h4 className={styles.entryTitle}>{entry.title}</h4>
+                                                <h4 className={styles.entryTitle} title={entry.title.length > 52 ? entry.title : undefined}>
+                                                    {entry.title.length > 52 ? entry.title.slice(0, 52) + "…" : entry.title}
+                                                </h4>
                                                 {entry.sourceInstitution && (
                                                     <p className={styles.entryInstitution}>{entry.sourceInstitution}</p>
                                                 )}

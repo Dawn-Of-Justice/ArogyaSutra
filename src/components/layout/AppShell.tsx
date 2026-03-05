@@ -104,9 +104,27 @@ export default function AppShell({
     const [photoUrl, setPhotoUrl] = useState<string | null>(null);
     useEffect(() => {
         if (!userId) return;
-        const cached = localStorage.getItem(`profilePhoto_${userId}`);
+        const key = `profilePhoto_${userId}`;
+
+        // Show cached base64 immediately for instant display
+        const cached = localStorage.getItem(key);
         if (cached) setPhotoUrl(cached);
-    }, [userId]);
+
+        // Fetch authoritative URL from S3 (covers cases where localStorage was cleared)
+        const role = isDoctor ? "doctor" : "patient";
+        fetch(`/api/profile/photo?userId=${userId}&role=${role}`)
+            .then((r) => r.json())
+            .then((data) => { if (data.url) setPhotoUrl(data.url); })
+            .catch(() => {/* silently use cached */ });
+
+        // Keep sidebar avatar in sync when photo is uploaded from ProfileScreen
+        const handlePhotoUpdate = (e: Event) => {
+            const detail = (e as CustomEvent<{ key: string; url: string }>).detail;
+            if (detail.key === key) setPhotoUrl(detail.url);
+        };
+        window.addEventListener("profilePhotoUpdated", handlePhotoUpdate);
+        return () => window.removeEventListener("profilePhotoUpdated", handlePhotoUpdate);
+    }, [userId, isDoctor]);
 
     // ---- Apply saved theme + language on mount ----
     useEffect(() => {
