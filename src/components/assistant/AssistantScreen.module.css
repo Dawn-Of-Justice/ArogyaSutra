@@ -3,7 +3,7 @@
    ====================================================== */
 
 .container {
-    height: 100%;
+    height: calc(100vh - 70px);
     display: flex;
     flex-direction: column;
     background: var(--color-bg-primary);

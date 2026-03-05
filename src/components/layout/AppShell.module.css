@@ -841,6 +841,4 @@
     overflow: hidden;
     min-height: 0;
     height: calc(100vh - 70px);
-    display: flex;
-    flex-direction: column;
 }
