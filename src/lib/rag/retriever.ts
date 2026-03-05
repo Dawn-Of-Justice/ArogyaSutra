@@ -103,7 +103,15 @@ export async function retrieveRefined(
 
 async function fetchAllResources(patientId: string): Promise<Record<string, unknown>[]> {
     try {
-        return await healthlake.getPatientTimeline(patientId) as Record<string, unknown>[];
+        // Timeout guard — HealthLake latency can spike; cap at 8 s to leave room for LLM
+        const timeoutPromise = new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error("HealthLake timeout")), 8_000)
+        );
+        const result = await Promise.race([
+            healthlake.getPatientTimeline(patientId) as Promise<Record<string, unknown>[]>,
+            timeoutPromise,
+        ]);
+        return result;
     } catch {
         return [];
     }

@@ -6,6 +6,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { invokeModel } from "../../../../lib/aws/bedrock";
 
+export const maxDuration = 30;
+
 const DOCTOR_SYSTEM_PROMPT = `You are Arogya, an intelligent clinical assistant built into ArogyaSutra, a digital health records platform used by licensed doctors in India.
 
 You are speaking with a verified doctor. Your role is to:

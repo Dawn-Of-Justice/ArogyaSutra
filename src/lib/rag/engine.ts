@@ -201,7 +201,7 @@ async function runSpeculative(
         confidence: Math.min(0.88, 0.6 + verified.groundingScore * 0.3),
         groundingScore: verified.groundingScore,
         provider: specResult.draftAccepted ? "kimi" : "kimi",
-        modelId: process.env.KIMI_BEDROCK_MODEL || "us.moonshot.kimi-k2-instruct-v1:0",
+        modelId: process.env.KIMI_BEDROCK_MODEL || "moonshotai.kimi-k2.5",
     };
 }
 
