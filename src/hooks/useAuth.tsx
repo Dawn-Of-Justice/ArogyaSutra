@@ -301,7 +301,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             dateOfBirth: link.dob,
             phone: "",
             gender: "other",
-            address: { line1: "", city: "", state: "", pincode: "", country: "India" },
+            address: { line1: "", city: "", state: "", pincode: "", country: "IN" },
             language: patient?.language ?? "en",
             emergencyContacts: [],
             createdAt: link.linkedAt,
