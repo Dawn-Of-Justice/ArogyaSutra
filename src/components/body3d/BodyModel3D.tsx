@@ -46,14 +46,16 @@ interface BodyZone {
  * Left/Right follow anatomical convention: patient's left = viewer's right.
  */
 const BODY_ZONES: BodyZone[] = [
-    { key: "Head",      label: "Head / Brain",           cx: 50, cy: 12, rx: 10, ry: 10 },
-    { key: "Chest",     label: "Chest / Lungs / Heart",  cx: 50, cy: 31, rx: 16, ry: 10 },
-    { key: "Abdomen",   label: "Abdomen",                cx: 50, cy: 45, rx: 13, ry:  7 },
-    { key: "Pelvis",    label: "Pelvis / Hip",           cx: 50, cy: 57, rx: 13, ry:  6 },
-    { key: "Left Arm",  label: "Left Arm",               cx: 72, cy: 37, rx:  7, ry: 15 },
-    { key: "Right Arm", label: "Right Arm",              cx: 28, cy: 37, rx:  7, ry: 15 },
-    { key: "Left Leg",  label: "Left Leg",               cx: 55, cy: 77, rx:  7, ry: 16 },
-    { key: "Right Leg", label: "Right Leg",              cx: 43, cy: 77, rx:  7, ry: 16 },
+    { key: "Head",        label: "Head / Brain",           cx: 50, cy: 12, rx: 10, ry: 10 },
+    { key: "Chest",       label: "Chest / Lungs / Heart",  cx: 50, cy: 31, rx: 16, ry: 10 },
+    { key: "Abdomen",     label: "Abdomen",                cx: 50, cy: 45, rx: 13, ry:  7 },
+    { key: "Pelvis",      label: "Pelvis / Hip",           cx: 50, cy: 57, rx: 13, ry:  6 },
+    { key: "Left Arm",    label: "Left Arm / Shoulder",   cx: 74, cy: 35, rx:  6, ry: 12 },
+    { key: "Right Arm",   label: "Right Arm / Shoulder",  cx: 26, cy: 35, rx:  6, ry: 12 },
+    { key: "Left Hand",   label: "Left Hand / Wrist",     cx: 78, cy: 55, rx:  5, ry:  6 },
+    { key: "Right Hand",  label: "Right Hand / Wrist",    cx: 22, cy: 55, rx:  5, ry:  6 },
+    { key: "Left Leg",    label: "Left Leg / Knee",       cx: 55, cy: 77, rx:  7, ry: 16 },
+    { key: "Right Leg",   label: "Right Leg / Knee",      cx: 43, cy: 77, rx:  7, ry: 16 },
 ];
 
 /** Keywords used to fuzzy-match records to body zones */
@@ -62,10 +64,12 @@ const BODY_PART_KEYWORDS: Record<string, string[]> = {
     "Chest":     ["chest", "lung", "pulmonary", "respiratory", "cardiac", "heart", "ecg", "ekg", "echo", "bronch", "pleural", "thorax", "thoracic", "rib", "pericardial"],
     "Abdomen":   ["abdomen", "abdominal", "liver", "kidney", "renal", "spleen", "pancreas", "gallbladder", "intestine", "bowel", "colon", "stomach", "gastro", "usg", "ultrasound"],
     "Pelvis":    ["pelvis", "pelvic", "hip joint", "uterus", "ovary", "prostate", "bladder", "urinary"],
-    "Left Arm":  ["left arm", "left elbow", "left shoulder", "left wrist", "left forearm", "left hand", "left humerus", "left radius"],
-    "Right Arm": ["right arm", "right elbow", "right shoulder", "right wrist", "right forearm", "right hand", "right humerus", "right radius"],
-    "Left Leg":  ["left leg", "left knee", "left ankle", "left foot", "left femur", "left tibia", "left fibula"],
-    "Right Leg": ["right leg", "right knee", "right ankle", "right foot", "right femur", "right tibia", "right fibula"],
+    "Left Arm":   ["left arm", "left elbow", "left shoulder", "left forearm", "left humerus", "left radius", "left ulna"],
+    "Right Arm":  ["right arm", "right elbow", "right shoulder", "right forearm", "right humerus", "right radius", "right ulna"],
+    "Left Hand":  ["left hand", "left wrist", "left finger", "left thumb", "left palm", "left carpal", "left metacarpal"],
+    "Right Hand": ["right hand", "right wrist", "right finger", "right thumb", "right palm", "right carpal", "right metacarpal"],
+    "Left Leg":   ["left leg", "left knee", "left ankle", "left foot", "left femur", "left tibia", "left fibula", "left toe"],
+    "Right Leg":  ["right leg", "right knee", "right ankle", "right foot", "right femur", "right tibia", "right fibula", "right toe"],
 };
 
 /** Return which body zones a record matches (can match more than one) */
