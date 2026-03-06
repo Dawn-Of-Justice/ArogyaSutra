@@ -432,8 +432,110 @@ export default function DoctorDashboard({ onNavigate, doctorName, onPatientVerif
     const [selectedBodyPart, setSelectedBodyPart] = useState<string | null>(null);
     const [bodyPartRecords, setBodyPartRecords] = useState<MedicalRecord[]>([]);
 
-    // ---- Schedule appointment (doctor sets next visit) ----
-    const [schedOpen, setSchedOpen] = useState(false);
+    // ---- Modal: which one is open ("none" | "appointment" | "note" | "prescription") ----
+    type ModalKind = "none" | "appointment" | "note" | "prescription";
+    const [modalOpen, setModalOpen] = useState<ModalKind>("none");
+    const openModal  = (k: ModalKind) => { setModalOpen(k); setSchedDone(false); setSchedError(""); setNoteError(""); setRxError(""); };
+    const closeModal = () => setModalOpen("none");
+
+    // Keep schedOpen as an alias so the existing save handler still works
+    const schedOpen = modalOpen === "appointment";
+    const setSchedOpen = (v: boolean | ((p: boolean) => boolean)) => {
+        const next = typeof v === "function" ? v(schedOpen) : v;
+        setModalOpen(next ? "appointment" : "none");
+    };
+
+    // ---- Note modal state ----
+    const [noteComplaint, setNoteComplaint]     = useState("");
+    const [noteFindings, setNoteFindings]       = useState("");
+    const [noteDiagnosis, setNoteDiagnosis]     = useState("");
+    const [noteTreatment, setNoteTreatment]     = useState("");
+    const [noteFollowUp, setNoteFollowUp]       = useState("");
+    const [noteAdvice, setNoteAdvice]           = useState("");
+    const [noteSaving, setNoteSaving]           = useState(false);
+    const [noteDone, setNoteDone]               = useState(false);
+    const [noteError, setNoteError]             = useState("");
+
+    const handleSaveNote = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!patient) return;
+        setNoteSaving(true); setNoteError("");
+        try {
+            const res = await fetch("/api/timeline/note", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    patientId:           patient.cardId,
+                    doctorName:          doctorName || "Doctor",
+                    institution:         "",
+                    chiefComplaint:      noteComplaint || undefined,
+                    examinationFindings: noteFindings  || undefined,
+                    diagnosis:           noteDiagnosis || undefined,
+                    treatmentPlan:       noteTreatment || undefined,
+                    followUpDate:        noteFollowUp  || undefined,
+                    advice:              noteAdvice    || undefined,
+                }),
+            });
+            if (!res.ok) throw new Error((await res.json()).error || "Failed");
+            const saved = await res.json();
+            // Append to local timeline so the body map reflects it immediately
+            setTimelineRecords(prev => [saved.entry, ...prev]);
+            setNoteDone(true);
+            setTimeout(() => {
+                closeModal();
+                setNoteDone(false);
+                setNoteComplaint(""); setNoteFindings(""); setNoteDiagnosis("");
+                setNoteTreatment(""); setNoteFollowUp(""); setNoteAdvice("");
+            }, 1800);
+        } catch (err) {
+            setNoteError(err instanceof Error ? err.message : "Could not save note.");
+        } finally {
+            setNoteSaving(false);
+        }
+    };
+
+    // ---- Prescription modal state ----
+    const [rxDiagnosis, setRxDiagnosis]         = useState("");
+    const [rxMedications, setRxMedications]     = useState("");
+    const [rxInstructions, setRxInstructions]   = useState("");
+    const [rxRefills, setRxRefills]             = useState("0");
+    const [rxSaving, setRxSaving]               = useState(false);
+    const [rxDone, setRxDone]                   = useState(false);
+    const [rxError, setRxError]                 = useState("");
+
+    const handleSavePrescription = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!patient || !rxMedications.trim()) { setRxError("Add at least one medication."); return; }
+        setRxSaving(true); setRxError("");
+        try {
+            const res = await fetch("/api/timeline/prescription", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    patientId:     patient.cardId,
+                    doctorName:    doctorName || "Doctor",
+                    institution:   "",
+                    diagnosis:     rxDiagnosis    || undefined,
+                    medications:   rxMedications,
+                    instructions:  rxInstructions || undefined,
+                    refillsAllowed: Number(rxRefills) || 0,
+                }),
+            });
+            if (!res.ok) throw new Error((await res.json()).error || "Failed");
+            const saved = await res.json();
+            setTimelineRecords(prev => [saved.entry, ...prev]);
+            setRxDone(true);
+            setTimeout(() => {
+                closeModal();
+                setRxDone(false);
+                setRxDiagnosis(""); setRxMedications(""); setRxInstructions(""); setRxRefills("0");
+            }, 1800);
+        } catch (err) {
+            setRxError(err instanceof Error ? err.message : "Could not save prescription.");
+        } finally {
+            setRxSaving(false);
+        }
+    };
 
     // ---- Checkup edit state ----
     const [checkupEditing, setCheckupEditing] = useState(false);
@@ -944,107 +1046,67 @@ export default function DoctorDashboard({ onNavigate, doctorName, onPatientVerif
 
                             {/* Action buttons */}
                             <div className={styles.actionBar}>
-                                <button className={styles.actionBtn}>
+                                <button className={styles.actionBtn} onClick={() => openModal("note")}>
                                     {Icon.edit} Add Notes
                                 </button>
-                                <button className={`${styles.actionBtn} ${styles.actionBtnPrimary}`}>
+                                <button className={`${styles.actionBtn} ${styles.actionBtnPrimary}`} onClick={() => openModal("prescription")}>
                                     {Icon.filePlus} Add Prescription
                                 </button>
                                 <button
                                     className={`${styles.actionBtn} ${styles.actionBtnSchedule}`}
-                                    onClick={() => { setSchedOpen(o => !o); setSchedDone(false); setSchedError(""); }}
+                                    onClick={() => openModal("appointment")}
                                 >
                                     {Icon.calendar} Schedule Appointment
                                 </button>
                             </div>
 
-                            {/* Schedule appointment form */}
-                            {schedOpen && (
-                                <form className={styles.apptForm} onSubmit={handleScheduleAppointment}>
-                                    <h4 className={styles.apptFormTitle}>Next Appointment</h4>
-                                    {schedDone && (
-                                        <div className={styles.apptSuccess}>
-                                            ✓ Appointment scheduled successfully
-                                        </div>
+                            {/* ---- Recent Records (timeline entries) ---- */}
+                            <div className={styles.recentRecords}>
+                                <div className={styles.recentRecordsHeader}>
+                                    <span className={styles.recentRecordsTitle}>Recent Records</span>
+                                    {timelineRecords.length > 0 && (
+                                        <span className={styles.recentRecordsBadge}>{timelineRecords.length}</span>
                                     )}
-                                    {schedError && (
-                                        <div className={styles.apptError}>{schedError}</div>
-                                    )}
-                                    <div className={styles.apptFormRow}>
-                                        <div className={styles.apptFormGroup}>
-                                            <label className={styles.verifyLabel}>Date *</label>
-                                            <input
-                                                type="date"
-                                                className={`${styles.verifyInput} ${styles.verifyInputNormal}`}
-                                                value={schedDate}
-                                                min={new Date().toISOString().slice(0, 10)}
-                                                onChange={e => setSchedDate(e.target.value)}
-                                                required
-                                            />
-                                        </div>
-                                        <div className={styles.apptFormGroup}>
-                                            <label className={styles.verifyLabel}>Time</label>
-                                            <input
-                                                type="time"
-                                                className={`${styles.verifyInput} ${styles.verifyInputNormal}`}
-                                                value={schedTime}
-                                                onChange={e => setSchedTime(e.target.value)}
-                                            />
-                                        </div>
+                                </div>
+                                {timelineRecords.length === 0 ? (
+                                    <p className={styles.recentRecordsEmpty}>No records on file.</p>
+                                ) : (
+                                    <div className={styles.recentRecordsList}>
+                                        {timelineRecords.slice(0, 8).map((r) => {
+                                            const typeColor: Record<string, string> = {
+                                                RX:       "#a78bfa",
+                                                Consult:  "#60a5fa",
+                                                Imaging:  "#34d399",
+                                                Lab:      "#fbbf24",
+                                                H:        "#f87171",
+                                                Vacc:     "#fb923c",
+                                                Other:    "#94a3b8",
+                                            };
+                                            const color = typeColor[r.documentType] ?? "#94a3b8";
+                                            return (
+                                                <div key={r.entryId} className={styles.recentRecord}>
+                                                    <span
+                                                        className={styles.recentRecordType}
+                                                        style={{ background: `${color}22`, color }}
+                                                    >{r.documentType}</span>
+                                                    <div className={styles.recentRecordInfo}>
+                                                        <span className={styles.recentRecordTitle}>{r.title}</span>
+                                                        <span className={styles.recentRecordMeta}>
+                                                            {r.date}
+                                                            {r.sourceInstitution ? ` · ${r.sourceInstitution}` : ""}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                        {timelineRecords.length > 8 && (
+                                            <p className={styles.recentRecordsMore}>
+                                                +{timelineRecords.length - 8} more — see 3D map for details
+                                            </p>
+                                        )}
                                     </div>
-                                    <div className={styles.apptFormRow}>
-                                        <div className={styles.apptFormGroup}>
-                                            <label className={styles.verifyLabel}>Specialty</label>
-                                            <input
-                                                type="text"
-                                                className={styles.verifyInput}
-                                                placeholder="e.g. Cardiology"
-                                                value={schedSpecialty}
-                                                onChange={e => setSchedSpecialty(e.target.value)}
-                                                maxLength={60}
-                                            />
-                                        </div>
-                                        <div className={styles.apptFormGroup}>
-                                            <label className={styles.verifyLabel}>Location</label>
-                                            <input
-                                                type="text"
-                                                className={styles.verifyInput}
-                                                placeholder="e.g. Room 204"
-                                                value={schedLocation}
-                                                onChange={e => setSchedLocation(e.target.value)}
-                                                maxLength={100}
-                                            />
-                                        </div>
-                                    </div>
-                                    <div className={styles.apptFormGroup}>
-                                        <label className={styles.verifyLabel}>Notes</label>
-                                        <input
-                                            type="text"
-                                            className={styles.verifyInput}
-                                            placeholder="Instructions for patient (optional)"
-                                            value={schedNotes}
-                                            onChange={e => setSchedNotes(e.target.value)}
-                                            maxLength={300}
-                                        />
-                                    </div>
-                                    <div className={styles.apptFormActions}>
-                                        <button
-                                            type="button"
-                                            className={styles.actionBtn}
-                                            onClick={() => setSchedOpen(false)}
-                                        >
-                                            Cancel
-                                        </button>
-                                        <button
-                                            type="submit"
-                                            className={`${styles.actionBtn} ${styles.actionBtnPrimary}`}
-                                            disabled={schedSaving || !schedDate}
-                                        >
-                                            {schedSaving ? "Saving..." : "Confirm Appointment"}
-                                        </button>
-                                    </div>
-                                </form>
-                            )}
+                                )}
+                            </div>
 
 
                         </div>
@@ -1059,6 +1121,183 @@ export default function DoctorDashboard({ onNavigate, doctorName, onPatientVerif
                     </>
             </div>
             </>
+            )}
+
+            {/* ================================================================
+                MODALS — rendered at component root so they sit above all layout
+                ================================================================ */}
+
+            {/* ---- Schedule Appointment Modal ---- */}
+            {modalOpen === "appointment" && (
+                <div className={styles.modalOverlay} onClick={closeModal}>
+                    <div className={styles.modal} onClick={e => e.stopPropagation()}>
+                        <div className={styles.modalHeader}>
+                            <span className={styles.modalTitle}>{Icon.calendar} Schedule Appointment</span>
+                            <button className={styles.modalClose} onClick={closeModal} aria-label="Close">✕</button>
+                        </div>
+                        {schedDone ? (
+                            <div className={styles.modalSuccess}>✓ Appointment scheduled successfully</div>
+                        ) : (
+                            <form onSubmit={handleScheduleAppointment} className={styles.modalBody}>
+                                {schedError && <div className={styles.modalError}>{schedError}</div>}
+                                <div className={styles.modalRow}>
+                                    <div className={styles.modalField}>
+                                        <label className={styles.modalLabel}>Date *</label>
+                                        <input type="date" className={styles.modalInput}
+                                            value={schedDate} min={new Date().toISOString().slice(0, 10)}
+                                            onChange={e => setSchedDate(e.target.value)} required />
+                                    </div>
+                                    <div className={styles.modalField}>
+                                        <label className={styles.modalLabel}>Time</label>
+                                        <input type="time" className={styles.modalInput}
+                                            value={schedTime} onChange={e => setSchedTime(e.target.value)} />
+                                    </div>
+                                </div>
+                                <div className={styles.modalRow}>
+                                    <div className={styles.modalField}>
+                                        <label className={styles.modalLabel}>Specialty</label>
+                                        <input type="text" className={styles.modalInput}
+                                            placeholder="e.g. Cardiology" maxLength={60}
+                                            value={schedSpecialty} onChange={e => setSchedSpecialty(e.target.value)} />
+                                    </div>
+                                    <div className={styles.modalField}>
+                                        <label className={styles.modalLabel}>Location / Room</label>
+                                        <input type="text" className={styles.modalInput}
+                                            placeholder="e.g. Room 204, Apollo" maxLength={100}
+                                            value={schedLocation} onChange={e => setSchedLocation(e.target.value)} />
+                                    </div>
+                                </div>
+                                <div className={styles.modalField}>
+                                    <label className={styles.modalLabel}>Instructions for patient</label>
+                                    <textarea className={styles.modalTextarea} rows={3} maxLength={300}
+                                        placeholder="Fast 8 hours before the visit, bring previous reports…"
+                                        value={schedNotes} onChange={e => setSchedNotes(e.target.value)} />
+                                </div>
+                                <div className={styles.modalActions}>
+                                    <button type="button" className={styles.actionBtn} onClick={closeModal}>Cancel</button>
+                                    <button type="submit" className={`${styles.actionBtn} ${styles.actionBtnPrimary}`}
+                                        disabled={schedSaving || !schedDate}>
+                                        {schedSaving ? "Saving…" : "Confirm Appointment"}
+                                    </button>
+                                </div>
+                            </form>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* ---- Add Consultation Note Modal ---- */}
+            {modalOpen === "note" && (
+                <div className={styles.modalOverlay} onClick={closeModal}>
+                    <div className={styles.modal} onClick={e => e.stopPropagation()}>
+                        <div className={styles.modalHeader}>
+                            <span className={styles.modalTitle}>{Icon.edit} Consultation Note</span>
+                            <button className={styles.modalClose} onClick={closeModal} aria-label="Close">✕</button>
+                        </div>
+                        {noteDone ? (
+                            <div className={styles.modalSuccess}>✓ Note saved to patient timeline</div>
+                        ) : (
+                            <form onSubmit={handleSaveNote} className={styles.modalBody}>
+                                {noteError && <div className={styles.modalError}>{noteError}</div>}
+                                <div className={styles.modalField}>
+                                    <label className={styles.modalLabel}>Chief Complaint</label>
+                                    <input type="text" className={styles.modalInput} maxLength={200}
+                                        placeholder="Patient's presenting complaint"
+                                        value={noteComplaint} onChange={e => setNoteComplaint(e.target.value)} />
+                                </div>
+                                <div className={styles.modalField}>
+                                    <label className={styles.modalLabel}>Examination Findings</label>
+                                    <textarea className={styles.modalTextarea} rows={3} maxLength={1000}
+                                        placeholder="Physical examination observations…"
+                                        value={noteFindings} onChange={e => setNoteFindings(e.target.value)} />
+                                </div>
+                                <div className={styles.modalRow}>
+                                    <div className={styles.modalField}>
+                                        <label className={styles.modalLabel}>Diagnosis</label>
+                                        <input type="text" className={styles.modalInput} maxLength={200}
+                                            placeholder="e.g. Acute bronchitis"
+                                            value={noteDiagnosis} onChange={e => setNoteDiagnosis(e.target.value)} />
+                                    </div>
+                                    <div className={styles.modalField}>
+                                        <label className={styles.modalLabel}>Follow-up Date</label>
+                                        <input type="date" className={styles.modalInput}
+                                            value={noteFollowUp} onChange={e => setNoteFollowUp(e.target.value)} />
+                                    </div>
+                                </div>
+                                <div className={styles.modalField}>
+                                    <label className={styles.modalLabel}>Treatment Plan</label>
+                                    <textarea className={styles.modalTextarea} rows={2} maxLength={500}
+                                        placeholder="Medications, procedures, referrals…"
+                                        value={noteTreatment} onChange={e => setNoteTreatment(e.target.value)} />
+                                </div>
+                                <div className={styles.modalField}>
+                                    <label className={styles.modalLabel}>Advice to Patient</label>
+                                    <input type="text" className={styles.modalInput} maxLength={300}
+                                        placeholder="Rest, hydration, diet instructions…"
+                                        value={noteAdvice} onChange={e => setNoteAdvice(e.target.value)} />
+                                </div>
+                                <div className={styles.modalActions}>
+                                    <button type="button" className={styles.actionBtn} onClick={closeModal}>Cancel</button>
+                                    <button type="submit" className={`${styles.actionBtn} ${styles.actionBtnPrimary}`}
+                                        disabled={noteSaving}>
+                                        {noteSaving ? "Saving…" : "Save Note"}
+                                    </button>
+                                </div>
+                            </form>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* ---- Add Prescription Modal ---- */}
+            {modalOpen === "prescription" && (
+                <div className={styles.modalOverlay} onClick={closeModal}>
+                    <div className={styles.modal} onClick={e => e.stopPropagation()}>
+                        <div className={styles.modalHeader}>
+                            <span className={styles.modalTitle}>{Icon.filePlus} New Prescription</span>
+                            <button className={styles.modalClose} onClick={closeModal} aria-label="Close">✕</button>
+                        </div>
+                        {rxDone ? (
+                            <div className={styles.modalSuccess}>✓ Prescription saved to patient timeline</div>
+                        ) : (
+                            <form onSubmit={handleSavePrescription} className={styles.modalBody}>
+                                {rxError && <div className={styles.modalError}>{rxError}</div>}
+                                <div className={styles.modalRow}>
+                                    <div className={styles.modalField}>
+                                        <label className={styles.modalLabel}>Diagnosis</label>
+                                        <input type="text" className={styles.modalInput} maxLength={200}
+                                            placeholder="e.g. Type 2 Diabetes"
+                                            value={rxDiagnosis} onChange={e => setRxDiagnosis(e.target.value)} />
+                                    </div>
+                                    <div className={styles.modalField}>
+                                        <label className={styles.modalLabel}>Refills Allowed</label>
+                                        <input type="number" className={styles.modalInput} min={0} max={12}
+                                            value={rxRefills} onChange={e => setRxRefills(e.target.value)} />
+                                    </div>
+                                </div>
+                                <div className={styles.modalField}>
+                                    <label className={styles.modalLabel}>Medications * <span className={styles.modalHint}>(one per line: name + dosage + frequency)</span></label>
+                                    <textarea className={styles.modalTextarea} rows={5} maxLength={1000} required
+                                        placeholder={"Tab. Metformin 500mg — twice daily after meals\nCap. Vitamin D3 60000 IU — once weekly"}
+                                        value={rxMedications} onChange={e => setRxMedications(e.target.value)} />
+                                </div>
+                                <div className={styles.modalField}>
+                                    <label className={styles.modalLabel}>Special Instructions</label>
+                                    <textarea className={styles.modalTextarea} rows={2} maxLength={400}
+                                        placeholder="Avoid alcohol, take with food, store below 25°C…"
+                                        value={rxInstructions} onChange={e => setRxInstructions(e.target.value)} />
+                                </div>
+                                <div className={styles.modalActions}>
+                                    <button type="button" className={styles.actionBtn} onClick={closeModal}>Cancel</button>
+                                    <button type="submit" className={`${styles.actionBtn} ${styles.actionBtnPrimary}`}
+                                        disabled={rxSaving || !rxMedications.trim()}>
+                                        {rxSaving ? "Saving…" : "Save Prescription"}
+                                    </button>
+                                </div>
+                            </form>
+                        )}
+                    </div>
+                </div>
             )}
         </div>
     );
