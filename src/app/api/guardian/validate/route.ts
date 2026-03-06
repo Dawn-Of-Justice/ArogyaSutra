@@ -28,7 +28,7 @@ export async function POST(req: Request) {
         }
 
         // Basic card ID format validation
-        if (!/^AS-\d{4}-\d{4}$/i.test(dependentCardId)) {
+        if (!/^AS-\d{4}-\d{4}-\d{4}$/i.test(dependentCardId)) {
             return NextResponse.json({ error: "Invalid card ID format. Expected AS-XXXX-XXXX-XXXX" }, { status: 400 });
         }
 

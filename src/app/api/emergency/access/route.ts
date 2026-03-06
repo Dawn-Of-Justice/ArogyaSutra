@@ -55,7 +55,7 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "All fields are required" }, { status: 400 });
         }
 
-        if (!patientId.match(/^AS-\d{4}-\d{4}$/i)) {
+        if (!patientId.match(/^AS-\d{4}-\d{4}-\d{4}$/i)) {
             return NextResponse.json({ error: "Invalid Patient Card ID format. Expected AS-XXXX-XXXX-XXXX" }, { status: 400 });
         }
 
