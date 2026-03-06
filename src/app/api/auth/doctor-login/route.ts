@@ -8,22 +8,12 @@ import { NextRequest, NextResponse } from "next/server";
 import {
     CognitoIdentityProviderClient,
     InitiateAuthCommand,
-    AdminGetUserCommand,
+    GetUserCommand,
 } from "@aws-sdk/client-cognito-identity-provider";
 
-const explicitCredentials =
-    process.env.APP_AWS_ACCESS_KEY_ID && process.env.APP_AWS_SECRET_ACCESS_KEY
-        ? {
-              credentials: {
-                  accessKeyId: process.env.APP_AWS_ACCESS_KEY_ID,
-                  secretAccessKey: process.env.APP_AWS_SECRET_ACCESS_KEY,
-              },
-          }
-        : {};
-
+// No IAM credentials needed — InitiateAuth and GetUser are public/token-authed endpoints
 const cognito = new CognitoIdentityProviderClient({
     region: process.env.NEXT_PUBLIC_AWS_REGION || "ap-south-1",
-    ...explicitCredentials,
 });
 
 const DOCTOR_POOL_ID = process.env.NEXT_PUBLIC_COGNITO_DOCTOR_POOL_ID!;
@@ -66,11 +56,10 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        // Fetch doctor profile from Cognito
+        // Fetch doctor profile using the access token — no IAM creds needed
         const userResult = await cognito.send(
-            new AdminGetUserCommand({
-                UserPoolId: DOCTOR_POOL_ID,
-                Username: username,
+            new GetUserCommand({
+                AccessToken: authResult.AuthenticationResult.AccessToken!,
             })
         );
 
