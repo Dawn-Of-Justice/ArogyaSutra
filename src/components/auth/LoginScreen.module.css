@@ -265,7 +265,50 @@
     box-shadow: 0 0 0 4px var(--color-accent-glow);
 }
 
-.hint {
+/* ---- Card ID prefix wrapper ---- */
+.cardInputWrap {
+    display: flex;
+    align-items: stretch;
+    border: 2px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-bg-secondary);
+    overflow: hidden;
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+.cardInputWrap:focus-within {
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 4px var(--color-accent-glow);
+}
+.cardPrefix {
+    display: flex;
+    align-items: center;
+    padding: var(--space-4) var(--space-2) var(--space-4) var(--space-4);
+    font-family: var(--font-mono);
+    font-size: var(--text-lg);
+    letter-spacing: 3px;
+    color: var(--color-text-secondary);
+    background: var(--color-bg-tertiary);
+    border-right: 1.5px solid var(--color-border);
+    user-select: none;
+    flex-shrink: 0;
+}
+.cardSuffixInput {
+    flex: 1;
+    min-width: 0;
+    padding: var(--space-4);
+    border: none;
+    background: transparent;
+    color: var(--color-text-primary);
+    font-size: var(--text-lg);
+    font-family: var(--font-mono);
+    letter-spacing: 3px;
+    text-align: center;
+    outline: none;
+}
+.cardSuffixInput::placeholder {
+    color: var(--color-text-tertiary);
+    letter-spacing: 3px;
+}
     font-size: var(--text-xs);
     color: var(--color-text-tertiary);
     text-align: center;

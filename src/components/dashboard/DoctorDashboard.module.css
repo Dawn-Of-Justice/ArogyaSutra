@@ -1060,6 +1060,50 @@
     box-shadow: 0 0 0 3px rgba(74, 144, 217, 0.15);
 }
 
+/* ---- Card ID prefix wrapper ---- */
+.cardInputWrap {
+    display: flex;
+    align-items: stretch;
+    border: 2px solid var(--dd-border);
+    border-radius: var(--radius-lg);
+    background: var(--dd-bg-card-alt);
+    overflow: hidden;
+    transition: border-color var(--transition-fast);
+}
+.cardInputWrap:focus-within {
+    border-color: var(--dd-accent);
+    box-shadow: 0 0 0 3px rgba(74, 144, 217, 0.15);
+}
+.cardPrefix {
+    display: flex;
+    align-items: center;
+    padding: var(--space-3) var(--space-2) var(--space-3) var(--space-4);
+    font-family: var(--font-mono);
+    font-size: var(--text-base);
+    letter-spacing: 2px;
+    color: var(--dd-text-muted);
+    background: var(--dd-bg-secondary);
+    border-right: 1.5px solid var(--dd-border);
+    user-select: none;
+    flex-shrink: 0;
+}
+.cardSuffixInput {
+    flex: 1;
+    min-width: 0;
+    padding: var(--space-3) var(--space-4);
+    border: none;
+    background: transparent;
+    color: var(--dd-text-primary);
+    font-size: var(--text-base);
+    font-family: var(--font-mono);
+    letter-spacing: 2px;
+    text-align: center;
+    outline: none;
+}
+.cardSuffixInput::placeholder {
+    color: var(--dd-text-muted);
+    letter-spacing: 2px;
+}
 .verifyInputNormal {
     font-family: var(--font-sans);
     letter-spacing: 0;
@@ -1067,6 +1111,8 @@
 }
 
 .verifyInputNormal::placeholder {
+    letter-spacing: 0;
+}
     letter-spacing: 0;
 }
 

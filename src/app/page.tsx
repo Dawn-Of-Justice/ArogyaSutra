@@ -31,6 +31,18 @@ function AppRouter() {
   const { t } = useLanguage();
   const [screen, setScreen] = useState("dashboard");
 
+  // Restore the last active screen on page refresh
+  useEffect(() => {
+    const saved = sessionStorage.getItem("app_screen");
+    if (saved) setScreen(saved);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Persist screen changes so refresh brings you back here
+  useEffect(() => {
+    sessionStorage.setItem("app_screen", screen);
+  }, [screen]);
+
   // Show the onboarding modal for accounts that haven't set their gender yet
   const [showOnboarding, setShowOnboarding] = useState(false);
   useEffect(() => {

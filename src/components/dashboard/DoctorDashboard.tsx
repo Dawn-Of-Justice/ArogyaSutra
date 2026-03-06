@@ -7,7 +7,7 @@
 "use client";
 
 import React, { useState, Suspense, lazy } from "react";
-import { isValidCardId, normalizeCardInput } from "../../lib/utils/cardId";
+import { isValidCardId, normalizeCardSuffix } from "../../lib/utils/cardId";
 import type { CheckupEntry } from "../../lib/aws/dynamodb";
 import { fmtDate, fmtDateShort } from "../../lib/utils/date";
 import { validateHeight, validateWeight, validateBpSys, validateBpDia, validateCommaList, validateMaxLen, firstError } from "../../lib/utils/validate";
@@ -262,7 +262,8 @@ interface Props {
 export default function DoctorDashboard({ onNavigate, doctorName, onPatientVerified, initialPatient, onPatientDataChange }: Props) {
     // Verification state
     const [verifyStep, setVerifyStep] = useState<VerifyStep>("card");
-    const [cardId, setCardId] = useState("");
+    const [cardId, setCardId] = useState(""); // stores suffix only: XXXX-XXXX-XXXX
+    const fullCardId = `AS-${cardId}`;
     const [dob, setDob] = useState("");
     const [otp, setOtp] = useState("");
     const [verifyError, setVerifyError] = useState("");
@@ -282,7 +283,7 @@ export default function DoctorDashboard({ onNavigate, doctorName, onPatientVerif
     // ---- Verification handlers ----
     const handleCardSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!isValidCardId(cardId)) return;
+        if (!isValidCardId(fullCardId)) return;
         setVerifyError("");
         setVerifyStep("dob");
     };
@@ -305,7 +306,7 @@ export default function DoctorDashboard({ onNavigate, doctorName, onPatientVerif
             await new Promise((r) => setTimeout(r, 800));
 
             // ---- Fetch real patient data from Cognito via server-side API ----
-            let patientName = cardId;
+            let patientName = fullCardId;
             let patientAge = 0;
             let patientGender = "Unknown";
             let patientPhone = "";
@@ -321,12 +322,12 @@ export default function DoctorDashboard({ onNavigate, doctorName, onPatientVerif
                 const res = await fetch("/api/patient/lookup", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ cardId }),
+                    body: JSON.stringify({ cardId: fullCardId }),
                 });
                 if (res.ok) {
                     const data = await res.json();
                     if (data.patient) {
-                        patientName = data.patient.name || cardId;
+                        patientName = data.patient.name || fullCardId;
                         patientAge = data.patient.age || 0;
                         patientGender = data.patient.gender || "Unknown";
                         patientPhone = data.patient.phone || "";
@@ -346,7 +347,7 @@ export default function DoctorDashboard({ onNavigate, doctorName, onPatientVerif
             // Fetch checkup history (sparklines)
             let checkupHistory: CheckupEntry[] = [];
             try {
-                const hr = await fetch(`/api/checkup?patientId=${encodeURIComponent(cardId)}&limit=12`);
+                const hr = await fetch(`/api/checkup?patientId=${encodeURIComponent(fullCardId)}&limit=12`);
                 if (hr.ok) {
                     const hd = await hr.json();
                     checkupHistory = hd.history || [];
@@ -354,7 +355,7 @@ export default function DoctorDashboard({ onNavigate, doctorName, onPatientVerif
             } catch { /* non-fatal */ }
 
             const verifiedPatient: PatientData = {
-                cardId,
+                cardId: fullCardId,
                 name: patientName,
                 age: patientAge,
                 gender: patientGender,
@@ -613,12 +614,15 @@ export default function DoctorDashboard({ onNavigate, doctorName, onPatientVerif
                             <form onSubmit={handleCardSubmit} className={styles.verifyForm}>
                                 <div>
                                     <label className={styles.verifyLabel}>Patient Card ID</label>
-                                    <input type="text" className={styles.verifyInput} placeholder="AS-XXXX-XXXX-XXXX"
-                                        value={cardId} onChange={(e) => setCardId(normalizeCardInput(e.target.value))}
-                                        maxLength={17} autoFocus />
+                                    <div className={styles.cardInputWrap}>
+                                        <span className={styles.cardPrefix}>AS-</span>
+                                        <input type="text" className={styles.cardSuffixInput} placeholder="XXXX-XXXX-XXXX"
+                                            value={cardId} onChange={(e) => setCardId(normalizeCardSuffix(e.target.value))}
+                                            maxLength={14} autoFocus />
+                                    </div>
                                 </div>
                                 <p className={styles.verifyHint}>Enter the Card ID from the patient&apos;s ArogyaSutra card</p>
-                                <button type="submit" className={styles.verifyBtn} disabled={!isValidCardId(cardId)}>Continue</button>
+                                <button type="submit" className={styles.verifyBtn} disabled={!isValidCardId(fullCardId)}>Continue</button>
                             </form>
                         )}
                         {verifyStep === "dob" && (

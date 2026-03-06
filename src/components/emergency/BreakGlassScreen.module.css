@@ -244,7 +244,46 @@
     box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12);
 }
 
-.textarea {
+/* ---- Card ID prefix wrapper ---- */
+.cardInputWrap {
+    display: flex;
+    align-items: stretch;
+    border: 1.5px solid var(--color-border);
+    border-radius: 9px;
+    background: var(--color-bg-tertiary);
+    overflow: hidden;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+.cardInputWrap:focus-within {
+    border-color: #dc2626;
+    box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12);
+}
+.cardPrefix {
+    display: flex;
+    align-items: center;
+    padding: 10px 8px 10px 13px;
+    font-size: 14px;
+    font-family: monospace;
+    color: var(--color-text-secondary);
+    background: var(--color-bg-secondary);
+    border-right: 1px solid var(--color-border);
+    user-select: none;
+    flex-shrink: 0;
+}
+.cardSuffixInput {
+    flex: 1;
+    min-width: 0;
+    padding: 10px 13px;
+    border: none;
+    background: transparent;
+    color: var(--color-text-primary);
+    font-size: 14px;
+    font-family: monospace;
+    outline: none;
+}
+.cardSuffixInput::placeholder {
+    color: var(--color-text-tertiary);
+}
     resize: vertical;
 }
 

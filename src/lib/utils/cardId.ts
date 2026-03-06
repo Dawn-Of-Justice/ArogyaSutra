@@ -50,3 +50,18 @@ export function normalizeCardInput(input: string): string {
 
     return `AS-${digits.slice(0, 4)}-${digits.slice(4, 8)}-${digits.slice(8, 12)}`;
 }
+
+/**
+ * Normalizes the suffix portion of a Card ID (everything after "AS-").
+ * Accepts digits and auto-formats to XXXX-XXXX-XXXX as the user types.
+ * Also handles pasting full 12-digit strings.
+ */
+export function normalizeCardSuffix(input: string): string {
+    const digits = input.replace(/[^0-9]/g, "").slice(0, 12);
+    const g1 = digits.slice(0, 4);
+    const g2 = digits.slice(4, 8);
+    const g3 = digits.slice(8, 12);
+    if (!g2) return g1;
+    if (!g3) return `${g1}-${g2}`;
+    return `${g1}-${g2}-${g3}`;
+}

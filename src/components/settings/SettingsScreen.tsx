@@ -170,7 +170,7 @@ export default function SettingsScreen({ onNavigate }: SettingsScreenProps) {
             const res = await fetch("/api/guardian/validate", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ guardianId: patientId, dependentCardId: depCardId, dependentDob: depDob }),
+                body: JSON.stringify({ guardianId: patientId, dependentCardId: `AS-${depCardId}`, dependentDob: depDob }),
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error ?? "Verification failed");
@@ -333,15 +333,22 @@ export default function SettingsScreen({ onNavigate }: SettingsScreenProps) {
                     {/* Add dependent form */}
                     {addingDep ? (
                         <form onSubmit={handleLinkDependent} className={styles.addDepForm}>
-                            <input
-                                className={styles.depInput}
-                                type="text"
-                                placeholder="Card ID — AS-XXXX-XXXX-XXXX"
-                                value={depCardId}
-                                onChange={(e) => setDepCardId(e.target.value.toUpperCase())}
-                                maxLength={17}
-                                required
-                            />
+                            <div className={styles.depCardWrap}>
+                                <span className={styles.depCardPrefix}>AS-</span>
+                                <input
+                                    className={styles.depCardSuffixInput}
+                                    type="text"
+                                    placeholder="XXXX-XXXX-XXXX"
+                                    value={depCardId}
+                                    onChange={(e) => {
+                                        const digits = e.target.value.replace(/[^0-9]/g, "").slice(0, 12);
+                                        const g1 = digits.slice(0, 4), g2 = digits.slice(4, 8), g3 = digits.slice(8, 12);
+                                        setDepCardId(!g2 ? g1 : !g3 ? `${g1}-${g2}` : `${g1}-${g2}-${g3}`);
+                                    }}
+                                    maxLength={14}
+                                    required
+                                />
+                            </div>
                             <div className={styles.addDepRow}>
                                 <input
                                     className={styles.depInput}

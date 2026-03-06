@@ -9,7 +9,7 @@
 import React, { useState } from "react";
 import { useAuth, type UserRole } from "../../hooks/useAuth";
 import { useCountdown } from "../../hooks/useCountdown";
-import { isValidCardId, normalizeCardInput } from "../../lib/utils/cardId";
+import { isValidCardId, normalizeCardSuffix } from "../../lib/utils/cardId";
 import LogoAnimated from "../common/LogoAnimated";
 import styles from "./LoginScreen.module.css";
 
@@ -27,7 +27,8 @@ export default function LoginScreen({ onEmergencyAccess }: LoginScreenProps) {
     const [mode, setMode] = useState<"login" | "register">("login");
 
     // Patient fields
-    const [cardId, setCardId] = useState("");
+    const [cardId, setCardId] = useState(""); // stores suffix only: XXXX-XXXX-XXXX
+    const fullCardId = `AS-${cardId}`;
     const [dob, setDob] = useState("");
     const [otp, setOtp] = useState("");
     const [maskedPhone, setMaskedPhone] = useState("");
@@ -58,20 +59,20 @@ export default function LoginScreen({ onEmergencyAccess }: LoginScreenProps) {
     // ---- Patient handlers ----
     const handleCardIdSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!isValidCardId(cardId)) return;
-        await initiateLogin(cardId);
+        if (!isValidCardId(fullCardId)) return;
+        await initiateLogin(fullCardId);
     };
 
     const handleDobSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        const challengeParams = await verifyDob(cardId, dob);
+        const challengeParams = await verifyDob(fullCardId, dob);
         if (challengeParams.maskedPhone) setMaskedPhone(challengeParams.maskedPhone);
         if (challengeParams.devOtp) setDevOtp(challengeParams.devOtp);
     };
 
     const handleOtpSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        await verifyOtp(cardId, otp);
+        await verifyOtp(fullCardId, otp);
     };
 
     // ---- Doctor handler ----
@@ -213,17 +214,20 @@ export default function LoginScreen({ onEmergencyAccess }: LoginScreenProps) {
                                 {state === "UNAUTHENTICATED" && (
                                     <form onSubmit={handleCardIdSubmit} className={styles.form}>
                                         <label className={styles.label}>ArogyaSutra Card ID</label>
-                                        <input
-                                            type="text"
-                                            className={styles.input}
-                                            placeholder="AS-XXXX-XXXX-XXXX"
-                                            value={cardId}
-                                            onChange={(e) => setCardId(normalizeCardInput(e.target.value))}
-                                            maxLength={17}
-                                            autoFocus
-                                        />
+                                        <div className={styles.cardInputWrap}>
+                                            <span className={styles.cardPrefix}>AS-</span>
+                                            <input
+                                                type="text"
+                                                className={styles.cardSuffixInput}
+                                                placeholder="XXXX-XXXX-XXXX"
+                                                value={cardId}
+                                                onChange={(e) => setCardId(normalizeCardSuffix(e.target.value))}
+                                                maxLength={14}
+                                                autoFocus
+                                            />
+                                        </div>
                                         <p className={styles.hint}>Enter the Card ID printed on your ArogyaSutra card</p>
-                                        <button type="submit" className={styles.button} disabled={isLoading || !isValidCardId(cardId)}>
+                                        <button type="submit" className={styles.button} disabled={isLoading || !isValidCardId(fullCardId)}>
                                             {isLoading ? "Verifying..." : "Continue"}
                                         </button>
                                     </form>

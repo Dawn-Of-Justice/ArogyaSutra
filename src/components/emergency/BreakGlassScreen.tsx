@@ -99,7 +99,7 @@ export default function BreakGlassScreen({ onClose }: Props) {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    patientId: form.patientId.toUpperCase().trim(),
+                    patientId: `AS-${form.patientId}`.toUpperCase().trim(),
                     mciNumber: form.mciNumber.trim(),
                     personnelName: form.name.trim(),
                     institution: form.institution.trim(),
@@ -182,15 +182,23 @@ export default function BreakGlassScreen({ onClose }: Props) {
                         <form onSubmit={handleSubmit} className={styles.form}>
                             <div className={styles.fieldGroup}>
                                 <label className={styles.label}>Patient ArogyaSutra Card ID</label>
-                                <input
-                                    className={styles.input}
-                                    placeholder="AS-XXXX-XXXX-XXXX"
-                                    value={form.patientId}
-                                    onChange={(e) => setForm({ ...form, patientId: e.target.value })}
-                                    required
-                                    autoFocus
-                                    maxLength={20}
-                                />
+                                <div className={styles.cardInputWrap}>
+                                    <span className={styles.cardPrefix}>AS-</span>
+                                    <input
+                                        className={styles.cardSuffixInput}
+                                        placeholder="XXXX-XXXX-XXXX"
+                                        value={form.patientId}
+                                        onChange={(e) => {
+                                            const digits = e.target.value.replace(/[^0-9]/g, "").slice(0, 12);
+                                            const g1 = digits.slice(0, 4), g2 = digits.slice(4, 8), g3 = digits.slice(8, 12);
+                                            const suffix = !g2 ? g1 : !g3 ? `${g1}-${g2}` : `${g1}-${g2}-${g3}`;
+                                            setForm({ ...form, patientId: suffix });
+                                        }}
+                                        required
+                                        autoFocus
+                                        maxLength={14}
+                                    />
+                                </div>
                             </div>
                             <div className={styles.row}>
                                 <div className={styles.fieldGroup}>
@@ -285,14 +293,14 @@ export default function BreakGlassScreen({ onClose }: Props) {
                             <div className={styles.patientHeaderInfo}>
                                 <p className={styles.patientName}>
                                     <span className={styles.patientNameText}>
-                                        {emergencyData.patientName || form.patientId.toUpperCase()}
+                                        {emergencyData.patientName || `AS-${form.patientId}`.toUpperCase()}
                                     </span>
                                     {emergencyData.patientAge != null && (
                                         <span className={styles.patientAge}>{emergencyData.patientAge} yrs</span>
                                     )}
                                 </p>
                                 <div className={styles.patientMeta}>
-                                    <span className={styles.patientIdPill}>{form.patientId.toUpperCase()}</span>
+                                    <span className={styles.patientIdPill}>{`AS-${form.patientId}`.toUpperCase()}</span>
                                     <span className={styles.patientMetaTag}>·</span>
                                     <span className={styles.patientMetaTag}>Critical-only view</span>
                                     <span className={styles.patientMetaTag}>·</span>
