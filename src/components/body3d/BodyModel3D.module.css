@@ -159,3 +159,133 @@
         transform: translateY(0);
     }
 }
+
+/* ======================================================
+   Interactive Body Map Overlay
+   ====================================================== */
+
+.bodyOverlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none; /* overlay itself is invisible — only hotspots capture events */
+    z-index: 5;
+}
+
+/* ---- Hotspot zones ---- */
+.hotspot {
+    position: absolute;
+    border-radius: 50%;
+    pointer-events: all;
+    cursor: pointer;
+    background: transparent;
+    transition: background 0.18s ease, box-shadow 0.18s ease;
+}
+
+.hotspot:hover,
+.hotspotHovered {
+    background: rgba(255, 107, 74, 0.12);
+    box-shadow: 0 0 0 1.5px rgba(255, 107, 74, 0.4);
+}
+
+/* Dashed ring shows this zone has records */
+.hotspotHasRecords::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    border: 1px dashed rgba(255, 107, 74, 0.3);
+    pointer-events: none;
+}
+
+.hotspotSelected {
+    background: rgba(255, 107, 74, 0.22);
+    box-shadow: 0 0 0 2px var(--brand-coral);
+}
+
+/* Record count badge */
+.hotspotBadge {
+    position: absolute;
+    top: 8%;
+    right: 8%;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 4px;
+    background: var(--brand-coral);
+    color: #fff;
+    border-radius: 9px;
+    font-size: 10px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    pointer-events: none;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+}
+
+/* ---- Hover tooltip ---- */
+.bodyTooltip {
+    position: absolute;
+    z-index: 20;
+    pointer-events: all;
+    background: var(--color-bg-primary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-3) var(--space-4);
+    min-width: 200px;
+    max-width: 250px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    animation: slideUp 0.18s ease-out;
+}
+
+.bodyTooltipTitle {
+    font-size: var(--text-sm);
+    font-weight: var(--font-semibold);
+    color: var(--color-text-primary);
+    padding-bottom: var(--space-1);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.bodyTooltipEmpty {
+    font-size: var(--text-xs);
+    color: var(--color-text-tertiary);
+}
+
+.bodyTooltipRecord {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.bodyTooltipDocType {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--brand-coral);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.bodyTooltipRecordTitle {
+    font-size: var(--text-xs);
+    color: var(--color-text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.bodyTooltipDate {
+    font-size: 10px;
+    color: var(--color-text-tertiary);
+    font-family: var(--font-mono);
+}
+
+.bodyTooltipMore {
+    font-size: var(--text-xs);
+    color: var(--brand-coral);
+    font-style: italic;
+    padding-top: var(--space-1);
+    border-top: 1px solid var(--color-border);
+}

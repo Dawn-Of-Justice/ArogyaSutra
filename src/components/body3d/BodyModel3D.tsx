@@ -19,11 +19,84 @@ export interface BodyAnnotation {
     date: string;
 }
 
+/** A simplified medical record passed into the body map for display */
+export interface MedicalRecord {
+    entryId: string;
+    title: string;
+    date: string;
+    documentType: string;
+    summary?: string;
+    sourceInstitution?: string;
+    bodyPart?: string;
+}
+
+/** A single interactive body zone on the overlay */
+interface BodyZone {
+    key: string;
+    label: string;
+    cx: number; // center x as % of container
+    cy: number; // center y as % of container
+    rx: number; // half-width %
+    ry: number; // half-height %
+}
+
+/**
+ * Body region hotspots — percentages calibrated against Three.js camera
+ * position [0, 0.5, 5] fov=38, model 3 units tall centered at y=0.
+ * Left/Right follow anatomical convention: patient's left = viewer's right.
+ */
+const BODY_ZONES: BodyZone[] = [
+    { key: "Head",      label: "Head / Brain",           cx: 50, cy: 12, rx: 10, ry: 10 },
+    { key: "Chest",     label: "Chest / Lungs / Heart",  cx: 50, cy: 31, rx: 16, ry: 10 },
+    { key: "Abdomen",   label: "Abdomen",                cx: 50, cy: 45, rx: 13, ry:  7 },
+    { key: "Pelvis",    label: "Pelvis / Hip",           cx: 50, cy: 57, rx: 13, ry:  6 },
+    { key: "Left Arm",  label: "Left Arm",               cx: 72, cy: 37, rx:  7, ry: 15 },
+    { key: "Right Arm", label: "Right Arm",              cx: 28, cy: 37, rx:  7, ry: 15 },
+    { key: "Left Leg",  label: "Left Leg",               cx: 55, cy: 77, rx:  7, ry: 16 },
+    { key: "Right Leg", label: "Right Leg",              cx: 43, cy: 77, rx:  7, ry: 16 },
+];
+
+/** Keywords used to fuzzy-match records to body zones */
+const BODY_PART_KEYWORDS: Record<string, string[]> = {
+    "Head":      ["head", "brain", "skull", "cranial", "neuro", "migraine", "headache", "eye", "ear", "nose", "throat", "ent", "dental", "jaw", "facial", "sinus", "ophthalmol"],
+    "Chest":     ["chest", "lung", "pulmonary", "respiratory", "cardiac", "heart", "ecg", "ekg", "echo", "bronch", "pleural", "thorax", "thoracic", "rib", "pericardial"],
+    "Abdomen":   ["abdomen", "abdominal", "liver", "kidney", "renal", "spleen", "pancreas", "gallbladder", "intestine", "bowel", "colon", "stomach", "gastro", "usg", "ultrasound"],
+    "Pelvis":    ["pelvis", "pelvic", "hip joint", "uterus", "ovary", "prostate", "bladder", "urinary"],
+    "Left Arm":  ["left arm", "left elbow", "left shoulder", "left wrist", "left forearm", "left hand", "left humerus", "left radius"],
+    "Right Arm": ["right arm", "right elbow", "right shoulder", "right wrist", "right forearm", "right hand", "right humerus", "right radius"],
+    "Left Leg":  ["left leg", "left knee", "left ankle", "left foot", "left femur", "left tibia", "left fibula"],
+    "Right Leg": ["right leg", "right knee", "right ankle", "right foot", "right femur", "right tibia", "right fibula"],
+};
+
+/** Return which body zones a record matches (can match more than one) */
+function getZonesForRecord(record: MedicalRecord): string[] {
+    const matches = new Set<string>();
+    const haystack = [record.title, record.bodyPart, record.summary]
+        .filter(Boolean).join(" ").toLowerCase();
+
+    for (const [zone, keywords] of Object.entries(BODY_PART_KEYWORDS)) {
+        if (keywords.some((kw) => haystack.includes(kw))) matches.add(zone);
+    }
+
+    // Direct bodyPart field — try prefix/contains match against zone keys
+    if (record.bodyPart) {
+        const bp = record.bodyPart.toLowerCase();
+        for (const zone of Object.keys(BODY_PART_KEYWORDS)) {
+            if (bp.includes(zone.toLowerCase()) || zone.toLowerCase().includes(bp)) {
+                matches.add(zone);
+            }
+        }
+    }
+
+    return Array.from(matches);
+}
+
 interface BodyModel3DProps {
     gender?: "male" | "female";
     annotations?: BodyAnnotation[];
-    onPartClick?: (part: string) => void;
+    onPartClick?: (part: string, records: MedicalRecord[]) => void;
     selectedPart?: string | null;
+    records?: MedicalRecord[];
 }
 
 // ---- Three.js JSON v3 format types ----
@@ -256,7 +329,31 @@ export default function BodyModel3D({
     annotations = [],
     onPartClick,
     selectedPart = null,
+    records = [],
 }: BodyModel3DProps) {
+    const [hoveredZone, setHoveredZone] = useState<string | null>(null);
+
+    // Map each zone key → list of matching records
+    const zoneRecords = useMemo(() => {
+        const map: Record<string, MedicalRecord[]> = {};
+        for (const r of records) {
+            for (const z of getZonesForRecord(r)) {
+                if (!map[z]) map[z] = [];
+                map[z].push(r);
+            }
+        }
+        return map;
+    }, [records]);
+
+    const hoveredDef = BODY_ZONES.find((z) => z.key === hoveredZone) ?? null;
+
+    // Position tooltip: right of zone if zone is in left half, left if in right half
+    const tooltipStyle = hoveredDef
+        ? hoveredDef.cx < 50
+            ? { left: `${hoveredDef.cx + hoveredDef.rx + 2}%`, top: `${hoveredDef.cy - hoveredDef.ry}%` }
+            : { right: `${100 - hoveredDef.cx + hoveredDef.rx + 2}%`, top: `${hoveredDef.cy - hoveredDef.ry}%` }
+        : {};
+
     return (
         <div className={styles.container}>
             <Canvas
@@ -266,6 +363,71 @@ export default function BodyModel3D({
             >
                 <Scene gender={gender} />
             </Canvas>
+
+            {/* Interactive body part overlay */}
+            <div className={styles.bodyOverlay}>
+                {BODY_ZONES.map((zone) => {
+                    const recs = zoneRecords[zone.key] ?? [];
+                    const hasRecords = recs.length > 0;
+                    const isHovered = hoveredZone === zone.key;
+                    const isSelected = selectedPart === zone.key;
+                    return (
+                        <div
+                            key={zone.key}
+                            title={zone.label}
+                            className={[
+                                styles.hotspot,
+                                hasRecords ? styles.hotspotHasRecords : "",
+                                isHovered ? styles.hotspotHovered : "",
+                                isSelected ? styles.hotspotSelected : "",
+                            ].filter(Boolean).join(" ")}
+                            style={{
+                                left:   `${zone.cx - zone.rx}%`,
+                                top:    `${zone.cy - zone.ry}%`,
+                                width:  `${zone.rx * 2}%`,
+                                height: `${zone.ry * 2}%`,
+                            }}
+                            onMouseEnter={() => setHoveredZone(zone.key)}
+                            onMouseLeave={() => setHoveredZone(null)}
+                            onClick={() => onPartClick?.(zone.key, recs)}
+                        >
+                            {hasRecords && (
+                                <span className={styles.hotspotBadge}>{recs.length}</span>
+                            )}
+                        </div>
+                    );
+                })}
+
+                {/* Hover tooltip */}
+                {hoveredZone && hoveredDef && (
+                    <div
+                        className={styles.bodyTooltip}
+                        style={tooltipStyle}
+                        onMouseEnter={() => setHoveredZone(hoveredZone)}
+                        onMouseLeave={() => setHoveredZone(null)}
+                    >
+                        <span className={styles.bodyTooltipTitle}>{hoveredDef.label}</span>
+                        {(zoneRecords[hoveredZone] ?? []).length === 0 ? (
+                            <span className={styles.bodyTooltipEmpty}>No records</span>
+                        ) : (
+                            <>
+                                {(zoneRecords[hoveredZone]).slice(0, 3).map((r) => (
+                                    <div key={r.entryId} className={styles.bodyTooltipRecord}>
+                                        <span className={styles.bodyTooltipDocType}>{r.documentType}</span>
+                                        <span className={styles.bodyTooltipRecordTitle}>{r.title}</span>
+                                        <span className={styles.bodyTooltipDate}>{r.date}</span>
+                                    </div>
+                                ))}
+                                {(zoneRecords[hoveredZone]).length > 3 && (
+                                    <span className={styles.bodyTooltipMore}>
+                                        +{(zoneRecords[hoveredZone]).length - 3} more — click to view all
+                                    </span>
+                                )}
+                            </>
+                        )}
+                    </div>
+                )}
+            </div>
         </div>
     );
 }

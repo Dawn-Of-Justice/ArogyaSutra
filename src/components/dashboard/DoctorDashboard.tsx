@@ -15,6 +15,7 @@ import styles from "./DoctorDashboard.module.css";
 
 // Lazy-load the 3D body model to avoid SSR issues with Three.js
 const BodyModel3D = lazy(() => import("../body3d/BodyModel3D"));
+import type { MedicalRecord } from "../body3d/BodyModel3D";
 
 // Dev mode OTP — in production, OTP comes from the patient's phone
 const DEV_OTP = process.env.NODE_ENV === "development" ? "000000" : null;
@@ -354,6 +355,24 @@ export default function DoctorDashboard({ onNavigate, doctorName, onPatientVerif
                 }
             } catch { /* non-fatal */ }
 
+            // Fetch timeline entries for body map (non-blocking)
+            fetch(`/api/timeline/entries?patientId=${encodeURIComponent(fullCardId)}&viewerType=DOCTOR&viewerId=${encodeURIComponent(doctorName ?? "")}&viewerName=${encodeURIComponent(doctorName ?? "")}`)
+                .then((r) => r.ok ? r.json() : null)
+                .then((data) => {
+                    if (!data?.entries) return;
+                    const recs: MedicalRecord[] = data.entries.map((e: Record<string, unknown>) => ({
+                        entryId:           e.entryId as string,
+                        title:             e.title as string,
+                        date:              e.date as string,
+                        documentType:      e.documentType as string,
+                        summary:           (e.metadata as Record<string, unknown>)?.summary as string | undefined,
+                        sourceInstitution: e.sourceInstitution as string | undefined,
+                        bodyPart:          (e.metadata as Record<string, unknown>)?.bodyPart as string | undefined,
+                    }));
+                    setTimelineRecords(recs);
+                })
+                .catch(() => { /* non-fatal */ });
+
             const verifiedPatient: PatientData = {
                 cardId: fullCardId,
                 name: patientName,
@@ -400,10 +419,18 @@ export default function DoctorDashboard({ onNavigate, doctorName, onPatientVerif
         setCardId("");
         setDob("");
         setOtp("");
+        setTimelineRecords([]);
+        setSelectedBodyPart(null);
+        setBodyPartRecords([]);
     };
 
     // Active annotation for body model
     const activeAnnotation = patient?.annotations?.[0] || null;
+
+    // ---- Body map: timeline records + selected part ----
+    const [timelineRecords, setTimelineRecords] = useState<MedicalRecord[]>([]);
+    const [selectedBodyPart, setSelectedBodyPart] = useState<string | null>(null);
+    const [bodyPartRecords, setBodyPartRecords] = useState<MedicalRecord[]>([]);
 
     // ---- Schedule appointment (doctor sets next visit) ----
     const [schedOpen, setSchedOpen] = useState(false);
@@ -679,6 +706,12 @@ export default function DoctorDashboard({ onNavigate, doctorName, onPatientVerif
                         }>
                             <BodyModel3D
                                 gender={patient.gender === "Female" ? "female" : "male"}
+                                records={timelineRecords}
+                                selectedPart={selectedBodyPart}
+                                onPartClick={(part, recs) => {
+                                    setSelectedBodyPart(part);
+                                    setBodyPartRecords(recs);
+                                }}
                             />
                         </Suspense>
                     ) : (
@@ -695,6 +728,45 @@ export default function DoctorDashboard({ onNavigate, doctorName, onPatientVerif
                                 <strong>{activeAnnotation.title}</strong>
                                 <span>{activeAnnotation.date}</span>
                             </div>
+                        </div>
+                    )}
+
+                    {/* Body part records drawer — slides up when a zone is clicked */}
+                    {selectedBodyPart && (
+                        <div className={styles.bodyPartPanel}>
+                            <div className={styles.bodyPartPanelHeader}>
+                                <span className={styles.bodyPartPanelTitle}>
+                                    {selectedBodyPart}
+                                    {bodyPartRecords.length > 0 && (
+                                        <span className={styles.bodyPartPanelCount}>{bodyPartRecords.length}</span>
+                                    )}
+                                </span>
+                                <button
+                                    className={styles.bodyPartPanelClose}
+                                    onClick={() => { setSelectedBodyPart(null); setBodyPartRecords([]); }}
+                                    aria-label="Close"
+                                >✕</button>
+                            </div>
+                            {bodyPartRecords.length === 0 ? (
+                                <p className={styles.bodyPartEmpty}>No records found for {selectedBodyPart}.</p>
+                            ) : (
+                                <div className={styles.bodyPartRecordList}>
+                                    {bodyPartRecords.map((r) => (
+                                        <div key={r.entryId} className={styles.bodyPartRecord}>
+                                            <span className={styles.bodyPartDocBadge}>{r.documentType}</span>
+                                            <div className={styles.bodyPartRecordInfo}>
+                                                <span className={styles.bodyPartRecordTitle}>{r.title}</span>
+                                                <span className={styles.bodyPartRecordMeta}>
+                                                    {r.date}{r.sourceInstitution ? ` · ${r.sourceInstitution}` : ""}
+                                                </span>
+                                                {r.summary && (
+                                                    <span className={styles.bodyPartRecordSummary}>{r.summary}</span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
