@@ -309,6 +309,8 @@
     color: var(--color-text-tertiary);
     letter-spacing: 3px;
 }
+
+.hint {
     font-size: var(--text-xs);
     color: var(--color-text-tertiary);
     text-align: center;

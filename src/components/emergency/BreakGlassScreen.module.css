@@ -284,6 +284,8 @@
 .cardSuffixInput::placeholder {
     color: var(--color-text-tertiary);
 }
+
+.textarea {
     resize: vertical;
 }
 
