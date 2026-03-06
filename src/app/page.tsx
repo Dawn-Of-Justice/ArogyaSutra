@@ -22,6 +22,7 @@ import SettingsScreen from "../components/settings/SettingsScreen";
 import HelpScreen from "../components/help/HelpScreen";
 import NotificationsScreen from "../components/notifications/NotificationsScreen";
 import AccessLogScreen from "../components/access/AccessLogScreen";
+import OnboardingModal from "../components/onboarding/OnboardingModal";
 
 // PAGE_TITLES are now derived from translations inside AppRouter
 
@@ -29,6 +30,14 @@ function AppRouter() {
   const { state, patient, doctor, userRole, hydrated } = useAuth();
   const { t } = useLanguage();
   const [screen, setScreen] = useState("dashboard");
+
+  // Show the onboarding modal for accounts that haven't set their gender yet
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  useEffect(() => {
+    if (state !== "AUTHENTICATED" || userRole !== "patient" || !patient?.patientId) return;
+    if (!patient.gender) setShowOnboarding(true);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state, patient?.patientId, patient?.gender]);
   // Active patient session for doctor — used to gate Records nav + AI context
   const [doctorActivePatient, setDoctorActivePatient] = useState<DoctorPatientContext | null>(null);
   // Full patient data — lifted here so it survives DoctorDashboard unmount/remount on navigation
@@ -140,6 +149,8 @@ function AppRouter() {
         </div>
       )}
       {activeScreen !== "assistant" && renderScreen()}
+      {/* First-login onboarding modal — patients only, shown once */}
+      {showOnboarding && <OnboardingModal onComplete={() => setShowOnboarding(false)} />}
     </AppShell>
   );
 }
