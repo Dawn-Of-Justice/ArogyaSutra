@@ -7,7 +7,7 @@
 
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useAuth } from "../../hooks/useAuth";
 import styles from "./OnboardingModal.module.css";
 import { User, HeartPulse, MapPin, Phone, ChevronRight, Check } from "lucide-react";
@@ -52,14 +52,54 @@ export default function OnboardingModal({ onComplete }: OnboardingModalProps) {
     const [city, setCity] = useState(patient?.address?.city ?? "");
     const [stateVal, setStateVal] = useState(patient?.address?.state ?? "");
     const [pincode, setPincode] = useState(patient?.address?.pincode ?? "");
+    const [pincodeLoading, setPincodeLoading] = useState(false);
     const [ecName, setEcName] = useState(patient?.emergencyContacts?.[0]?.name ?? "");
     const [ecPhone, setEcPhone] = useState(patient?.emergencyContacts?.[0]?.phone ?? "");
     const [ecRel, setEcRel] = useState(patient?.emergencyContacts?.[0]?.relationship ?? "");
 
+    // Auto-fill city + state from pincode (same as ProfileScreen)
+    useEffect(() => {
+        if (pincode.length !== 6 || !/^\d{6}$/.test(pincode)) return;
+        const controller = new AbortController();
+        setPincodeLoading(true);
+        fetch(`https://api.postalpincode.in/pincode/${pincode}`, { signal: controller.signal })
+            .then(r => r.json())
+            .then((data: Array<{ Status: string; PostOffice?: Array<{ State: string; District: string }> }>) => {
+                if (data?.[0]?.Status === "Success" && data[0].PostOffice?.length) {
+                    const po = data[0].PostOffice[0];
+                    if (po.State) setStateVal(po.State);
+                    if (po.District) setCity(po.District);
+                }
+            })
+            .catch(() => { /* ignore abort / network errors */ })
+            .finally(() => setPincodeLoading(false));
+        return () => controller.abort();
+    }, [pincode]);
+
     const stepIdx = STEPS.indexOf(step);
     const isLast = step === "emergency";
 
+    const validateStep = (): string => {
+        if (step === "health") {
+            const h = Number(height);
+            const w = Number(weight);
+            if (height && (h < 50 || h > 250)) return "Height must be between 50 and 250 cm.";
+            if (weight && (w < 2 || w > 300)) return "Weight must be between 2 and 300 kg.";
+        }
+        if (step === "location") {
+            if (pincode && !/^\d{6}$/.test(pincode)) return "Pincode must be exactly 6 digits.";
+        }
+        if (step === "emergency") {
+            if (ecName && ecName.trim().length < 2) return "Emergency contact name is too short.";
+            if (ecPhone && !/^\+?\d{10,15}$/.test(ecPhone.replace(/[\s-]/g, ""))) return "Enter a valid phone number (e.g. +919876543210).";
+        }
+        return "";
+    };
+
     const handleNext = () => {
+        const validationError = validateStep();
+        if (validationError) { setError(validationError); return; }
+        setError("");
         const next = STEPS[stepIdx + 1];
         if (next) setStep(next);
     };
@@ -70,7 +110,11 @@ export default function OnboardingModal({ onComplete }: OnboardingModalProps) {
     };
 
     const handleSkip = () => {
-        if (isLast) { handleSave(true); return; }
+        if (isLast) {
+            setError("");
+            handleSave(true);
+            return;
+        }
         handleNext();
     };
 
@@ -212,6 +256,8 @@ export default function OnboardingModal({ onComplete }: OnboardingModalProps) {
                                     onChange={(e) => setHeight(e.target.value)}
                                     min="50"
                                     max="250"
+                                    step="1"
+                                    inputMode="numeric"
                                 />
                             </div>
                             <div className={styles.field}>
@@ -224,6 +270,8 @@ export default function OnboardingModal({ onComplete }: OnboardingModalProps) {
                                     onChange={(e) => setWeight(e.target.value)}
                                     min="2"
                                     max="300"
+                                    step="0.1"
+                                    inputMode="decimal"
                                 />
                             </div>
                         </div>
@@ -241,6 +289,8 @@ export default function OnboardingModal({ onComplete }: OnboardingModalProps) {
                                 placeholder="e.g. Mumbai"
                                 value={city}
                                 onChange={(e) => setCity(e.target.value)}
+                                maxLength={50}
+                                autoComplete="address-level2"
                             />
                         </div>
                         <div className={styles.row2}>
@@ -252,6 +302,8 @@ export default function OnboardingModal({ onComplete }: OnboardingModalProps) {
                                     placeholder="e.g. Maharashtra"
                                     value={stateVal}
                                     onChange={(e) => setStateVal(e.target.value)}
+                                    maxLength={50}
+                                    autoComplete="address-level1"
                                 />
                             </div>
                             <div className={styles.field}>
@@ -261,9 +313,13 @@ export default function OnboardingModal({ onComplete }: OnboardingModalProps) {
                                     type="text"
                                     placeholder="e.g. 400001"
                                     value={pincode}
-                                    onChange={(e) => setPincode(e.target.value)}
+                                    onChange={(e) => setPincode(e.target.value.replace(/\D/g, ""))}
                                     maxLength={6}
+                                    inputMode="numeric"
+                                    pattern="\d{6}"
+                                    autoComplete="postal-code"
                                 />
+                                {pincodeLoading && <span style={{ fontSize: "var(--text-xs)", color: "var(--color-text-secondary)" }}>Looking up…</span>}
                             </div>
                         </div>
                     </div>
@@ -283,6 +339,8 @@ export default function OnboardingModal({ onComplete }: OnboardingModalProps) {
                                 placeholder="e.g. Priya Sharma"
                                 value={ecName}
                                 onChange={(e) => setEcName(e.target.value)}
+                                maxLength={60}
+                                autoComplete="name"
                             />
                         </div>
                         <div className={styles.row2}>
@@ -294,6 +352,9 @@ export default function OnboardingModal({ onComplete }: OnboardingModalProps) {
                                     placeholder="+91XXXXXXXXXX"
                                     value={ecPhone}
                                     onChange={(e) => setEcPhone(e.target.value)}
+                                    maxLength={15}
+                                    inputMode="tel"
+                                    autoComplete="tel"
                                 />
                             </div>
                             <div className={styles.field}>
@@ -304,6 +365,7 @@ export default function OnboardingModal({ onComplete }: OnboardingModalProps) {
                                     placeholder="e.g. Spouse"
                                     value={ecRel}
                                     onChange={(e) => setEcRel(e.target.value)}
+                                    maxLength={30}
                                 />
                             </div>
                         </div>

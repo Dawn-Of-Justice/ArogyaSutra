@@ -893,7 +893,7 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
                                         <span className={styles.emergencySectionLabel}>Allergies</span>
                                         {emergencyAllergies.length > 0 ? (
                                             <div className={styles.tagList}>
-                                                {emergencyAllergies.map((a, i) => <span key={i} className={styles.tagAllergy}>{a}</span>)}
+                                                {emergencyAllergies.map((a, i) => <span key={i} className={styles.tagAllergy} title={a}>{a}</span>)}
                                             </div>
                                         ) : <span className={styles.emergencyEmpty}>None recorded</span>}
                                     </div>
@@ -901,7 +901,7 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
                                         <span className={styles.emergencySectionLabel}>Critical Medications</span>
                                         {emergencyCriticalMeds.length > 0 ? (
                                             <div className={styles.tagList}>
-                                                {emergencyCriticalMeds.map((m, i) => <span key={i} className={styles.tagMed}>{m}</span>)}
+                                                {emergencyCriticalMeds.map((m, i) => <span key={i} className={styles.tagMed} title={m}>{m}</span>)}
                                             </div>
                                         ) : <span className={styles.emergencyEmpty}>None recorded</span>}
                                     </div>

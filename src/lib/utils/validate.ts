@@ -69,7 +69,7 @@ export function validateBpDia(v: string, sys: string): string | null {
 export function validateCommaList(
     v: string,
     label: string,
-    { itemMax = 100, listMax = 500, count = 20 } = {}
+    { itemMax = 50, listMax = 500, count = 20 } = {}
 ): string | null {
     if (!v.trim()) return null;
     if (v.length > listMax) return `${label} must not exceed ${listMax} characters total.`;
