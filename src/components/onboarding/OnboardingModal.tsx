@@ -134,8 +134,11 @@ export default function OnboardingModal({ onComplete }: OnboardingModalProps) {
     return (
         <div className={styles.overlay}>
             <div className={styles.modal}>
+                <div className={styles.accentBar} />
+                <div className={styles.body}>
                 {/* Header */}
                 <div className={styles.header}>
+                    <span className={styles.brandBadge}>✦ ArogyaSutra</span>
                     <h2 className={styles.title}>Complete Your Profile</h2>
                     <p className={styles.subtitle}>
                         Help us personalise your experience — takes about 1 minute
@@ -143,18 +146,20 @@ export default function OnboardingModal({ onComplete }: OnboardingModalProps) {
                 </div>
 
                 {/* Step indicator */}
-                <div className={styles.steps}>
-                    {STEPS.map((s, i) => (
-                        <div
-                            key={s}
-                            className={`${styles.stepDot} ${i < stepIdx ? styles.stepDone : ""} ${s === step ? styles.stepActive : ""}`}
-                            title={STEP_LABELS[s]}
-                        >
-                            {i < stepIdx ? <Check size={11} /> : STEP_ICONS[s]}
-                        </div>
-                    ))}
+                <div className={styles.stepsWrap}>
+                    <div className={styles.stepsTrack}>
+                        {STEPS.map((s, i) => (
+                            <div
+                                key={s}
+                                className={`${styles.stepDot} ${i < stepIdx ? styles.stepDone : ""} ${s === step ? styles.stepActive : ""}`}
+                                title={STEP_LABELS[s]}
+                            >
+                                {i < stepIdx ? <Check size={14} /> : STEP_ICONS[s]}
+                            </div>
+                        ))}
+                    </div>
+                    <p className={styles.stepLabel}>{STEP_LABELS[step]}</p>
                 </div>
-                <p className={styles.stepLabel}>{STEP_LABELS[step]}</p>
 
                 {/* ---- Step: Personal ---- */}
                 {step === "personal" && (
@@ -169,7 +174,8 @@ export default function OnboardingModal({ onComplete }: OnboardingModalProps) {
                                         className={`${styles.genderBtn} ${gender === g ? styles.genderBtnActive : ""}`}
                                         onClick={() => setGender(g)}
                                     >
-                                        {g === "male" ? "♂ Male" : g === "female" ? "♀ Female" : "⊹ Other"}
+                                        <span className={styles.genderIcon}>{g === "male" ? "♂" : g === "female" ? "♀" : "⊹"}</span>
+                                        {g === "male" ? "Male" : g === "female" ? "Female" : "Other"}
                                     </button>
                                 ))}
                             </div>
@@ -182,7 +188,7 @@ export default function OnboardingModal({ onComplete }: OnboardingModalProps) {
                     <div className={styles.form}>
                         <div className={styles.field}>
                             <label className={styles.label}>Blood Group</label>
-                            <div className={styles.chipRow}>
+                            <div className={styles.chipGrid}>
                                 {BLOOD_GROUPS.map((bg) => (
                                     <button
                                         key={bg}
@@ -330,6 +336,7 @@ export default function OnboardingModal({ onComplete }: OnboardingModalProps) {
                             </button>
                         )}
                     </div>
+                </div>
                 </div>
             </div>
         </div>
