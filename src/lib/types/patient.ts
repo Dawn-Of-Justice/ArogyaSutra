@@ -36,7 +36,7 @@ export interface Patient {
     fullName: string;
     dateOfBirth: string; // ISO 8601 date only (YYYY-MM-DD)
     phone: string; // +91XXXXXXXXXX
-    gender: "male" | "female" | "other";
+    gender: "male" | "female" | "other" | "";  // '' = not yet set (shows onboarding modal)
     address: Address;
     language: Language;
     emergencyContacts: EmergencyContact[];
@@ -55,7 +55,7 @@ export interface PatientRegistration {
     fullName: string;
     dateOfBirth: string;
     phone: string;
-    gender: "male" | "female" | "other";
+    gender: "male" | "female" | "other" | "";
     address: Address;
     language: Language;
     emergencyContacts: EmergencyContact[];
