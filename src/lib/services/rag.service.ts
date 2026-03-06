@@ -5,7 +5,6 @@
 // ============================================================
 
 import { generateInsights, invokeModel, type RAGContext } from "../aws/bedrock";
-import * as healthlake from "../aws/healthlake";
 import { logAccess, patientActor, doctorActor } from "./audit.service";
 import { ragQuery as agenticRagQuery } from "../rag/engine";
 import type {
@@ -144,26 +143,9 @@ export function getConversation(
 // ---- Internal ----
 
 /** Fetch minimal RAGContext objects for the Bedrock insights endpoint. */
-async function fetchInsightContexts(patientId: string): Promise<RAGContext[]> {
-    try {
-        const resources = await healthlake.getPatientTimeline(patientId);
-        return resources.slice(0, 10).map((resource, i) => ({
-            entryId: (resource.id as string) || `ctx-${i}`,
-            title:
-                (resource.description as string) ||
-                (resource.code as { text?: string })?.text ||
-                (resource.resourceType as string),
-            date:
-                (resource.effectiveDateTime as string) ||
-                (resource.date as string) ||
-                (resource.recordedDate as string) ||
-                "",
-            content: JSON.stringify(resource).slice(0, 500),
-            documentType: resource.resourceType as string,
-        }));
-    } catch {
-        return [];
-    }
+async function fetchInsightContexts(_patientId: string): Promise<RAGContext[]> {
+    // HealthLake removed — insights use DynamoDB-backed RAG engine instead
+    return [];
 }
 
 /**

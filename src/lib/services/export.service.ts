@@ -3,7 +3,6 @@
 // PDF and FHIR JSON exports with client-side decryption
 // ============================================================
 
-import * as healthlake from "../aws/healthlake";
 import { downloadEncryptedBlob, getDocumentKey } from "../aws/s3";
 import { deserializeBlob, decrypt } from "../crypto/aesGcm";
 import { logAccess, patientActor } from "./audit.service";

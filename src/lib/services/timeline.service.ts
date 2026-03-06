@@ -4,10 +4,9 @@
 // ============================================================
 
 import { uploadEncryptedBlob, downloadEncryptedBlob, getDocumentKey, getOriginalPhotoKey } from "../aws/s3";
-import * as healthlake from "../aws/healthlake";
 import { serializeBlob, deserializeBlob, encrypt, decrypt, encryptString } from "../crypto/aesGcm";
 import { logAccess, patientActor } from "./audit.service";
-import { processDocument, toFhirBundle, generatePreview } from "./medvision.service";
+import { processDocument, generatePreview } from "./medvision.service";
 import type {
     HealthEntry,
     TimelineRequest,
@@ -66,22 +65,9 @@ export async function confirmAndSave(
     const extraction = preview.extractionResult;
     const date = documentDate || extraction.clinicalEntities.date || new Date().toISOString();
 
-    // 1. Convert to FHIR and store in HealthLake
+    // 1. Build the timeline entry
     const docKey = getDocumentKey(patientId, entryId);
-    const fhirBundle = toFhirBundle(extraction, patientId, date, docKey);
     const fhirResourceIds: string[] = [];
-
-    if (fhirBundle.entry) {
-        for (const entry of fhirBundle.entry) {
-            const created = await healthlake.createFhirResource(
-                entry.resource.resourceType,
-                entry.resource as unknown as Record<string, unknown>
-            );
-            if (created.id) fhirResourceIds.push(created.id as string);
-        }
-    }
-
-    // 2. Build the timeline entry
     const statusFlags: StatusFlag[] = [];
     if (extraction.overallConfidence >= 70) statusFlags.push("AI-READ");
     if (extraction.clinicalEntities.medications.some(
