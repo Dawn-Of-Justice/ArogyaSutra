@@ -837,10 +837,11 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
                                 <span className={styles.cardTitleIcon}><AlertTriangle size={16} /></span>
                                 Emergency Info
                             </h2>
-                            <button className={`${styles.editToggle} ${emergencyEditing ? styles.editToggleActive : ""}`} onClick={handleEditEmergency}>
-                                {emergencyEditing ? <X size={13} /> : <Pencil size={13} />}
-                                {emergencyEditing ? "Cancel" : "Edit"}
-                            </button>
+                            {!emergencyEditing && (
+                                <button className={styles.editToggle} onClick={handleEditEmergency}>
+                                    <Pencil size={13} /> Edit
+                                </button>
+                            )}
                         </div>
 
                         {!emergencyEditing && (
@@ -940,19 +941,20 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
                                 <span className={styles.cardTitleIcon}><Shield size={16} /></span>
                                 Emergency Contacts
                             </h2>
-                            <button
-                                className={`${styles.editToggle} ${contactsEditing ? styles.editToggleActive : ""}`}
-                                onClick={() => {
-                                    if (contactsEditing) { setContactsEditing(false); return; }
-                                    setEditContacts(patient.emergencyContacts ? [...patient.emergencyContacts] : []);
-                                    setNewContact({name:'',relationship:'',phone:''});
-                                    setContactsError('');
-                                    setContactsSaved(false);
-                                    setContactsEditing(true);
-                                }}
-                            >
-                                {contactsEditing ? <><X size={14} /> Cancel</> : <><Pencil size={14} /> Edit</>}
-                            </button>
+                            {!contactsEditing && (
+                                <button
+                                    className={styles.editToggle}
+                                    onClick={() => {
+                                        setEditContacts(patient.emergencyContacts ? [...patient.emergencyContacts] : []);
+                                        setNewContact({name:'',relationship:'',phone:''});
+                                        setContactsError('');
+                                        setContactsSaved(false);
+                                        setContactsEditing(true);
+                                    }}
+                                >
+                                    <Pencil size={14} /> Edit
+                                </button>
+                            )}
                         </div>
 
                         {contactsEditing ? (
