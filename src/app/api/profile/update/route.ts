@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import * as cognito from "../../../../lib/aws/cognito";
+import * as dynamodb from "../../../../lib/aws/dynamodb";
 
 export async function POST(req: NextRequest) {
     try {
@@ -44,8 +45,17 @@ export async function POST(req: NextRequest) {
                 line1: updates.line1,
                 allergies: updates.allergies,
                 criticalMeds: updates.criticalMeds,
-                emergencyContacts: updates.emergencyContacts,
             });
+
+            // emergency contacts stored in DynamoDB (custom:emergency_contacts not in Cognito schema)
+            if (updates.emergencyContacts !== undefined) {
+                try {
+                    const contacts = JSON.parse(updates.emergencyContacts || "[]");
+                    await dynamodb.putEmergencyContacts(userId, contacts);
+                } catch {
+                    console.warn("[/api/profile/update] Failed to parse emergencyContacts JSON");
+                }
+            }
         } else if (role === "doctor") {
             // When a doctor updates a *patient's* vitals and health info
             if (updates.targetPatientId) {

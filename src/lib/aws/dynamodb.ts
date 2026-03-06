@@ -259,6 +259,32 @@ export async function putNotifReadIds(userId: string, readIds: number[]): Promis
     );
 }
 
+/** Get emergency contacts for a user. Stored in PREFS_TABLE (custom:emergency_contacts is not in Cognito schema). */
+export async function getEmergencyContacts(userId: string): Promise<object[]> {
+    const result = await dynamodb.send(
+        new GetCommand({
+            TableName: PREFS_TABLE,
+            Key: { userId, prefType: "emergency_contacts" },
+        })
+    );
+    return (result.Item?.contacts as object[]) || [];
+}
+
+/** Persist emergency contacts for a user in PREFS_TABLE. */
+export async function putEmergencyContacts(userId: string, contacts: object[]): Promise<void> {
+    await dynamodb.send(
+        new PutCommand({
+            TableName: PREFS_TABLE,
+            Item: {
+                userId,
+                prefType: "emergency_contacts",
+                contacts,
+                updatedAt: new Date().toISOString(),
+            },
+        })
+    );
+}
+
 /** Store a Break-Glass audit log. */
 export async function putBreakGlassLog(log: BreakGlassLog): Promise<void> {
     await dynamodb.send(

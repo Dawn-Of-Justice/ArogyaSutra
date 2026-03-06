@@ -4,7 +4,7 @@ export * as s3 from "./s3";
 export * as textract from "./textract";
 export * as comprehend from "./comprehend";
 export * as bedrock from "./bedrock";
-export * as healthlake from "./healthlake";
+// export * as healthlake from "./healthlake"; // HealthLake removed — not available in ap-south-1
 export * as sns from "./sns";
 export * as dynamodb from "./dynamodb";
 export * as kms from "./kms";

@@ -162,7 +162,7 @@ export async function updatePatientAttributes(
         line1?: string;
         allergies?: string;
         criticalMeds?: string;
-        emergencyContacts?: string; // JSON string of EmergencyContact[]
+        // emergencyContacts is stored in DynamoDB (custom:emergency_contacts not in Cognito schema)
     }
 ): Promise<void> {
     const attrs: { Name: string; Value: string }[] = [];
@@ -182,7 +182,7 @@ export async function updatePatientAttributes(
     if (updates.line1 !== undefined) attrs.push({ Name: "custom:address_line1", Value: updates.line1 });
     if (updates.allergies !== undefined) attrs.push({ Name: "custom:allergies", Value: updates.allergies });
     if (updates.criticalMeds !== undefined) attrs.push({ Name: "custom:critical_meds", Value: updates.criticalMeds });
-    if (updates.emergencyContacts !== undefined) attrs.push({ Name: "custom:emergency_contacts", Value: updates.emergencyContacts });
+    // emergencyContacts is stored in DynamoDB — not set in Cognito
 
     if (attrs.length === 0) return;
 

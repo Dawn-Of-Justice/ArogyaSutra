@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import * as cognito from "../../../../lib/aws/cognito";
+import * as dynamodb from "../../../../lib/aws/dynamodb";
 
 export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
@@ -18,7 +19,10 @@ export async function GET(req: NextRequest) {
 
     try {
         if (role === "patient") {
-            const user = await cognito.getPatientUser(userId);
+            const [user, emergencyContacts] = await Promise.all([
+                cognito.getPatientUser(userId),
+                dynamodb.getEmergencyContacts(userId),
+            ]);
             const attr = (name: string) =>
                 user.UserAttributes?.find((a) => a.Name === name)?.Value || "";
 
@@ -42,10 +46,7 @@ export async function GET(req: NextRequest) {
                 bpSystolic: attr("custom:bp_systolic") || undefined,
                 bpDiastolic: attr("custom:bp_diastolic") || undefined,
                 temperature: attr("custom:temperature") || undefined,
-                emergencyContacts: (() => {
-                    try { return JSON.parse(attr("custom:emergency_contacts") || "[]"); }
-                    catch { return []; }
-                })(),
+                emergencyContacts,
                 createdAt: user.UserCreateDate?.toISOString() || "",
                 updatedAt: user.UserLastModifiedDate?.toISOString() || "",
             };
