@@ -7,15 +7,18 @@
 
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useCountdown } from "../../hooks/useCountdown";
 import type { BreakGlassResponse, GeoLocation } from "../../lib/types/emergency";
 import { fmtDate } from "../../lib/utils/date";
+import LogoAnimated from "../common/LogoAnimated";
 import styles from "./BreakGlassScreen.module.css";
 
 interface Props {
     onClose: () => void;
 }
+
+const BG_STORAGE_KEY = "bg_personnel";
 
 export default function BreakGlassScreen({ onClose }: Props) {
     const [step, setStep] = useState<"credentials" | "data">("credentials");
@@ -26,6 +29,17 @@ export default function BreakGlassScreen({ onClose }: Props) {
         patientId: "",
         reason: "Unconscious / Unresponsive patient",
     });
+
+    // Pre-fill saved personnel details on mount
+    useEffect(() => {
+        try {
+            const saved = localStorage.getItem(BG_STORAGE_KEY);
+            if (saved) {
+                const { mciNumber, name, institution } = JSON.parse(saved);
+                setForm((f) => ({ ...f, mciNumber: mciNumber || "", name: name || "", institution: institution || "" }));
+            }
+        } catch { /* ignore corrupt data */ }
+    }, []);
     const [emergencyData, setEmergencyData] = useState<BreakGlassResponse["emergencyData"] & {
         patientName?: string;
         patientAge?: number | null;
@@ -97,6 +111,15 @@ export default function BreakGlassScreen({ onClose }: Props) {
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || "Emergency access denied");
 
+            // Persist personnel details for future use
+            try {
+                localStorage.setItem(BG_STORAGE_KEY, JSON.stringify({
+                    mciNumber: form.mciNumber.trim(),
+                    name: form.name.trim(),
+                    institution: form.institution.trim(),
+                }));
+            } catch { /* storage full — ignore */ }
+
             setEmergencyData(data.emergencyData);
             setSessionId(data.sessionId);
             setStep("data");
@@ -117,7 +140,7 @@ export default function BreakGlassScreen({ onClose }: Props) {
             {/* ─── Header ─── */}
             <div className={styles.header}>
                 <div className={styles.headerLogo}>
-                    <div className={styles.headerCross} aria-hidden="true" />
+                    <LogoAnimated width={52} showText={false} background="none" idSuffix="bg" />
                     <span className={styles.headerBrandName}>ArogyaSutra</span>
                 </div>
                 <div className={styles.headerDivider} />
@@ -132,10 +155,14 @@ export default function BreakGlassScreen({ onClose }: Props) {
             <div className={styles.body}>
                 {step === "credentials" && (
                     <div className={styles.panel}>
+                        {/* Logo — matches login screen branding */}
+                        <div className={styles.panelBrand}>
+                            <LogoAnimated width={200} background="none" idSuffix="bg2" />
+                        </div>
+
                         {/* Panel hero */}
                         <div className={styles.panelHero}>
-                            <div className={styles.panelHeroIcon}>🚨</div>
-                            <h1 className={styles.panelHeroTitle}>Break-Glass Emergency Access</h1>
+                            <h1 className={styles.panelHeroTitle}>🚨 Break-Glass Emergency Access</h1>
                             <p className={styles.panelHeroSub}>
                                 For authorised first responders only. All access is cryptographically logged,
                                 geolocation-stamped, and the patient is notified immediately.
