@@ -43,7 +43,9 @@ export default function OnboardingModal({ onComplete }: OnboardingModalProps) {
     const [error, setError] = useState("");
 
     // ---- Form state ----
-    const [gender, setGender] = useState<"male" | "female" | "other">(patient?.gender ?? "other");
+    const [gender, setGender] = useState<"male" | "female" | "other">(
+        (patient?.gender as "male" | "female" | "other") || "other"
+    );
     const [bloodGroup, setBloodGroup] = useState(patient?.bloodGroup ?? "");
     const [height, setHeight] = useState(patient?.height ?? "");
     const [weight, setWeight] = useState(patient?.weight ?? "");

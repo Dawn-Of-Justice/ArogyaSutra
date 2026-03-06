@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
                 fullName: attr("name"),
                 dateOfBirth: attr("birthdate"),
                 phone: attr("phone_number"),
-                gender: attr("gender") || "other",
+                gender: attr("gender") || "",
                 language: attr("custom:language") || "en",
                 address: {
                     line1: attr("custom:address_line1"),

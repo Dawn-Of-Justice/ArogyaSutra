@@ -196,7 +196,7 @@ export async function verifyOTP(
             patient = {
                 ...(profile as Patient),
                 // Ensure type safety for union fields
-                gender: (profile.gender || "other") as "male" | "female" | "other",
+                gender: (profile.gender || "") as "male" | "female" | "other",
                 language: (profile.language || "en") as import("../types/patient").Language,
                 emergencyContacts: profile.emergencyContacts ?? [],
             };
@@ -208,7 +208,7 @@ export async function verifyOTP(
                 fullName: "",
                 dateOfBirth: "",
                 phone: "",
-                gender: "other",
+                gender: "",
                 address: { line1: "", city: "", state: "", pincode: "", country: "IN" },
                 language: "en",
                 emergencyContacts: [],
