@@ -345,7 +345,7 @@ export default function SettingsScreen({ onNavigate }: SettingsScreenProps) {
                                         const g1 = digits.slice(0, 4), g2 = digits.slice(4, 8), g3 = digits.slice(8, 12);
                                         setDepCardId(!g2 ? g1 : !g3 ? `${g1}-${g2}` : `${g1}-${g2}-${g3}`);
                                     }}
-                                    maxLength={14}
+                                    maxLength={17}
                                     required
                                 />
                             </div>

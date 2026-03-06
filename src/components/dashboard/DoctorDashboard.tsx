@@ -747,7 +747,7 @@ export default function DoctorDashboard({ onNavigate, doctorName, onPatientVerif
                                         <span className={styles.cardPrefix}>AS-</span>
                                         <input type="text" className={styles.cardSuffixInput} placeholder="XXXX-XXXX-XXXX"
                                             value={cardId} onChange={(e) => setCardId(normalizeCardSuffix(e.target.value))}
-                                            maxLength={14} autoFocus />
+                                            maxLength={17} autoFocus />
                                     </div>
                                 </div>
                                 <p className={styles.verifyHint}>Enter the Card ID from the patient&apos;s ArogyaSutra card</p>

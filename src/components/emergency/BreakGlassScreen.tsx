@@ -196,7 +196,7 @@ export default function BreakGlassScreen({ onClose }: Props) {
                                         }}
                                         required
                                         autoFocus
-                                        maxLength={14}
+                                        maxLength={17}
                                     />
                                 </div>
                             </div>

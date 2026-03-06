@@ -222,7 +222,7 @@ export default function LoginScreen({ onEmergencyAccess }: LoginScreenProps) {
                                                 placeholder="XXXX-XXXX-XXXX"
                                                 value={cardId}
                                                 onChange={(e) => setCardId(normalizeCardSuffix(e.target.value))}
-                                                maxLength={14}
+                                                maxLength={17}
                                                 autoFocus
                                             />
                                         </div>
