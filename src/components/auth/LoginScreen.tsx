@@ -72,7 +72,11 @@ export default function LoginScreen({ onEmergencyAccess }: LoginScreenProps) {
 
     const handleOtpSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        await verifyOtp(fullCardId, otp);
+        try {
+            await verifyOtp(fullCardId, otp);
+        } catch {
+            // error is already set in auth context
+        }
     };
 
     // ---- Doctor handler ----

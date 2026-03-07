@@ -254,6 +254,16 @@ export async function verifyOTP(
             // Non-blocking
         }
 
+        const cognitoMsg = error instanceof Error ? error.message : String(error);
+        console.error("[verifyOTP] Cognito challenge failed:", cognitoMsg);
+
+        if (
+            cognitoMsg.includes("NotAuthorizedException") ||
+            cognitoMsg.includes("session") ||
+            cognitoMsg.includes("Session")
+        ) {
+            throw new Error("AUTH_SESSION_EXPIRED: OTP session expired. Please restart login.");
+        }
         throw new Error("AUTH_OTP_INVALID: Incorrect OTP");
     }
 }

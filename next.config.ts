@@ -25,6 +25,10 @@ const nextConfig: NextConfig = withPWA({
   },
   turbopack: {},
 
+  // Allow cross-origin requests from local network devices (e.g. phone/tablet on same Wi-Fi).
+  // Add any additional local IPs here as needed.
+  allowedDevOrigins: ["192.168.0.130"],
+
   // Non-secret env vars that Amplify's SSR Lambda needs at runtime.
   // DO NOT put AWS credentials here — they would be baked as plain text into
   // the server bundle. Set APP_AWS_ACCESS_KEY_ID / APP_AWS_SECRET_ACCESS_KEY

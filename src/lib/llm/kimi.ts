@@ -1,7 +1,7 @@
 // ============================================================
-// Kimi K2 LLM Client — via Amazon Bedrock
+// Kimi K2.5 LLM Client — via Amazon Bedrock
 // Uses Bedrock ConverseCommand (standard chat interface).
-// Falls back to Amazon Nova Pro on any error.
+// Falls back to MiniMax Devstral-2-125B on any error.
 // ============================================================
 
 import {
@@ -11,7 +11,6 @@ import {
     type Message,
     type SystemContentBlock,
 } from "@aws-sdk/client-bedrock-runtime";
-import { invokeModel, type RAGContext } from "../aws/bedrock";
 
 // --------------- Types ---------------
 
@@ -57,10 +56,15 @@ const bedrockRegion = ["us-east-1", "us-west-2"].includes(
 
 const kimiClient = new BedrockRuntimeClient({ region: bedrockRegion, ..._appCreds });
 
-// Kimi K2.5 base model on Bedrock (confirmed ACTIVE via list-foundation-models)
+// Kimi K2.5 base model on Bedrock
 // Override with KIMI_BEDROCK_MODEL env var if needed
 const KIMI_MODEL_ID =
     process.env.KIMI_BEDROCK_MODEL || "moonshotai.kimi-k2.5";
+
+// MiniMax Devstral-2-125B — backup model if Kimi K2.5 is unavailable
+// Override with MINIMAX_BEDROCK_MODEL env var if needed
+const MINIMAX_MODEL_ID =
+    process.env.MINIMAX_BEDROCK_MODEL || "minimax.devstral-2-125b";
 
 // --------------- Core chat completion ---------------
 
@@ -72,14 +76,19 @@ export async function complete(
     messages: LLMMessage[],
     options: LLMOptions = {}
 ): Promise<LLMResult> {
+    const primaryModel = options.model || KIMI_MODEL_ID;
+    console.log(`[LLM] Using primary model: ${primaryModel}`);
     try {
-        return await kimiBedrockComplete(messages, options);
+        const result = await kimiBedrockComplete(messages, options);
+        console.log(`[LLM] Response received from model: ${result.model}`);
+        return result;
     } catch (err) {
         console.warn(
-            "[LLM] Kimi K2 (Bedrock) failed, falling back to Nova Pro:",
+            "[LLM] Kimi K2.5 (Bedrock) failed, falling back to MiniMax Devstral-2-125B:",
             (err as Error).message
         );
-        return bedrockNovaFallback(messages, options);
+        console.log(`[LLM] Using fallback model: ${MINIMAX_MODEL_ID}`);
+        return minimaxDevstralFallback(messages, options);
     }
 }
 
@@ -175,46 +184,25 @@ async function kimiBedrockComplete(
     };
 }
 
-// --------------- Nova Pro fallback ---------------
+// --------------- MiniMax Devstral-2-125B fallback ---------------
 
-async function bedrockNovaFallback(
+async function minimaxDevstralFallback(
     messages: LLMMessage[],
-    _options: LLMOptions
+    options: LLMOptions
 ): Promise<LLMResult> {
-    const systemMsg = messages.find((m) => m.role === "system")?.content ?? "";
-    const userMessages = messages.filter((m) => m.role !== "system");
-    const lastUser = userMessages.filter((m) => m.role === "user").pop();
-    let rawQuery = lastUser?.content ?? "";
+    const result = await kimiBedrockComplete(messages, {
+        ...options,
+        model: MINIMAX_MODEL_ID,
+    });
 
-    // When runDirect embeds context in the user message ("Health records:\n...\n\nQuestion: X"),
-    // extract just the question so Nova Pro receives a clean prompt with an empty contextBlock.
-    // Otherwise Nova Pro gets confused by the duplicated structure.
-    const questionMatch = rawQuery.match(/\bQuestion:\s*([\s\S]+)$/i);
-    const query = questionMatch ? questionMatch[1].trim() : rawQuery;
-
-    // Pass prior assistant turns as lightweight context objects
-    const contexts: RAGContext[] = userMessages
-        .filter((m) => m.role === "assistant")
-        .map((m, i) => ({
-            entryId: `conv-${i}`,
-            title: `Previous response ${i + 1}`,
-            date: new Date().toISOString(),
-            content: m.content.slice(0, 400),
-            documentType: "conversation",
-        }));
-
-    const result = await invokeModel(query, contexts, systemMsg || undefined);
-
-    if (!result.answer.trim()) {
-        throw new Error("Nova Pro fallback also returned empty answer");
+    if (!result.text.trim()) {
+        throw new Error("MiniMax Devstral-2-125B fallback also returned empty answer");
     }
 
     return {
-        text: result.answer,
-        model: "us.amazon.nova-pro-v1:0",
+        ...result,
+        model: MINIMAX_MODEL_ID,
         provider: "bedrock",
-        promptTokens: result.inputTokens,
-        completionTokens: result.outputTokens,
     };
 }
 
