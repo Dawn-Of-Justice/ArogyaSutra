@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { complete as kimiComplete } from "../../../../lib/llm/kimi";
 import { checkRateLimit } from "../../../../lib/utils/rateLimit";
 
-export const maxDuration = 30;
+export const maxDuration = 60;
 
 const DOCTOR_SYSTEM_PROMPT = `You are Arogya, an intelligent clinical assistant built into ArogyaSutra, a digital health records platform used by licensed doctors in India.
 

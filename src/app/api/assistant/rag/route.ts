@@ -11,7 +11,7 @@ import { checkRateLimit } from "../../../../lib/utils/rateLimit";
 import { v4 as uuidv4 } from "uuid";
 
 // Extend Lambda/Edge compute timeout to 30 s (Amplify Hosting supports up to 60 s)
-export const maxDuration = 30;
+export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
     let query = "";

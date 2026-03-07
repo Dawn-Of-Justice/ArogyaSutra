@@ -94,6 +94,7 @@ export async function retrieve(
             date,
             content,
             documentType: docType,
+            s3Key: (r._s3Key as string) || undefined,
             score,
             keywordScore,
             recencyScore,
@@ -204,6 +205,7 @@ async function fetchDynamoRecords(patientId: string): Promise<Record<string, unk
                 _content: parts.join("\n").slice(0, 1500),
                 _institution: item.sourceInstitution,
                 _doctor: item.doctorName,
+                _s3Key: item.encryptedBlobKey as string | undefined,
                 _isDynamo: true,
             };
         });

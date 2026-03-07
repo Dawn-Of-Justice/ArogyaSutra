@@ -36,6 +36,8 @@ export interface RAGContext {
     date: string;
     content: string; // Decrypted text summary
     documentType: string;
+    /** S3 key for the original document image, if any */
+    s3Key?: string;
 }
 
 /** Bedrock model response */

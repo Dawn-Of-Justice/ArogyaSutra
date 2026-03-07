@@ -10,13 +10,25 @@ import {
     type ConverseCommandInput,
     type Message,
     type SystemContentBlock,
+    type ContentBlock,
+    type ImageFormat,
 } from "@aws-sdk/client-bedrock-runtime";
 
 // --------------- Types ---------------
 
+/** An image attachment to include in a message (for vision-capable models). */
+export interface LLMImageAttachment {
+    /** Raw image bytes (NOT base64) */
+    bytes: Uint8Array;
+    /** Image format */
+    format: "jpeg" | "png" | "webp" | "gif";
+}
+
 export interface LLMMessage {
     role: "system" | "user" | "assistant";
     content: string;
+    /** Optional image attachments — included as image content blocks in the Converse API */
+    images?: LLMImageAttachment[];
 }
 
 export interface LLMOptions {
@@ -138,11 +150,26 @@ async function kimiBedrockComplete(
         systemText = systemText ? `${systemText}\n\n${jsonInstruction}` : jsonInstruction;
     }
 
-    // Map to Bedrock Message objects
-    const converseMessages: Message[] = chatMessages.map((m) => ({
-        role: m.role as "user" | "assistant",
-        content: [{ text: m.content }],
-    }));
+    // Map to Bedrock Message objects — include image blocks when present
+    const converseMessages: Message[] = chatMessages.map((m) => {
+        const blocks: ContentBlock[] = [];
+        // Add image blocks first (vision models expect images before text)
+        if (m.images?.length) {
+            for (const img of m.images) {
+                blocks.push({
+                    image: {
+                        format: img.format as ImageFormat,
+                        source: { bytes: img.bytes },
+                    },
+                });
+            }
+        }
+        blocks.push({ text: m.content });
+        return {
+            role: m.role as "user" | "assistant",
+            content: blocks,
+        };
+    });
 
     // Bedrock Converse API requires the conversation to start with a user turn
     if (converseMessages.length === 0 || converseMessages[0].role !== "user") {
@@ -159,10 +186,10 @@ async function kimiBedrockComplete(
         ...(systemText ? { system: [{ text: systemText } as SystemContentBlock] } : {}),
     };
 
-    // Timeout guard — must stay well under the 24s pipeline timeout.
-    // 10s primary + 10s fallback = 20s, safely under the 24s budget.
+    // Timeout guard — Kimi gets 30s, Devstral fallback gets 15s.
+    const timeoutMs = modelId === DEVSTRAL_MODEL_ID ? 15_000 : 30_000;
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 10_000);
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
 
     // Use devstralClient when calling the Devstral model (different region)
     const client = modelId === DEVSTRAL_MODEL_ID ? devstralClient : kimiClient;
