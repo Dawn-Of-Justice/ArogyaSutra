@@ -56,6 +56,25 @@ export async function POST(req: NextRequest) {
                     console.warn("[/api/profile/update] Failed to parse emergencyContacts JSON");
                 }
             }
+
+            // emergency info (allergies, meds, visibility) stored in DynamoDB
+            if (updates.emergencyAllergies !== undefined || updates.emergencyCriticalMeds !== undefined ||
+                updates.emShowBloodGroup !== undefined || updates.emShowAllergies !== undefined ||
+                updates.emShowMeds !== undefined || updates.emShowContacts !== undefined) {
+                try {
+                    const toArr = (s: string) => s.split(",").map((x: string) => x.trim()).filter(Boolean);
+                    await dynamodb.putEmergencyInfo(userId, {
+                        ...(updates.emergencyAllergies !== undefined && { allergies: toArr(updates.emergencyAllergies) }),
+                        ...(updates.emergencyCriticalMeds !== undefined && { criticalMeds: toArr(updates.emergencyCriticalMeds) }),
+                        ...(updates.emShowBloodGroup !== undefined && { showBloodGroup: updates.emShowBloodGroup === "true" }),
+                        ...(updates.emShowAllergies !== undefined && { showAllergies: updates.emShowAllergies === "true" }),
+                        ...(updates.emShowMeds !== undefined && { showMeds: updates.emShowMeds === "true" }),
+                        ...(updates.emShowContacts !== undefined && { showContacts: updates.emShowContacts === "true" }),
+                    });
+                } catch (err) {
+                    console.warn("[/api/profile/update] Failed to save emergency info:", err);
+                }
+            }
         } else if (role === "doctor") {
             // When a doctor updates a *patient's* vitals and health info
             if (updates.targetPatientId) {

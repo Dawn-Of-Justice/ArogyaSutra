@@ -204,6 +204,34 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
                 setEmShowContacts(data.showContacts !== false);
             }
             if (data.updatedAt) setEmergencyUpdatedAt(data.updatedAt);
+
+            // Auto-sync localStorage emergency data to DynamoDB if not yet synced
+            // This migrates data saved before DynamoDB persistence was added
+            if (!isDoctor && !data._ddbSynced && (data.allergies || data.criticalMeds)) {
+                fetch("/api/profile/update", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        userId,
+                        role: "patient",
+                        updates: {
+                            allergies: data.allergies || "",
+                            criticalMeds: data.criticalMeds || "",
+                            emergencyAllergies: data.allergies || "",
+                            emergencyCriticalMeds: data.criticalMeds || "",
+                            emShowBloodGroup: String(data.showBloodGroup !== false),
+                            emShowAllergies: String(data.showAllergies !== false),
+                            emShowMeds: String(data.showMeds !== false),
+                            emShowContacts: String(data.showContacts !== false),
+                        },
+                    }),
+                })
+                    .then(() => {
+                        // Mark as synced so we don't repeat on every page load
+                        localStorage.setItem(`arogyasutra_emergency_${userId}`, JSON.stringify({ ...data, _ddbSynced: true }));
+                    })
+                    .catch(() => { /* will retry next load */ });
+            }
         } catch { /* ignore */ }
     }, [userId, isDoctor]);
 
@@ -375,7 +403,7 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
                 setEmergencyAllergies(allergiesArr);
                 setEmergencyCriticalMeds(medsArr);
                 setEmergencyUpdatedAt(nowIso);
-                // Also persist to Cognito so doctors can see allergies/meds during consultation
+                // Persist to Cognito + DynamoDB so emergency access and doctors can see allergies/meds
                 try {
                     await fetch("/api/profile/update", {
                         method: "POST",
@@ -386,6 +414,12 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
                             updates: {
                                 allergies: editEmAllergiesTxt,
                                 criticalMeds: editEmMedsTxt,
+                                emergencyAllergies: editEmAllergiesTxt,
+                                emergencyCriticalMeds: editEmMedsTxt,
+                                emShowBloodGroup: String(emShowBloodGroup),
+                                emShowAllergies: String(emShowAllergies),
+                                emShowMeds: String(emShowMeds),
+                                emShowContacts: String(emShowContacts),
                             },
                         }),
                     });
@@ -424,6 +458,22 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
                     showContacts: next.contacts,
                 }));
             } catch { /* ignore */ }
+
+            // Also persist visibility to DynamoDB (fire-and-forget)
+            fetch("/api/profile/update", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    userId,
+                    role: "patient",
+                    updates: {
+                        emShowBloodGroup: String(next.bloodGroup),
+                        emShowAllergies: String(next.allergies),
+                        emShowMeds: String(next.meds),
+                        emShowContacts: String(next.contacts),
+                    },
+                }),
+            }).catch(() => { /* non-fatal */ });
         }
     };
 

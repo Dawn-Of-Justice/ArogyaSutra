@@ -285,6 +285,60 @@ export async function putEmergencyContacts(userId: string, contacts: object[]): 
     );
 }
 
+// ---- Emergency Info (allergies, meds, visibility) ----
+
+export interface EmergencyInfo {
+    allergies: string[];
+    criticalMeds: string[];
+    showBloodGroup: boolean;
+    showAllergies: boolean;
+    showMeds: boolean;
+    showContacts: boolean;
+    updatedAt: string;
+}
+
+/** Get emergency info (allergies, meds, visibility toggles) from PREFS_TABLE. */
+export async function getEmergencyInfo(userId: string): Promise<EmergencyInfo | null> {
+    const result = await dynamodb.send(
+        new GetCommand({
+            TableName: PREFS_TABLE,
+            Key: { userId, prefType: "emergency_info" },
+        })
+    );
+    if (!result.Item) return null;
+    return {
+        allergies: (result.Item.allergies as string[]) || [],
+        criticalMeds: (result.Item.criticalMeds as string[]) || [],
+        showBloodGroup: result.Item.showBloodGroup !== false,
+        showAllergies: result.Item.showAllergies !== false,
+        showMeds: result.Item.showMeds !== false,
+        showContacts: result.Item.showContacts !== false,
+        updatedAt: (result.Item.updatedAt as string) || "",
+    };
+}
+
+/** Persist emergency info (allergies, meds, visibility toggles) to PREFS_TABLE. */
+export async function putEmergencyInfo(userId: string, info: Partial<EmergencyInfo>): Promise<void> {
+    // Merge with existing to avoid clobbering fields not included in the update
+    const existing = await getEmergencyInfo(userId);
+    await dynamodb.send(
+        new PutCommand({
+            TableName: PREFS_TABLE,
+            Item: {
+                userId,
+                prefType: "emergency_info",
+                allergies: info.allergies ?? existing?.allergies ?? [],
+                criticalMeds: info.criticalMeds ?? existing?.criticalMeds ?? [],
+                showBloodGroup: info.showBloodGroup ?? existing?.showBloodGroup ?? true,
+                showAllergies: info.showAllergies ?? existing?.showAllergies ?? true,
+                showMeds: info.showMeds ?? existing?.showMeds ?? true,
+                showContacts: info.showContacts ?? existing?.showContacts ?? true,
+                updatedAt: new Date().toISOString(),
+            },
+        })
+    );
+}
+
 /** Store a Break-Glass audit log. */
 export async function putBreakGlassLog(log: BreakGlassLog): Promise<void> {
     await dynamodb.send(
