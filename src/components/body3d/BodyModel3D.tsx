@@ -48,12 +48,12 @@ interface BodyZone {
  * Updated 2026-03-07
  */
 const BODY_ZONES: BodyZone[] = [
-    { key: "Head",        label: "Head / Brain",           cx: 50, cy: 11, rx:  5, ry:  6 },
+    { key: "Head",        label: "Head / Brain",           cx: 50, cy: 11, rx:  7, ry:  7 },
     { key: "Chest",       label: "Chest / Lungs / Heart",  cx: 50, cy: 29, rx: 11, ry:  7 },
     { key: "Abdomen",     label: "Abdomen",                cx: 50, cy: 42, rx: 10, ry:  5 },
     { key: "Pelvis",      label: "Pelvis / Hip",           cx: 50, cy: 52, rx: 10, ry:  5 },
-    { key: "Left Arm",    label: "Left Arm / Shoulder",   cx: 73, cy: 28, rx:  9, ry:  5 },
-    { key: "Right Arm",   label: "Right Arm / Shoulder",  cx: 27, cy: 28, rx:  9, ry:  5 },
+    { key: "Left Arm",    label: "Left Arm / Shoulder",   cx: 73, cy: 23, rx:  9, ry:  5 },
+    { key: "Right Arm",   label: "Right Arm / Shoulder",  cx: 27, cy: 23, rx:  9, ry:  5 },
     { key: "Left Hand",   label: "Left Hand / Wrist",     cx: 88, cy: 24, rx:  5, ry:  4 },
     { key: "Right Hand",  label: "Right Hand / Wrist",    cx: 12, cy: 24, rx:  5, ry:  4 },
     { key: "Left Leg",    label: "Left Leg / Knee",       cx: 55, cy: 73, rx:  5, ry: 13 },

@@ -173,7 +173,8 @@ export default function BreakGlassScreen({ onClose }: Props) {
                             <span className={styles.warningIcon}>⚠️</span>
                             <div>
                                 <strong>Break-Glass Protocol Active</strong>
-                                <p>Misuse of this access constitutes a criminal offence under applicable data-protection law.</p>
+                                <p>Misuse of this access constitutes a criminal offence under  IPC Section 336-337.</p>
+              
                             </div>
                         </div>
 

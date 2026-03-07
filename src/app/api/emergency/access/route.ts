@@ -6,8 +6,24 @@
 
 import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
-import { putAuditLog } from "../../../../lib/aws/dynamodb";
+import { putAuditLog, getEmergencyContacts } from "../../../../lib/aws/dynamodb";
 import { getPatientUser } from "../../../../lib/aws/cognito";
+import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+import { DynamoDBDocumentClient, QueryCommand } from "@aws-sdk/lib-dynamodb";
+
+// ── DynamoDB client for health records queries ──
+const _region = process.env.NEXT_PUBLIC_AWS_REGION || process.env.APP_AWS_REGION || "ap-south-1";
+const _creds =
+    process.env.APP_AWS_ACCESS_KEY_ID && process.env.APP_AWS_SECRET_ACCESS_KEY
+        ? {
+            credentials: {
+                accessKeyId: process.env.APP_AWS_ACCESS_KEY_ID,
+                secretAccessKey: process.env.APP_AWS_SECRET_ACCESS_KEY,
+            },
+        }
+        : {};
+const _ddbClient = DynamoDBDocumentClient.from(new DynamoDBClient({ region: _region, ..._creds }));
+const HEALTH_TABLE = process.env.DYNAMODB_HEALTH_RECORDS_TABLE || "arogyasutra-health-records";
 
 function attr(attrs: { Name?: string; Value?: string }[], name: string): string {
     return attrs.find((a) => a.Name === name)?.Value ?? "";
@@ -88,31 +104,105 @@ export async function POST(req: Request) {
             },
         }).catch((dbErr) => console.error("DynamoDB audit log failed (non-blocking):", dbErr));
 
-        // Fetch live patient data from Cognito
+        // Fetch live patient data from Cognito + DynamoDB health records
         let patientName = "Unknown";
         let patientAge: number | null = null;
         let bloodGroup = "Unknown";
         let allergies: string[] = [];
         let criticalMedications: string[] = [];
+        let activeConditions: string[] = [];
         let emergencyContacts: { name: string; relationship: string; phone: string }[] = [];
         let updatedAt = new Date().toISOString();
 
+        // 1. Cognito profile attributes (blood group, allergies, critical meds)
         try {
             const user = await getPatientUser(patientId.toUpperCase());
             const attrs = user.UserAttributes ?? [];
             patientName        = attr(attrs, "name") || patientId.toUpperCase();
             patientAge         = calcAge(attr(attrs, "birthdate"));
-            bloodGroup         = attr(attrs, "custom:bloodGroup") || "Not recorded";
-            allergies          = splitList(attr(attrs, "custom:allergies"));
-            criticalMedications = splitList(attr(attrs, "custom:critical_meds"));
-            try {
-                const raw = attr(attrs, "custom:emergency_contacts");
-                if (raw) emergencyContacts = JSON.parse(raw);
-            } catch { /* malformed JSON — ignore */ }
+            bloodGroup         = attr(attrs, "custom:blood_group") || "Not recorded";
+            const cognitoAllergies = splitList(attr(attrs, "custom:allergies"));
+            const cognitoMeds     = splitList(attr(attrs, "custom:critical_meds"));
+            if (cognitoAllergies.length) allergies = cognitoAllergies;
+            if (cognitoMeds.length) criticalMedications = cognitoMeds;
             updatedAt = user.UserLastModifiedDate?.toISOString() ?? updatedAt;
         } catch (cognitoErr) {
             console.error("Cognito patient lookup failed:", cognitoErr);
             // Non-fatal — continue with defaults; emergency data is best-effort
+        }
+
+        // 2. Emergency contacts from DynamoDB (not stored in Cognito)
+        try {
+            const contacts = await getEmergencyContacts(patientId.toUpperCase());
+            if (contacts.length > 0) {
+                emergencyContacts = contacts as { name: string; relationship: string; phone: string }[];
+            }
+        } catch (contactsErr) {
+            console.error("Emergency contacts fetch failed:", contactsErr);
+        }
+
+        // 3. Health records from DynamoDB — extract allergies, medications, and conditions
+        //    from the latest timeline entries' metadata (AI-extracted from uploaded documents)
+        try {
+            const records = await _ddbClient.send(
+                new QueryCommand({
+                    TableName: HEALTH_TABLE,
+                    KeyConditionExpression: "patientId = :pid",
+                    ExpressionAttributeValues: { ":pid": patientId.toUpperCase() },
+                    ScanIndexForward: false, // newest first
+                    Limit: 30,
+                })
+            );
+
+            const recordAllergies = new Set<string>();
+            const recordMeds = new Set<string>();
+            const recordConditions = new Set<string>();
+
+            for (const item of records.Items ?? []) {
+                const meta = item.metadata as Record<string, unknown> | undefined;
+                if (!meta) continue;
+
+                // Allergies from metadata
+                if (Array.isArray(meta.allergies)) {
+                    for (const a of meta.allergies) if (typeof a === "string" && a.trim()) recordAllergies.add(a.trim());
+                }
+
+                // Medications — can be strings or objects with a name property
+                if (Array.isArray(meta.medications)) {
+                    for (const m of meta.medications) {
+                        if (typeof m === "string" && m.trim()) {
+                            recordMeds.add(m.trim());
+                        } else if (m && typeof m === "object" && "name" in m) {
+                            const name = (m as { name: string }).name?.trim();
+                            if (name) recordMeds.add(name);
+                        }
+                    }
+                }
+
+                // Diagnoses / conditions
+                if (Array.isArray(meta.diagnoses)) {
+                    for (const d of meta.diagnoses) if (typeof d === "string" && d.trim()) recordConditions.add(d.trim());
+                }
+            }
+
+            // Merge: health records supplement Cognito profile (dedup)
+            if (recordAllergies.size > 0) {
+                const merged = new Set(allergies.map(a => a.toLowerCase()));
+                for (const a of recordAllergies) {
+                    if (!merged.has(a.toLowerCase())) { allergies.push(a); merged.add(a.toLowerCase()); }
+                }
+            }
+            if (recordMeds.size > 0) {
+                const merged = new Set(criticalMedications.map(m => m.toLowerCase()));
+                for (const m of recordMeds) {
+                    if (!merged.has(m.toLowerCase())) { criticalMedications.push(m); merged.add(m.toLowerCase()); }
+                }
+            }
+            if (recordConditions.size > 0) {
+                activeConditions = [...recordConditions];
+            }
+        } catch (recordsErr) {
+            console.error("Health records fetch failed (non-fatal):", recordsErr);
         }
 
         const emergencyData = {
@@ -122,7 +212,7 @@ export async function POST(req: Request) {
             allergies,
             criticalMedications,
             emergencyContacts,
-            activeConditions: [] as string[], // Requires HealthLake; returned from FHIR Condition resources
+            activeConditions,
             updatedAt,
         };
 
