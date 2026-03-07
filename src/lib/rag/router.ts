@@ -12,7 +12,7 @@ const PATTERNS: Array<{ type: QueryType; regex: RegExp; complexity: number }> = 
     // Trend / temporal
     {
         type: "TEMPORAL_TREND",
-        regex: /\b(trend|over time|history|chang|progression|last \d|past \d|recent \d|month|year|week|wors|improv|increas|decreas)\b/i,
+        regex: /\b(trend|over time|history|chang|progression|last \d|past \d|recent \d|month|year|week|wors|improv|increas|decreas|first|earliest|initial|latest|newest|oldest|most recent|previous|before|after|when did|since|ago|timeline|chronolog)\b/i,
         complexity: 3,
     },
     // Multi-hop relational
@@ -34,9 +34,10 @@ const PATTERNS: Array<{ type: QueryType; regex: RegExp; complexity: number }> = 
         complexity: 2,
     },
     // General knowledge (no patient data needed)
+    // Only match if the query does NOT contain possessive pronouns (my/our/their) — those imply patient-specific data.
     {
         type: "GENERAL",
-        regex: /^(what is|what are|how does|explain|define|tell me about|describe|why does|what causes|what.*mean)\b/i,
+        regex: /^(what is|what are|how does|explain|define|tell me about|describe|why does|what causes|what.*mean)\b(?!.*\b(my|our|their|his|her|patient)\b)/i,
         complexity: 1,
     },
 ];
@@ -103,7 +104,7 @@ export function topKForQueryType(queryType: QueryType): number {
         case "TEMPORAL_TREND": return 15;
         case "MULTI_HOP":      return 12;
         case "COMPARATIVE":    return 8;
-        case "SIMPLE_FACTUAL": return 4;  // Small retrieval set — fast
+        case "SIMPLE_FACTUAL": return 8;  // Reasonable retrieval — was 4, too few
         case "GENERAL":        return 0;  // No retrieval needed
     }
 }

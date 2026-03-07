@@ -4,7 +4,7 @@
 // ============================================================
 
 import { NextRequest, NextResponse } from "next/server";
-import { invokeModel } from "../../../../lib/aws/bedrock";
+import { complete as kimiComplete } from "../../../../lib/llm/kimi";
 import { checkRateLimit } from "../../../../lib/utils/rateLimit";
 
 export const maxDuration = 30;
@@ -51,10 +51,16 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        const result = await invokeModel(query, [], DOCTOR_SYSTEM_PROMPT);
+        const result = await kimiComplete(
+            [
+                { role: "system", content: DOCTOR_SYSTEM_PROMPT },
+                { role: "user", content: query },
+            ],
+            { temperature: 0.3, maxTokens: 1200 }
+        );
 
         return NextResponse.json({
-            answer: result.answer,
+            answer: result.text,
             conversationId: conversationId || `general-${Date.now()}`,
             generatedAt: new Date().toISOString(),
         });

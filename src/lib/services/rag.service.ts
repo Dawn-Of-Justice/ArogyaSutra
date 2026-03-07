@@ -1,10 +1,11 @@
 // ============================================================
 // RAG Clinical Assistant Service
 // Patient & doctor AI assistant using Agentic RAG Engine
-// (Kimi K2.5 primary → Amazon Bedrock Nova Pro fallback)
+// (Kimi K2.5 primary → MiniMax Devstral-2-125B fallback)
 // ============================================================
 
 import { generateInsights, invokeModel, type RAGContext } from "../aws/bedrock";
+import { complete as kimiComplete } from "../llm/kimi";
 import { logAccess, patientActor, doctorActor } from "./audit.service";
 import { ragQuery as agenticRagQuery } from "../rag/engine";
 import type {
@@ -58,18 +59,40 @@ export async function query(ragQuery: RAGQuery): Promise<RAGResponse> {
             throw new Error("Agentic engine returned empty answer");
         }
     } catch (engineErr) {
-        console.error("[rag.service] agentic engine failed, falling back to direct Bedrock:", engineErr);
-        const fallback = await invokeModel(ragQuery.queryText, [], undefined);
-        engineResult = {
-            answer: fallback.answer || "I'm sorry, I was unable to process your query. Please try again.",
-            contexts: [],
-            strategy: "DIRECT" as const,
-            queryType: "GENERAL" as const,
-            confidence: 0.5,
-            groundingScore: 0.5,
-            provider: "bedrock" as const,
-            modelId: process.env.BEDROCK_MODEL_ID || "us.amazon.nova-pro-v1:0",
-        };
+        console.error("[rag.service] agentic engine failed, falling back to Kimi direct:", engineErr);
+        try {
+            // Use a system prompt that explicitly prevents hallucination without context
+            const noContextSystem = "You are ArogyaSutra, a medical AI assistant. The patient asked a question but we were unable to retrieve their medical records due to a system issue. Tell them you could not access their records right now and suggest they try again shortly. Do NOT make up any medical information, prescriptions, or doctor names. Keep it brief and helpful.";
+            const fallback = await kimiComplete(
+                [
+                    { role: "system", content: noContextSystem },
+                    { role: "user", content: ragQuery.queryText },
+                ],
+                { temperature: 0.2, maxTokens: 400 }
+            );
+            engineResult = {
+                answer: fallback.text || "I'm sorry, I was unable to access your records right now. Please try again shortly.",
+                contexts: [],
+                strategy: "DIRECT" as const,
+                queryType: "GENERAL" as const,
+                confidence: 0.3,
+                groundingScore: 0.0,
+                provider: fallback.provider,
+                modelId: fallback.model,
+            };
+        } catch (fallbackErr) {
+            console.error("[rag.service] Kimi fallback also failed, using static response:", fallbackErr);
+            engineResult = {
+                answer: "I'm sorry, I was unable to process your query right now. Please try again in a few moments.",
+                contexts: [],
+                strategy: "DIRECT" as const,
+                queryType: "GENERAL" as const,
+                confidence: 0.1,
+                groundingScore: 0.0,
+                provider: "bedrock" as const,
+                modelId: "static-fallback",
+            };
+        }
     }
 
     // Build SourceCitation array from scored contexts

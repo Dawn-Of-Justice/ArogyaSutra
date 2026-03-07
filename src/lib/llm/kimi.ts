@@ -1,7 +1,7 @@
 // ============================================================
 // Kimi K2.5 LLM Client — via Amazon Bedrock
 // Uses Bedrock ConverseCommand (standard chat interface).
-// Falls back to MiniMax Devstral-2-125B on any error.
+// Falls back to Mistral Devstral-2-123B on any error.
 // ============================================================
 
 import {
@@ -47,30 +47,34 @@ const _appCreds =
           }
         : {};
 
-// Kimi K2 cross-region inference is available in us-east-1
-const bedrockRegion = ["us-east-1", "us-west-2"].includes(
+// Kimi K2.5 cross-region inference is available in us-east-1
+const kimiRegion = ["us-east-1", "us-west-2"].includes(
     process.env.NEXT_PUBLIC_AWS_REGION || ""
 )
     ? process.env.NEXT_PUBLIC_AWS_REGION!
     : "us-east-1";
 
-const kimiClient = new BedrockRuntimeClient({ region: bedrockRegion, ..._appCreds });
+const kimiClient = new BedrockRuntimeClient({ region: kimiRegion, ..._appCreds });
+
+// Devstral is available in ap-south-1
+const devstralRegion = process.env.DEVSTRAL_BEDROCK_REGION || "ap-south-1";
+const devstralClient = new BedrockRuntimeClient({ region: devstralRegion, ..._appCreds });
 
 // Kimi K2.5 base model on Bedrock
 // Override with KIMI_BEDROCK_MODEL env var if needed
 const KIMI_MODEL_ID =
     process.env.KIMI_BEDROCK_MODEL || "moonshotai.kimi-k2.5";
 
-// MiniMax Devstral-2-125B — backup model if Kimi K2.5 is unavailable
-// Override with MINIMAX_BEDROCK_MODEL env var if needed
-const MINIMAX_MODEL_ID =
-    process.env.MINIMAX_BEDROCK_MODEL || "minimax.devstral-2-125b";
+// Mistral Devstral-2-123B — backup model if Kimi K2.5 is unavailable
+// Override with DEVSTRAL_BEDROCK_MODEL env var if needed
+const DEVSTRAL_MODEL_ID =
+    process.env.DEVSTRAL_BEDROCK_MODEL || "mistral.devstral-2-123b";
 
 // --------------- Core chat completion ---------------
 
 /**
- * Send a chat completion request via Kimi K2 on Amazon Bedrock.
- * Automatically falls back to Nova Pro if Kimi is unavailable or errors.
+ * Send a chat completion request via Kimi K2.5 on Amazon Bedrock.
+ * Automatically falls back to Devstral-2-123B (ap-south-1) if Kimi is unavailable or errors.
  */
 export async function complete(
     messages: LLMMessage[],
@@ -84,11 +88,11 @@ export async function complete(
         return result;
     } catch (err) {
         console.warn(
-            "[LLM] Kimi K2.5 (Bedrock) failed, falling back to MiniMax Devstral-2-125B:",
+            "[LLM] Kimi K2.5 (Bedrock) failed, falling back to Devstral-2-123B:",
             (err as Error).message
         );
-        console.log(`[LLM] Using fallback model: ${MINIMAX_MODEL_ID}`);
-        return minimaxDevstralFallback(messages, options);
+        console.log(`[LLM] Using fallback model: ${DEVSTRAL_MODEL_ID} in region ${devstralRegion}`);
+        return devstralFallback(messages, options);
     }
 }
 
@@ -155,12 +159,15 @@ async function kimiBedrockComplete(
         ...(systemText ? { system: [{ text: systemText } as SystemContentBlock] } : {}),
     };
 
-    // Timeout guard — must stay well under Lambda's compute limit.
-    // Route has maxDuration=30s; leave ~15s budget for retrieval + generation overhead.
+    // Timeout guard — must stay well under the 24s pipeline timeout.
+    // 10s primary + 10s fallback = 20s, safely under the 24s budget.
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 12_000);
+    const timer = setTimeout(() => controller.abort(), 10_000);
 
-    const response = await kimiClient
+    // Use devstralClient when calling the Devstral model (different region)
+    const client = modelId === DEVSTRAL_MODEL_ID ? devstralClient : kimiClient;
+
+    const response = await client
         .send(new ConverseCommand(input), { abortSignal: controller.signal })
         .finally(() => clearTimeout(timer));
 
@@ -184,45 +191,25 @@ async function kimiBedrockComplete(
     };
 }
 
-// --------------- MiniMax Devstral-2-125B fallback ---------------
+// --------------- Mistral Devstral-2-123B fallback ---------------
 
-async function minimaxDevstralFallback(
+async function devstralFallback(
     messages: LLMMessage[],
     options: LLMOptions
 ): Promise<LLMResult> {
     const result = await kimiBedrockComplete(messages, {
         ...options,
-        model: MINIMAX_MODEL_ID,
+        model: DEVSTRAL_MODEL_ID,
     });
 
     if (!result.text.trim()) {
-        throw new Error("MiniMax Devstral-2-125B fallback also returned empty answer");
+        throw new Error("Devstral-2-123B fallback also returned empty answer");
     }
 
     return {
         ...result,
-        model: MINIMAX_MODEL_ID,
+        model: DEVSTRAL_MODEL_ID,
         provider: "bedrock",
     };
 }
 
-// --------------- Nova Micro — fast, cheap path ---------------
-
-// Nova Micro pricing: $0.000035 / 1K input tokens  (vs Nova Pro $0.0008 = 22× cheaper)
-// Use for GENERAL and SIMPLE_FACTUAL queries where there is no patient-specific context.
-const NOVA_MICRO_MODEL_ID = "us.amazon.nova-micro-v1:0";
-
-/**
- * Lightweight completion via Nova Micro.
- * Skips Kimi entirely — lower latency, ~22× cheaper per token.
- * Reserved for general-knowledge and simple-factual queries with no retrieval context.
- */
-export async function completeFast(
-    messages: LLMMessage[],
-    options: Omit<LLMOptions, "model"> = {}
-): Promise<LLMResult> {
-    return kimiBedrockComplete(messages, {
-        ...options,
-        model: NOVA_MICRO_MODEL_ID,
-    });
-}

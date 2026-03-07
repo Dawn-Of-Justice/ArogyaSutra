@@ -6,7 +6,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import * as ragService from "../../../../lib/services/rag.service";
-import { invokeModel } from "../../../../lib/aws/bedrock";
+import { complete as kimiComplete } from "../../../../lib/llm/kimi";
 import { checkRateLimit } from "../../../../lib/utils/rateLimit";
 import { v4 as uuidv4 } from "uuid";
 
@@ -56,15 +56,22 @@ export async function POST(req: NextRequest) {
     } catch (err) {
         console.error("[assistant/rag] service failed, using direct fallback:", err);
 
-        // Last-resort: call Nova Pro directly — never return an error JSON for a real query
+        // Last-resort: call Kimi directly with anti-hallucination prompt
         if (query.trim()) {
             try {
-                const fallback = await invokeModel(query, []);
+                const noContextSystem = "You are ArogyaSutra, a medical AI assistant. The patient asked a question but we were unable to retrieve their medical records due to a system issue. Tell them you could not access their records right now and suggest they try again shortly. Do NOT make up any medical information, prescriptions, or doctor names.";
+                const fallback = await kimiComplete(
+                    [
+                        { role: "system", content: noContextSystem },
+                        { role: "user", content: query },
+                    ],
+                    { temperature: 0.2, maxTokens: 400 }
+                );
                 return NextResponse.json({
-                    answer: fallback.answer,
+                    answer: fallback.text,
                     citations: [],
-                    confidence: 50,
-                    modelId: process.env.BEDROCK_MODEL_ID || "us.amazon.nova-pro-v1:0",
+                    confidence: 30,
+                    modelId: fallback.model,
                     generatedAt: new Date().toISOString(),
                     conversationId: conversationId || uuidv4(),
                     disclaimer: "AI-generated summary. Your doctor makes all clinical decisions.",

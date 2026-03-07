@@ -54,7 +54,12 @@ export function selectStrategy(
     if (complexity >= 5) return "ITERATIVE_CORRECTIVE";
 
     // SPECULATIVE involves two LLM calls — only use it for queries that genuinely
-    // benefit from the draft+verify pattern (trend/comparative, not simple factual)
+    // benefit from the draft+verify pattern (trend/comparative, not simple factual).
+    // Never pick SPECULATIVE for SIMPLE_FACTUAL — DIRECT is faster and sufficient.
+    if (bestStrategy === "SPECULATIVE" && queryType === "SIMPLE_FACTUAL") {
+        bestStrategy = "DIRECT";
+    }
+
     if (hasHistory && ["TEMPORAL_TREND", "COMPARATIVE"].includes(queryType) && bestStrategy !== "ITERATIVE_CORRECTIVE") {
         return "SPECULATIVE";
     }

@@ -48,7 +48,19 @@ export async function retrieve(
     const opts: RetrievalOptions = { ...DEFAULT_OPTIONS, ...options };
 
     const resources = await fetchAllResources(patientId);
-    if (resources.length === 0) return [];
+    console.info(`[RAG Retriever] patient=${patientId} totalResources=${resources.length} query="${query.slice(0, 60)}" topK=${opts.topK}`);
+    if (resources.length === 0) {
+        console.warn(`[RAG Retriever] No resources found in DynamoDB for patient=${patientId}`);
+        return [];
+    }
+
+    // When a patient has very few records, include ALL of them as context
+    // regardless of keyword score — the LLM can determine relevance.
+    const fewRecords = resources.length <= 10;
+    if (fewRecords) {
+        opts.minScore = 0;
+        console.info(`[RAG Retriever] Patient has ≤10 records — minScore overridden to 0 (include all)`);
+    }
 
     const queryTokens = tokenize(query);
     const now = Date.now();
@@ -88,7 +100,7 @@ export async function retrieve(
         };
     });
 
-    return scored
+    const results = scored
         .filter((c) => {
             if (c.score < opts.minScore) return false;
             if (opts.docTypeFilter && opts.docTypeFilter.length > 0) {
@@ -98,6 +110,13 @@ export async function retrieve(
         })
         .sort((a, b) => b.score - a.score)
         .slice(0, opts.topK);
+
+    console.info(`[RAG Retriever] Scored ${scored.length} resources → ${results.length} passed filters (minScore=${opts.minScore})`);
+    if (results.length > 0) {
+        console.info(`[RAG Retriever] Top 3 results: ${results.slice(0, 3).map(c => `"${c.title}" score=${c.score.toFixed(3)}`).join(', ')}`);
+    }
+
+    return results;
 }
 
 /**

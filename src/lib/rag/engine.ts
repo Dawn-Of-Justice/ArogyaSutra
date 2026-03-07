@@ -10,7 +10,7 @@
 // All strategies record outcomes for adaptive learning.
 // ============================================================
 
-import { complete, completeFast } from "../llm/kimi";
+import { complete } from "../llm/kimi";
 import { retrieve, retrieveRefined } from "./retriever";
 import { classifyQuery, topKForQueryType } from "./router";
 import { plan, executeSubQueries, mergeContexts } from "./planner";
@@ -65,6 +65,17 @@ Rules:
 - Always end with: "Please discuss with your doctor for medical advice."
 - Do NOT speculate beyond the records.`;
 
+/** Used when retrieval was attempted but returned NO results */
+const NO_RECORDS_SYSTEM = `You are ArogyaSutra, a compassionate medical AI assistant.
+The patient asked a question about their health records, but we searched their records and found NO relevant entries.
+Rules:
+- Tell the patient clearly that you could not find relevant records for their query.
+- Do NOT make up or guess any medical information, prescriptions, doctor names, or dates.
+- Do NOT use [Source N] citations since there are no sources.
+- Suggest the patient check if their records have been uploaded, or rephrase their question.
+- Keep the response short and helpful.
+- End with: "Please discuss with your doctor for medical advice."`;                                                                                                                                                                                                                                    
+
 /** Used when no retrieval is needed (general health question, no patient-specific entities) */
 const GENERAL_SYSTEM = `You are ArogyaSutra, a knowledgeable and friendly health assistant.
 Answer the question clearly and concisely in plain language. Be helpful and accurate.
@@ -109,15 +120,15 @@ async function _ragQueryInner(options: RAGEngineOptions): Promise<RAGEngineResul
     const strategy: RAGStrategy = options.forceStrategy ||
         selectStrategy(classified.queryType, classified.complexity, hasHistory);
 
-    console.info(`[RAG Engine] query="${options.queryText.slice(0, 60)}" type=${classified.queryType} strategy=${strategy}`);
+    console.info(`[RAG Engine] query="${options.queryText.slice(0, 60)}" type=${classified.queryType} complexity=${classified.complexity} entities=[${classified.entities.join(',')}] strategy=${strategy}`);
 
     let result: RAGEngineResult;
 
-    // Fast path: no patient-specific entities detected, or explicit GENERAL type
-    // → skip HealthLake retrieval entirely and answer directly
-    const isGeneralKnowledge =
-        classified.queryType === "GENERAL" ||
-        (classified.queryType === "SIMPLE_FACTUAL" && classified.entities.length === 0);
+    // Fast path: ONLY explicit GENERAL type skips retrieval.
+    // SIMPLE_FACTUAL always goes through RAG — the old heuristic of skipping RAG
+    // for SIMPLE_FACTUAL with no detected entities caused too many false positives
+    // (e.g. "what medicines am I on" has no entity-pattern matches but needs records).
+    const isGeneralKnowledge = classified.queryType === "GENERAL";
 
     if (isGeneralKnowledge) {
         result = await runDirect(options, [], strategy, /* generalMode */ true);
@@ -161,10 +172,15 @@ async function runDirectWithRetrieval(
     const topK = options.topK || topKForQueryType(classified.queryType);
     const contexts = await retrieve(options.patientId, options.queryText, { topK });
 
+    console.info(`[RAG Engine] Retrieved ${contexts.length} contexts for patient=${options.patientId} (topK=${topK})`);
+    if (contexts.length > 0) {
+        console.info(`[RAG Engine] Top context: title="${contexts[0].title}" score=${contexts[0].score.toFixed(3)} date=${contexts[0].date}`);
+    }
+
     return runDirect(options, contexts, "DIRECT");
 }
 
-/** Core generation: build prompt from contexts, call Kimi (or Nova Micro for light queries) */
+/** Core generation: build prompt from contexts, call Kimi K2.5 */
 async function runDirect(
     options: RAGEngineOptions,
     contexts: ScoredContext[],
@@ -174,8 +190,24 @@ async function runDirect(
     const classified = classifyQuery(options.queryText);
     const historyBlock = buildHistoryBlock(options.conversationHistory);
 
+    // Choose the right system prompt:
+    // 1. General mode (no patient data needed) → GENERAL_SYSTEM
+    // 2. Patient-specific but NO contexts retrieved → NO_RECORDS_SYSTEM (prevents hallucination)
+    // 3. Patient-specific WITH contexts → GENERATION_SYSTEM (cite sources)
+    const isPatientSpecific = !generalMode;
+    const hasContexts = contexts.length > 0;
+    let systemPrompt: string;
+    if (generalMode) {
+        systemPrompt = GENERAL_SYSTEM;
+    } else if (!hasContexts) {
+        systemPrompt = NO_RECORDS_SYSTEM;
+        console.warn(`[RAG Engine] No contexts found for patient-specific query: "${options.queryText.slice(0, 80)}" — using NO_RECORDS prompt to prevent hallucination`);
+    } else {
+        systemPrompt = GENERATION_SYSTEM;
+    }
+
     const messages: Parameters<typeof complete>[0] = [
-        { role: "system", content: generalMode ? GENERAL_SYSTEM : GENERATION_SYSTEM },
+        { role: "system", content: systemPrompt },
     ];
 
     if (historyBlock) {
@@ -184,27 +216,28 @@ async function runDirect(
 
     messages.push({
         role: "user",
-        content: contexts.length > 0
+        content: hasContexts
             ? `Health records:\n${buildContextBlock(contexts)}\n\nQuestion: ${options.queryText}`
             : options.queryText,
     });
 
-    // General knowledge + simple factual with no records → Nova Micro (22× cheaper, faster).
-    // All patient-specific contexts → Kimi K2.5 for richer reasoning.
-    const isLightQuery = generalMode || (classified.queryType === "SIMPLE_FACTUAL" && contexts.length === 0);
-    const llmCall = isLightQuery
-        ? completeFast(messages, { temperature: 0.3, maxTokens: 400 })
-        : complete(messages, { temperature: 0.35, maxTokens: 1200 });
+    // All queries go through Kimi K2.5 for consistent, high-quality reasoning.
+    const llmCall = complete(messages, {
+        temperature: generalMode ? 0.3 : 0.35,
+        maxTokens: generalMode ? 600 : 1200,
+    });
 
     const result = await llmCall;
+
+    console.info(`[RAG Engine] Generation complete: model=${result.model} provider=${result.provider} contexts=${contexts.length} strategy=${strategy}`);
 
     return {
         answer: result.text,
         contexts,
         strategy,
         queryType: classified.queryType,
-        confidence: contexts.length > 0 ? 0.72 : 0.55,
-        groundingScore: 0.7,
+        confidence: hasContexts ? 0.72 : (generalMode ? 0.55 : 0.3),
+        groundingScore: hasContexts ? 0.7 : 0.0,
         provider: result.provider,
         modelId: result.model,
     };
@@ -232,20 +265,24 @@ async function runQueryPlan(
     };
 }
 
-/** SPECULATIVE: draft + retrieve concurrently, then verify once */
+/** SPECULATIVE: retrieve first, then draft+verify in one pass */
 async function runSpeculative(
     options: RAGEngineOptions,
     classified: ReturnType<typeof classifyQuery>
 ): Promise<RAGEngineResult> {
     const topK = options.topK || topKForQueryType(classified.queryType);
 
-    // Draft generation and HealthLake retrieval run concurrently
-    const [contexts, specResult] = await Promise.all([
-        retrieve(options.patientId, options.queryText, { topK }),
-        speculateAndVerify(options.queryText, [], options.conversationHistory),
-    ]);
+    // DynamoDB retrieval is sub-100ms — no point overlapping with an LLM draft call.
+    // Retrieve first, then run a single speculateAndVerify (draft + verify = 2 LLM calls).
+    const contexts = await retrieve(options.patientId, options.queryText, { topK });
 
-    // Verify the draft against the now-available contexts (single verify pass)
+    // If retrieval returned nothing, skip speculation entirely
+    if (contexts.length === 0) {
+        console.warn(`[RAG Engine] Speculative: no contexts retrieved — using NO_RECORDS path`);
+        return runDirect(options, [], "SPECULATIVE");
+    }
+
+    // Single speculateAndVerify call: draft (1 LLM) + verify against contexts (1 LLM)
     const verified = await speculateAndVerify(
         options.queryText,
         contexts,
@@ -259,7 +296,7 @@ async function runSpeculative(
         queryType: classified.queryType,
         confidence: Math.min(0.88, 0.6 + verified.groundingScore * 0.3),
         groundingScore: verified.groundingScore,
-        provider: specResult.draftAccepted ? "kimi" : "kimi",
+        provider: "kimi",
         modelId: process.env.KIMI_BEDROCK_MODEL || "moonshotai.kimi-k2.5",
     };
 }
