@@ -52,6 +52,7 @@ export async function query(ragQuery: RAGQuery): Promise<RAGResponse> {
             queryText: ragQuery.queryText,
             conversationHistory,
             topK: 12,
+            userRole: ragQuery.queryBy,
         });
 
         // Guard: engine returned empty answer (shouldn't happen after kimi fix, but be safe)

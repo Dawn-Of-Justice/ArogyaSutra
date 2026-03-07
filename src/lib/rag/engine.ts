@@ -27,6 +27,7 @@ import type {
     RAGStrategy,
     ScoredContext,
 } from "./types";
+import { getPrompts } from "./prompts";
 
 // ── Production: in-flight dedup + LRU response cache + hard timeout ───────
 // In-flight map: concurrent identical (patientId, query) requests share one Promise
@@ -203,34 +204,8 @@ Be thorough — include every number and value visible. Output plain text, no JS
 }
 
 // --------------- Generation Prompts ---------------
-
-/** Used when patient health record contexts are available */
-const GENERATION_SYSTEM = `You are ArogyaSutra, a compassionate medical AI assistant helping patients understand their health records.
-Rules:
-- Answer based ONLY on the provided contexts from the patient's health records.
-- Cite sources as [Source N] inline.
-- Use plain language a patient can understand.
-- For values (BP, glucose, etc.) include trends and whether they are within normal range.
-- Always end with: "Please discuss with your doctor for medical advice."
-- Do NOT speculate beyond the records.`;
-
-/** Used when retrieval was attempted but returned NO results */
-const NO_RECORDS_SYSTEM = `You are ArogyaSutra, a compassionate medical AI assistant.
-The patient asked a question about their health records, but we searched their records and found NO relevant entries.
-Rules:
-- Tell the patient clearly that you could not find relevant records for their query.
-- Do NOT make up or guess any medical information, prescriptions, doctor names, or dates.
-- Do NOT use [Source N] citations since there are no sources.
-- Suggest the patient check if their records have been uploaded, or rephrase their question.
-- Keep the response short and helpful.
-- End with: "Please discuss with your doctor for medical advice."`;                                                                                                                                                                                                                                    
-
-/** Used when no retrieval is needed (general health question, no patient-specific entities) */
-const GENERAL_SYSTEM = `You are ArogyaSutra, a knowledgeable and friendly health assistant.
-Answer the question clearly and concisely in plain language. Be helpful and accurate.
-If the question is patient-specific and you lack their records, say so briefly.
-Do not add unnecessary disclaimers on every message.`;
-
+// Role-based prompts are maintained in prompts.ts for easy editing.
+// getPrompts(role) returns { generation, noRecords, general } per role.
 // --------------- Public API ---------------
 
 /**
@@ -339,20 +314,20 @@ async function runDirect(
     const classified = classifyQuery(options.queryText);
     const historyBlock = buildHistoryBlock(options.conversationHistory);
 
-    // Choose the right system prompt:
-    // 1. General mode (no patient data needed) → GENERAL_SYSTEM
-    // 2. Patient-specific but NO contexts retrieved → NO_RECORDS_SYSTEM (prevents hallucination)
-    // 3. Patient-specific WITH contexts → GENERATION_SYSTEM (cite sources)
-    const isPatientSpecific = !generalMode;
+    // Choose the right system prompt based on role (DOCTOR vs PATIENT) and context:
+    // 1. General mode (no patient data needed) → general prompt
+    // 2. Patient-specific but NO contexts retrieved → noRecords prompt (prevents hallucination)
+    // 3. Patient-specific WITH contexts → generation prompt (cite sources)
+    const prompts = getPrompts(options.userRole);
     const hasContexts = contexts.length > 0;
     let systemPrompt: string;
     if (generalMode) {
-        systemPrompt = GENERAL_SYSTEM;
+        systemPrompt = prompts.general;
     } else if (!hasContexts) {
-        systemPrompt = NO_RECORDS_SYSTEM;
-        console.warn(`[RAG Engine] No contexts found for patient-specific query: "${options.queryText.slice(0, 80)}" — using NO_RECORDS prompt to prevent hallucination`);
+        systemPrompt = prompts.noRecords;
+        console.warn(`[RAG Engine] No contexts found for patient-specific query: "${options.queryText.slice(0, 80)}" — using noRecords prompt (role=${options.userRole || "PATIENT"}) to prevent hallucination`);
     } else {
-        systemPrompt = GENERATION_SYSTEM;
+        systemPrompt = prompts.generation;
     }
 
     // Fetch images from S3 and describe them with a vision model (Nova Pro).

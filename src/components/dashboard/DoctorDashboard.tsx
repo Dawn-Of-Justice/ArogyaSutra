@@ -273,6 +273,22 @@ export default function DoctorDashboard({ onNavigate, doctorName, onPatientVerif
     // Single patient session (null until verified)
     // initialPatient allows session to be restored after navigating away and back
     const [patient, setPatient] = useState<PatientData | null>(initialPatient ?? null);
+    const [patientPhotoUrl, setPatientPhotoUrl] = useState<string | null>(null);
+
+    // Fetch patient profile photo when patient changes
+    React.useEffect(() => {
+        if (!patient?.cardId) {
+            setPatientPhotoUrl(null);
+            return;
+        }
+        fetch(`/api/profile/photo?userId=${encodeURIComponent(patient.cardId)}&role=patient`)
+            .then((r) => r.json())
+            .then((data) => {
+                if (data.url) setPatientPhotoUrl(data.url);
+                else setPatientPhotoUrl(null);
+            })
+            .catch(() => setPatientPhotoUrl(null));
+    }, [patient?.cardId]);
 
     // Sync patient state to parent without calling setState during render
     const onPatientDataChangeRef = React.useRef(onPatientDataChange);
@@ -907,13 +923,29 @@ export default function DoctorDashboard({ onNavigate, doctorName, onPatientVerif
                             {/* Patient identity header */}
                             <div className={styles.patientIdentityRow}>
                                 <div className={styles.patientIdentityMain}>
-                                    <span className={styles.patientIdentityName}>{patient.name}</span>
+                                    <div className={styles.patientIdentityLeft}>
+                                        <div className={styles.patientPhoto}>
+                                            {patientPhotoUrl ? (
+                                                <img
+                                                    src={patientPhotoUrl}
+                                                    alt={patient.name}
+                                                    className={styles.patientPhotoImg}
+                                                />
+                                            ) : (
+                                                <span className={styles.patientPhotoFallback}>
+                                                    {patient.name?.charAt(0)?.toUpperCase() || "?"}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className={styles.patientIdentityText}>
+                                            <span className={styles.patientIdentityName}>{patient.name}</span>
+                                            <span className={styles.patientIdentityMeta}>
+                                                {patient.gender}{patient.age > 0 ? `, ${patient.age} yrs` : ""}
+                                            </span>
+                                        </div>
+                                    </div>
                                     <span className={styles.patientIdentityCard}>{patient.cardId}</span>
                                 </div>
-                                <span className={styles.patientIdentityMeta}>
-                                    {patient.gender}{patient.age > 0 ? `, ${patient.age} yrs` : ""}
-                                    {patient.phone ? ` · ${patient.phone}` : ""}
-                                </span>
                             </div>
 
                             {/* Stats bar: height / weight / blood group */}

@@ -6,25 +6,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { complete as kimiComplete } from "../../../../lib/llm/kimi";
 import { checkRateLimit } from "../../../../lib/utils/rateLimit";
+import { getPrompts } from "../../../../lib/rag/prompts";
 
 export const maxDuration = 60;
 
-const DOCTOR_SYSTEM_PROMPT = `You are Arogya, an intelligent clinical assistant built into ArogyaSutra, a digital health records platform used by licensed doctors in India.
-
-You are speaking with a verified doctor. Your role is to:
-- Answer general medical knowledge questions clearly and precisely
-- Explain medical concepts, drug interactions, treatment protocols, diagnostic criteria
-- Help with clinical decision-making by providing evidence-based information
-- Format differential diagnoses, diagnostic checklists, or treatment summaries when asked
-
-When you don't have patient-specific data available, acknowledge that and guide the doctor to verify a patient for context-aware queries.
-
-Guidelines:
-- Be concise and professional — you're talking to a medical professional
-- Use correct medical terminology, but clarify abbreviations on first use
-- Cite standard guidelines (Indian/WHO/ICMR) when relevant
-- Never replace clinical judgment — always frame answers as informational
-- If a question requires specific patient data, suggest the doctor use "Verify Patient" to unlock context-aware AI queries`;
+// General route is only used by doctors (no patient context).
+// The prompt comes from the central prompts.ts file for easy editing.
 
 export async function POST(req: NextRequest) {
     try {
@@ -53,7 +40,7 @@ export async function POST(req: NextRequest) {
 
         const result = await kimiComplete(
             [
-                { role: "system", content: DOCTOR_SYSTEM_PROMPT },
+                { role: "system", content: getPrompts("DOCTOR").general },
                 { role: "user", content: query },
             ],
             { temperature: 0.3, maxTokens: 1200 }

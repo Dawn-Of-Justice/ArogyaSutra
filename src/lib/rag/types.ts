@@ -149,6 +149,8 @@ export interface RAGEngineOptions {
     forceStrategy?: RAGStrategy;
     /** Max retrieval contexts */
     topK?: number;
+    /** Who is querying — controls prompt tone (clinical vs plain language) */
+    userRole?: "PATIENT" | "DOCTOR";
 }
 
 export interface RAGEngineResult {
