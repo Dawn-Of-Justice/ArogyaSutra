@@ -1,0 +1,68 @@
+graph TB
+    subgraph Client["Client Layer - Next.js PWA"]
+        UI[UI Components]
+        Crypto[Web Crypto<br/>AES-256-GCM<br/>Zero-Knowledge]
+        Body3D[3D Body Model]
+    end
+
+    subgraph Auth["Authentication"]
+        AuthLambda[Lambda<br/>OTP Handler]
+    end
+
+    subgraph API["API Layer - Next.js Routes"]
+        AuthAPI[Auth]
+        ProfileAPI[Profile]
+        TimelineAPI[Timeline]
+        UploadAPI[Upload]
+        AssistantAPI[AI Assistant]
+        AccessAPI[Access Log]
+    end
+
+subgraph AI["AI Processing"]
+        Textract[Kimi K2.5<br/>OCR]
+        Bedrock[Bedrock<br/>KimiK2.5]
+        RAG[RAG Pipeline]
+    end
+
+    subgraph Storage["Data Storage"]
+        S3[(S3<br/>Encrypted Docs)]
+        DynamoDB[(DynamoDB<br/>Records, Logs, Access)]
+    end
+
+    subgraph Security["Security"]
+        KMS[AWS KMS]
+        SNS[SNS<br/>Notifications]
+    end
+
+    UI --> Crypto
+    UI --> Body3D
+    UI --> AuthAPI
+    UI --> ProfileAPI
+    UI --> TimelineAPI
+    UI --> UploadAPI
+    UI --> AssistantAPI
+    UI --> AccessAPI
+
+    AuthAPI --> AuthLambda
+    AuthLambda --> SNS
+    
+    UploadAPI --> S3
+    UploadAPI --> Textract
+    TimelineAPI --> DynamoDB
+    ProfileAPI --> DynamoDB
+    AccessAPI --> DynamoDB
+    
+    AssistantAPI --> Bedrock
+    AssistantAPI --> RAG
+    RAG --> DynamoDB
+    
+    Crypto --> KMS
+    S3 --> KMS
+    DynamoDB --> S3
+
+    style UI fill:#4A90E2,color:#fff
+    style Crypto fill:#E74C3C,color:#fff
+    style S3 fill:#569A31,color:#fff
+    style Textract fill:#FF9900,color:#fff
+    style Bedrock fill:#FF9900,color:#fff
+    style KMS fill:#DD344C,color:#fff
