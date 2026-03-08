@@ -17,6 +17,8 @@ import { fmtDate, fmtMonthYear, fmtMonthYearLong } from "../../lib/utils/date";
 import DocThumbnail from "../scan/DocThumbnail";
 import ScanModal from "../scan/ScanModal";
 import EntryDetailModal from "./EntryDetailModal";
+import * as timelineService from "../../lib/services/timeline.service";
+import { useAuth } from "../../hooks/useAuth";
 import type { HealthEntry } from "../../lib/types/timeline";
 
 const DOC_TYPES: { value: DocumentTypeTag | "ALL"; label: string; icon: React.ReactNode }[] = [
@@ -71,6 +73,8 @@ type Entry = ReturnType<typeof useTimeline>["entries"][number];
 
 export default function TimelineScreen({ onNavigate, patientId, initialEntryId, onEntryOpened }: TimelineScreenProps) {
     const { entries, isLoading, loadTimeline, loadMore, hasMore, updateEntry } = useTimeline(patientId);
+    const { effectivePatient } = useAuth();
+    const resolvedId = patientId || effectivePatient?.patientId || "";
     const [activeFilter, setActiveFilter] = useState<DocumentTypeTag | "ALL">("ALL");
     const [searchText, setSearchText] = useState("");
     const [hoveredMonth, setHoveredMonth] = useState<string | null>(null);
@@ -82,7 +86,9 @@ export default function TimelineScreen({ onNavigate, patientId, initialEntryId, 
     const popoverRef = useRef<HTMLDivElement>(null);
     const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
+    // Reset month selection & reload whenever the doc-type filter changes
     useEffect(() => {
+        setSelectedMonth(null);
         const filters: TimelineFilters = {};
         if (activeFilter !== "ALL") filters.documentTypes = [activeFilter];
         loadTimeline(filters);
@@ -125,8 +131,17 @@ export default function TimelineScreen({ onNavigate, patientId, initialEntryId, 
 
     const filteredEntries = useMemo(() => {
         let list = entries;
+        // Client-side document type filter — guarantees correctness even if
+        // the service returned stale / unfiltered cached data.
+        if (activeFilter !== "ALL") {
+            list = list.filter((e) => e.documentType === activeFilter);
+        }
         if (selectedMonth) {
-            list = monthBuckets.find((b) => b.key === selectedMonth)?.entries ?? [];
+            list = list.filter((e) => {
+                const d = new Date(e.date);
+                const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+                return key === selectedMonth;
+            });
         }
         if (searchText) {
             const q = searchText.toLowerCase();
@@ -138,7 +153,7 @@ export default function TimelineScreen({ onNavigate, patientId, initialEntryId, 
             );
         }
         return list;
-    }, [entries, selectedMonth, searchText, monthBuckets]);
+    }, [entries, activeFilter, selectedMonth, searchText]);
 
     // Group filtered entries by month key for the list view
     const groupedEntries = useMemo(() => {
@@ -444,14 +459,28 @@ export default function TimelineScreen({ onNavigate, patientId, initialEntryId, 
             {scanOpen && (
                 <ScanModal
                     onClose={() => setScanOpen(false)}
-                    onSaved={() => { setScanOpen(false); loadTimeline(); }}
+                    onSaved={() => {
+                        setScanOpen(false);
+                        // Preserve the active doc-type filter after saving a new record
+                        const f: TimelineFilters = {};
+                        if (activeFilter !== "ALL") f.documentTypes = [activeFilter];
+                        timelineService.invalidateTimelineCache(resolvedId);
+                        loadTimeline(f);
+                    }}
                 />
             )}
             {selectedEntry && (
                 <EntryDetailModal
                     entry={selectedEntry}
                     onClose={() => setSelectedEntry(null)}
-                    onDeleted={() => { setSelectedEntry(null); loadTimeline(); }}
+                    onDeleted={() => {
+                        setSelectedEntry(null);
+                        // Preserve the active doc-type filter after deletion
+                        const f: TimelineFilters = {};
+                        if (activeFilter !== "ALL") f.documentTypes = [activeFilter];
+                        timelineService.invalidateTimelineCache(resolvedId);
+                        loadTimeline(f);
+                    }}
                     onUpdated={(updated) => {
                         setSelectedEntry(prev => prev ? { ...prev, ...updated } : prev);
                         if (selectedEntry?.entryId) updateEntry(selectedEntry.entryId, updated);

@@ -90,7 +90,7 @@ interface AssistantScreenProps {
 }
 
 export default function AssistantScreen({ onNavigate, doctorPatientContext }: AssistantScreenProps) {
-    const { patient, doctor } = useAuth();
+    const { patient, doctor, effectivePatient } = useAuth();
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [input, setInput] = useState("");
     const [isLoading, setIsLoading] = useState(false);
@@ -144,7 +144,7 @@ export default function AssistantScreen({ onNavigate, doctorPatientContext }: As
                 // Patient mode OR doctor with patient context — use RAG endpoint
                 const patientId = hasPatientContext
                     ? doctorPatientContext!.cardId
-                    : patient!.patientId;
+                    : (effectivePatient ?? patient)!.patientId;
                 const queryBy = hasPatientContext ? "DOCTOR" : "PATIENT";
                 const queryByUserId = hasPatientContext ? `doctor-${patientId}` : patientId;
 

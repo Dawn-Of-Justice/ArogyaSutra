@@ -5,7 +5,7 @@
 
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import * as timelineService from "../lib/services/timeline.service";
 import type { ViewerContext } from "../lib/services/timeline.service";
 import type {
@@ -22,9 +22,24 @@ export function useTimeline(overridePatientId?: string) {
     const [error, setError] = useState<string | null>(null);
     const [hasMore, setHasMore] = useState(false);
     const [page, setPage] = useState(1);
+    const [currentFilters, setCurrentFilters] = useState<TimelineFilters>({});
 
     // Use override → effectivePatient (handles guardian-dependent switching) → patient
     const resolvedId = overridePatientId || effectivePatient?.patientId;
+
+    // Clear stale entries when the resolved patient changes
+    // (e.g. switching from guardian to dependent or vice-versa)
+    const prevResolvedIdRef = useRef(resolvedId);
+    useEffect(() => {
+        if (prevResolvedIdRef.current !== resolvedId) {
+            prevResolvedIdRef.current = resolvedId;
+            setEntries([]);
+            setHasMore(false);
+            setPage(1);
+            setCurrentFilters({});
+            setError(null);
+        }
+    }, [resolvedId]);
 
     const viewerContext: ViewerContext | undefined =
         userRole === "doctor" && doctor
@@ -38,15 +53,17 @@ export function useTimeline(overridePatientId?: string) {
             setError(null);
 
             try {
+                const appliedFilters = filters || {};
                 const request: TimelineRequest = {
                     patientId: resolvedId,
-                    filters: filters || {},
+                    filters: appliedFilters,
                     options: { page: 1, pageSize: 20, sortOrder: "newest", groupBy: "date" },
                 };
                 const response = await timelineService.getTimeline(request, null as unknown as CryptoKey, viewerContext);
                 setEntries(response.entries);
                 setHasMore(response.hasMore);
                 setPage(1);
+                setCurrentFilters(appliedFilters);
             } catch (e) {
                 setError((e as Error).message);
             } finally {
@@ -64,7 +81,7 @@ export function useTimeline(overridePatientId?: string) {
         try {
             const request: TimelineRequest = {
                 patientId: resolvedId,
-                filters: {},
+                filters: currentFilters,
                 options: { page: page + 1, pageSize: 20, sortOrder: "newest", groupBy: "date" },
             };
             const response = await timelineService.getTimeline(request, null as unknown as CryptoKey, viewerContext);
@@ -76,7 +93,7 @@ export function useTimeline(overridePatientId?: string) {
         } finally {
             setIsLoading(false);
         }
-    }, [resolvedId, hasMore, page, viewerContext?.viewerId]);
+    }, [resolvedId, hasMore, page, currentFilters, viewerContext?.viewerId]);
 
     const updateEntry = useCallback((entryId: string, changes: Partial<HealthEntry>) => {
         setEntries(prev => prev.map(e => e.entryId === entryId ? { ...e, ...changes } : e));

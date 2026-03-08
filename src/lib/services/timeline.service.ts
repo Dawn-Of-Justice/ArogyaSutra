@@ -123,14 +123,15 @@ export interface ViewerContext {
     viewerName: string;
 }
 
-// In-memory cache — 30 s TTL. Deduplicates AppShell prefetch vs useTimeline hook.
-const _timelineCache = new Map<string, { response: TimelineResponse; ts: number }>();
+// In-memory cache for RAW entries — 30 s TTL.
+// We cache the unfiltered API response so that filters are always applied fresh.
+const _rawEntriesCache = new Map<string, { entries: HealthEntry[]; ts: number }>();
 const TIMELINE_CACHE_TTL_MS = 30_000;
 
 /**
  * Retrieves timeline entries for a patient from DynamoDB.
  * Uses /api/timeline/entries — HealthLake is NOT available in ap-south-1.
- * Results are cached for 30 s to avoid duplicate fetches from AppShell + useTimeline.
+ * Raw entries are cached for 30 s; filters & pagination are always applied fresh.
  */
 export async function getTimeline(
     request: TimelineRequest,
@@ -145,23 +146,27 @@ export async function getTimeline(
     }
 
     const cacheKey = params.toString();
-    const cached = _timelineCache.get(cacheKey);
+    const cached = _rawEntriesCache.get(cacheKey);
+
+    let entries: HealthEntry[];
     if (cached && Date.now() - cached.ts < TIMELINE_CACHE_TTL_MS) {
-        return cached.response;
+        entries = cached.entries;
+    } else {
+        const res = await fetch(`/api/timeline/entries?${params.toString()}`);
+        if (!res.ok) {
+            const text = await res.text();
+            let msg = `Timeline fetch failed (${res.status})`;
+            try { msg = JSON.parse(text).error ?? msg; } catch { /* not JSON */ }
+            throw new Error(msg);
+        }
+
+        const data = await res.json();
+        entries = data.entries ?? [];
+        // Cache raw entries so AppShell prefetch and useTimeline hook share one result
+        _rawEntriesCache.set(cacheKey, { entries, ts: Date.now() });
     }
 
-    const res = await fetch(`/api/timeline/entries?${params.toString()}`);
-    if (!res.ok) {
-        const text = await res.text();
-        let msg = `Timeline fetch failed (${res.status})`;
-        try { msg = JSON.parse(text).error ?? msg; } catch { /* not JSON */ }
-        throw new Error(msg);
-    }
-
-    const data = await res.json();
-    const entries: HealthEntry[] = data.entries ?? [];
-
-    // Apply client-side filters
+    // Apply client-side filters (always, even on cached data)
     let filtered = entries;
     if (request.filters?.documentTypes?.length) {
         filtered = filtered.filter((e) =>
@@ -188,16 +193,14 @@ export async function getTimeline(
         pageSize,
         hasMore: start + pageSize < filtered.length,
     };
-    // Populate cache so AppShell prefetch and useTimeline hook share one result
-    _timelineCache.set(cacheKey, { response, ts: Date.now() });
     return response;
 }
 
 /** Clears the in-memory timeline cache for a patient (call after upload/delete). */
 export function invalidateTimelineCache(patientId: string): void {
-    for (const key of _timelineCache.keys()) {
+    for (const key of _rawEntriesCache.keys()) {
         if (key.startsWith(`patientId=${patientId}`)) {
-            _timelineCache.delete(key);
+            _rawEntriesCache.delete(key);
         }
     }
 }

@@ -185,7 +185,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     const recentEntries = entries.slice(0, 5);
     const greeting = getGreeting();
 
-    const initials = (patient?.fullName || "P")
+    const initials = (effectivePatient?.fullName || "P")
         .split(" ")
         .map((n) => n[0])
         .join("")
@@ -194,11 +194,12 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
 
     const [photoUrl, setPhotoUrl] = useState<string | null>(null);
     useEffect(() => {
-        if (!patient?.patientId) return;
+        if (!effectivePatient?.patientId) return;
         // Use localStorage cache set by AppShell's fetch — no duplicate network call
-        const key = `profilePhoto_${patient.patientId}`;
+        const key = `profilePhoto_${effectivePatient.patientId}`;
         const cached = localStorage.getItem(key);
         if (cached) setPhotoUrl(cached);
+        else setPhotoUrl(null);  // reset when switching to dependent
         // Listen for AppShell's photo fetch result or any upload event
         const handleUpdate = (e: Event) => {
             const detail = (e as CustomEvent<{ key: string; url: string }>).detail;
@@ -206,7 +207,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
         };
         window.addEventListener("profilePhotoUpdated", handleUpdate);
         return () => window.removeEventListener("profilePhotoUpdated", handleUpdate);
-    }, [patient?.patientId]);
+    }, [effectivePatient?.patientId]);
 
     // ---- Mini Calendar state ----
     const today = new Date();
@@ -234,7 +235,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                     {/* Greeting */}
                     <div className={styles.greeting}>
                         <span className={styles.greetingLabel}>{greeting} 👋</span>
-                        <span className={styles.greetingName}>{patient?.fullName || "Patient"}</span>
+                        <span className={styles.greetingName}>{effectivePatient?.fullName || "Patient"}</span>
                     </div>
 
                     {/* Quick Actions */}
@@ -371,14 +372,14 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                             ) : initials}
                         </div>
                         <div className={styles.profileDetails}>
-                            <h2 className={styles.profileName}>{patient?.fullName || "Patient"}</h2>
-                            <p className={styles.profileCardId}>{patient?.patientId || "—"}</p>
+                            <h2 className={styles.profileName}>{effectivePatient?.fullName || "Patient"}</h2>
+                            <p className={styles.profileCardId}>{effectivePatient?.patientId || "—"}</p>
                             <div className={styles.profileBadges}>
                                 <span className={styles.badge}>
-                                    {patient?.gender === "male" ? "♂ Male" : patient?.gender === "female" ? "♀ Female" : "⚧ Other"}
+                                    {effectivePatient?.gender === "male" ? "♂ Male" : effectivePatient?.gender === "female" ? "♀ Female" : "⚧ Other"}
                                 </span>
-                                {patient?.dateOfBirth && (
-                                    <span className={styles.badge}>{calculateAge(patient.dateOfBirth)} yrs</span>
+                                {effectivePatient?.dateOfBirth && (
+                                    <span className={styles.badge}>{calculateAge(effectivePatient.dateOfBirth)} yrs</span>
                                 )}
                             </div>
                         </div>

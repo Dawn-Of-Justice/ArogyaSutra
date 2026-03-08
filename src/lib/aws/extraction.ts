@@ -16,7 +16,7 @@ import {
 } from "@aws-sdk/client-comprehendmedical";
 import {
     BedrockRuntimeClient,
-    InvokeModelCommand,
+    ConverseCommand,
 } from "@aws-sdk/client-bedrock-runtime";
 import type {
     DocumentTypeTag,
@@ -46,9 +46,11 @@ const cmRegion = ["us-east-1", "us-east-2", "us-west-2", "eu-west-1", "ap-southe
     : "us-east-1";
 const comprehendClient = new ComprehendMedicalClient({ region: cmRegion, ...creds });
 
-// Nova Pro / cross-region inference profiles require us-east-1 or us-west-2
+// Kimi K2.5 — vision-capable model for document/image analysis
 const bedrockRegion = ["us-east-1", "us-west-2"].includes(region) ? region : "us-east-1";
-const BEDROCK_MODEL = process.env.BEDROCK_MODEL_ID?.trim() || "us.amazon.nova-pro-v1:0";
+const VISION_MODEL = process.env.KIMI_BEDROCK_MODEL?.trim() || "moonshotai.kimi-k2.5";
+// Keep Nova Pro as fallback if Kimi vision fails
+const FALLBACK_VISION_MODEL = process.env.BEDROCK_MODEL_ID?.trim() || "us.amazon.nova-pro-v1:0";
 const bedrockClient = new BedrockRuntimeClient({ region: bedrockRegion, ...creds });
 let bedrockVisionDisabledReason: string | null =
     process.env.DISABLE_BEDROCK_VISION === "true" ? "Disabled by DISABLE_BEDROCK_VISION" : null;
@@ -61,81 +63,101 @@ interface VisionAnalysis {
     bodyPart?: string;   // Chest, Abdomen, Right Knee, Brain, etc.
     findings?: string;   // Visible pathology or normal
     impression?: string; // One-line clinical summary
+    prescriptionText?: string;       // Full handwritten text reading for prescriptions
+    extractedMedications?: string[]; // Medications extracted by vision model
     title: string;       // e.g. "Chest X-Ray – Bilateral Pleural Effusion (Fluid Around Lungs)"
 }
 
 async function analyzeImageWithBedrock(jpegBytes: Buffer): Promise<VisionAnalysis | null> {
     if (bedrockVisionDisabledReason) return null;
 
-    const b64 = jpegBytes.toString("base64");
-    const prompt = `You are an experienced radiologist and clinician. Look at this image carefully.
+    const prompt = `You are an expert Indian medical document reader with decades of experience reading doctor handwriting, prescriptions, lab reports, hospital records, and medical imaging scans.
 
-First, determine whether this is:
-- A medical imaging scan (X-Ray, MRI, CT, Ultrasound, Echo, PET Scan, Mammogram, etc.) → documentCategory: "scan"
-- A photo of a medical text document (prescription, lab report, discharge summary, etc.) → documentCategory: "document"
-- Unclear → documentCategory: "unknown"
+Look at this image carefully. First determine what kind of document this is, then extract every detail.
 
-Respond ONLY with a valid JSON object (no markdown, no explanation) in this exact schema:
+IMPORTANT RULES FOR PRESCRIPTIONS & HANDWRITTEN DOCUMENTS:
+- Indian doctors often write in cursive English or mixed Hindi-English (Hinglish).
+- Common abbreviations: OD = once daily, BD = twice daily, TDS = three times a day, QID = four times daily, SOS = as needed, HS = at bedtime, AC = before food, PC = after food, stat = immediately.
+- Tab = Tablet, Cap = Capsule, Inj = Injection, Syr = Syrup, Oint = Ointment.
+- Read medications character by character if handwriting is unclear. Guess the most likely drug name.
+- Look for Rx symbol (℞) which marks the start of prescriptions.
+- Extract ALL medications, dosages, frequencies, and duration even if partially legible.
+
+Respond ONLY with a valid JSON object (no markdown fences, no explanation):
 {
   "documentCategory": "<scan|document|unknown>",
-  "modality": "<X-Ray|MRI|CT Scan|Ultrasound|PET Scan|Mammogram|Echo|Other — null if document/unknown>",
-  "bodyPart": "<specific body region and laterality, e.g. 'Chest', 'Right Knee', 'Brain', 'Abdomen' — null if not a scan>",
-  "findings": "<concise clinical description of what is visually seen — normal structures AND any abnormalities, max 120 words — null if not a scan>",
-  "impression": "<one-sentence clinical impression that a doctor would write, describing the key finding in plain English as well as clinical terms, e.g. 'Clear lung fields bilaterally with no consolidation or effusion' or 'Left lower lobe consolidation consistent with pneumonia' — null if not a scan>",
-  "title": "<for scans: modality + body part + key finding in BOTH clinical terms AND plain English in parentheses, e.g. 'Chest X-Ray – Clear Lung Fields (Healthy Lungs)' or 'Chest X-Ray – Bilateral Pleural Effusion (Fluid Around Both Lungs)' or 'MRI Right Knee – ACL Tear (Ligament Damage)' or 'CT Brain – Hyperdense Lesion Left Temporal Lobe (Possible Mass)' or 'Ultrasound Abdomen – Cholelithiasis (Gallstones Present)'. For documents: a short descriptive title based on visible text content.>"
+  "modality": "<X-Ray|MRI|CT Scan|Ultrasound|PET Scan|Mammogram|Echo|Other — null if not a scan>",
+  "bodyPart": "<specific body region, e.g. Chest, Right Knee, Brain — null if not a scan>",
+  "findings": "<clinical description of visible pathology — null if not a scan>",
+  "impression": "<one-sentence clinical impression — null if not a scan>",
+  "prescriptionText": "<for prescriptions/handwritten docs: your best reading of ALL handwritten text, line by line, preserving medication names, dosages, and instructions exactly as written — null if not applicable>",
+  "extractedMedications": ["<med1 name dosage frequency duration>", "<med2 ...>"],
+  "title": "<descriptive title: for scans use 'Modality BodyPart – Finding (Plain English)' e.g. 'Chest X-Ray – Bilateral Pleural Effusion (Fluid Around Lungs)'; for prescriptions use 'Prescription – Dr. Name – keyMeds' e.g. 'Prescription – Dr. Sharma – Metformin, Amlodipine'; for lab reports use 'Lab Report – testNames' e.g. 'Lab Report – CBC, Lipid Panel'; for other docs describe the content>"
 }
-Always include a title. If it is a document photo and you can read the content, describe it. For scans, always describe what you see in both medical and plain-English terms.`;
+Always include a title. Read every word and number you can see.`;
 
-    try {
-        const body = JSON.stringify({
-            messages: [{
-                role: "user",
-                content: [
-                    { image: { format: "jpeg", source: { bytes: b64 } } },
-                    { text: prompt },
-                ],
-            }],
-            inferenceConfig: { maxTokens: 512 },
-        });
-
-        // 8-second hard timeout — fail fast instead of hanging on billing/access errors
-        const abort = new AbortController();
-        const timer = setTimeout(() => abort.abort(), 8000);
-        let res;
+    // Try Kimi K2.5 first, fall back to Nova Pro
+    for (const modelId of [VISION_MODEL, FALLBACK_VISION_MODEL]) {
         try {
-            res = await bedrockClient.send(new InvokeModelCommand({
-                modelId: BEDROCK_MODEL,
-                contentType: "application/json",
-                accept: "application/json",
-                body: Buffer.from(body),
-            }), { abortSignal: abort.signal });
-        } finally {
-            clearTimeout(timer);
+            const abort = new AbortController();
+            const timer = setTimeout(() => abort.abort(), 15_000);
+            let res;
+            try {
+                res = await bedrockClient.send(
+                    new ConverseCommand({
+                        modelId,
+                        messages: [
+                            {
+                                role: "user",
+                                content: [
+                                    {
+                                        image: {
+                                            format: "jpeg",
+                                            source: { bytes: jpegBytes },
+                                        },
+                                    },
+                                    { text: prompt },
+                                ],
+                            },
+                        ],
+                        inferenceConfig: { maxTokens: 1024, temperature: 0.1 },
+                    }),
+                    { abortSignal: abort.signal }
+                );
+            } finally {
+                clearTimeout(timer);
+            }
+
+            const content =
+                res.output?.message?.content
+                    ?.map((b) => ("text" in b ? b.text ?? "" : ""))
+                    .join("") ?? "";
+
+            // Strip any accidental markdown fences
+            const jsonStr = content.replace(/```json\n?|```/g, "").trim();
+            const vision: VisionAnalysis = JSON.parse(jsonStr);
+            console.info(`[Bedrock vision] ${modelId} succeeded`);
+            return vision;
+        } catch (e) {
+            const message = (e as Error).message ?? "Unknown Bedrock error";
+
+            // Circuit breaker for account/subscription issues
+            if (
+                /INVALID_PAYMENT_INSTRUMENT|AWS Marketplace subscription|Model access is denied|Access denied/i.test(message)
+            ) {
+                // Only disable globally if BOTH models fail with access issues
+                if (modelId === FALLBACK_VISION_MODEL) {
+                    bedrockVisionDisabledReason = message;
+                    console.warn("[Bedrock vision] disabled for this server session:", message);
+                }
+            }
+
+            console.warn(`[Bedrock vision] ${modelId} failed:`, message);
+            // Continue to fallback model
         }
-
-        const text = new TextDecoder().decode(res.body);
-        const parsed = JSON.parse(text);
-        const content = parsed?.output?.message?.content?.[0]?.text ?? parsed?.content?.[0]?.text ?? "";
-
-        // Strip any accidental markdown fences
-        const jsonStr = content.replace(/```json\n?|```/g, "").trim();
-        const vision: VisionAnalysis = JSON.parse(jsonStr);
-        return vision;
-    } catch (e) {
-        const message = (e as Error).message ?? "Unknown Bedrock error";
-
-        // Circuit breaker for account/subscription issues so uploads don't keep paying retry latency.
-        if (
-            /INVALID_PAYMENT_INSTRUMENT|AWS Marketplace subscription|Model access is denied|Access denied/i.test(message)
-        ) {
-            bedrockVisionDisabledReason = message;
-            console.warn("[Bedrock vision] disabled for this server session:", message);
-            return null;
-        }
-
-        console.warn("[Bedrock vision] failed:", message);
-        return null;
     }
+
+    return null;
 }
 
 // ── Public result type ───────────────────────────────────────────────
@@ -651,7 +673,20 @@ export async function analyzeDocument(imageBytes: Buffer, filename = ""): Promis
     const visionDetectedScan = visionEarly?.documentCategory === "scan" && !!visionEarly.modality;
 
     // 1. OCR (still run for all types — needed for text-based documents)
-    const rawText = await extractTextFromImage(imageBytes);
+    let rawText = await extractTextFromImage(imageBytes);
+
+    // 1b. Supplement OCR with vision model's prescription text reading.
+    //     Kimi K2.5 is far better at reading handwritten prescriptions than Textract.
+    //     If the vision model read the document, append its reading for Comprehend to process.
+    if (visionEarly?.prescriptionText && visionEarly.documentCategory === "document") {
+        const visionText = visionEarly.prescriptionText.trim();
+        if (visionText.length > rawText.trim().length * 0.5) {
+            // Vision model read significantly more content — merge with OCR output
+            rawText = rawText.trim()
+                ? `${rawText}\n\n--- AI-Read Content ---\n${visionText}`
+                : visionText;
+        }
+    }
 
     // 2. Comprehend Medical — skip if OCR is blank (raw scan image)
     const looksLikeRawScan = rawText.trim().length < 80;

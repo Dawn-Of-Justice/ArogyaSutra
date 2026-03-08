@@ -54,7 +54,7 @@ type Step = "capture" | "extracting" | "review" | "saving" | "done";
 // ---- Component ---------------------------------------------------
 
 export default function ScanModal({ onClose, onSaved }: ScanModalProps) {
-    const { patient } = useAuth();
+    const { effectivePatient: patient } = useAuth();
 
     const [step, setStep] = useState<Step>("capture");
     const [preview, setPreview] = useState<string | null>(null);

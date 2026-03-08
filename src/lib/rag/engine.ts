@@ -145,15 +145,18 @@ async function fetchContextImages(
     return imageMap;
 }
 
-// ── Vision Model — describe images as text for non-vision LLMs ────────
-// Kimi K2.5 doesn't support image content blocks, so we use Nova Pro
-// (vision-capable) to extract text descriptions from document images first.
+// ── Vision Model — describe images as text for the RAG context ────────
+// Kimi K2.5 is used for vision — excellent at reading handwritten
+// prescriptions and extracting medical details from document photos.
 const _visionRegion = ["us-east-1", "us-west-2"].includes(_s3Region) ? _s3Region : "us-east-1";
 const _visionClient = new BedrockRuntimeClient({ region: _visionRegion, ..._s3Creds });
-const VISION_MODEL_ID = "us.amazon.nova-pro-v1:0";
+const VISION_MODEL_ID = process.env.KIMI_BEDROCK_MODEL?.trim() || "moonshotai.kimi-k2.5";
+// Fallback to Nova Pro if Kimi is unavailable
+const FALLBACK_VISION_MODEL_ID = process.env.BEDROCK_MODEL_ID?.trim() || "us.amazon.nova-pro-v1:0";
 
 /**
- * Uses Nova Pro (vision-capable) to describe the medical content of document images.
+ * Uses Kimi K2.5 (vision-capable) to describe medical content of document images.
+ * Falls back to Nova Pro if Kimi is unavailable.
  * Returns a text description suitable for inclusion in the RAG context block.
  */
 async function describeImagesWithVision(
@@ -161,46 +164,62 @@ async function describeImagesWithVision(
 ): Promise<string> {
     if (images.length === 0) return "";
 
-    try {
-        const contentBlocks = [
-            ...images.map((img) => ({
-                image: {
-                    format: img.format,
-                    source: { bytes: img.bytes },
-                },
-            })),
-            {
-                text: `You are a medical document reader. Describe the medical content visible in ${images.length > 1 ? "these" : "this"} document image${images.length > 1 ? "s" : ""}.
-For each image, extract ALL visible medical data: document type, medications (with dosages), test results (with values, units, and reference ranges), diagnoses, vital signs, doctor/hospital names, dates, and any handwritten notes.
-For medical scans (X-rays, MRI, CT, etc.), describe visible findings in clinical terms.
-Be thorough — include every number and value visible. Output plain text, no JSON.`,
+    const contentBlocks = [
+        ...images.map((img) => ({
+            image: {
+                format: img.format,
+                source: { bytes: img.bytes },
             },
-        ];
+        })),
+        {
+            text: `You are an expert Indian medical document reader. Read and describe the medical content visible in ${images.length > 1 ? "these" : "this"} document image${images.length > 1 ? "s" : ""}.
 
-        // 15s hard timeout for vision — images can be large
-        const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 15_000);
+IMPORTANT for handwritten prescriptions:
+- Indian doctors write in cursive English or mixed Hindi-English. Read every word carefully.
+- Abbreviations: OD=once daily, BD=twice daily, TDS=three times/day, QID=four times/day, SOS=as needed, HS=bedtime, AC=before food, PC=after food. Tab=tablet, Cap=capsule, Inj=injection, Syr=syrup.
+- Look for the Rx symbol (℞) marking prescriptions.
+- Extract ALL medications with doses, frequencies, and durations.
 
-        const response = await _visionClient
-            .send(
-                new ConverseCommand({
-                    modelId: VISION_MODEL_ID,
-                    messages: [{ role: "user" as const, content: contentBlocks }],
-                    inferenceConfig: { maxTokens: 1024, temperature: 0.1 },
-                }),
-                { abortSignal: controller.signal }
-            )
-            .finally(() => clearTimeout(timer));
+For each image extract ALL visible data: document type, medication names (with dosages and frequency), test results (values, units, reference ranges), diagnoses, vital signs, doctor/hospital names, dates, and handwritten notes.
+For medical scans (X-rays, MRI, CT, etc.), describe findings in clinical terms.
+Be thorough — include every number and value visible. Output plain text, no JSON.`,
+        },
+    ];
 
-        return (
-            response.output?.message?.content
-                ?.map((b) => ("text" in b ? b.text ?? "" : ""))
-                .join("") ?? ""
-        ).trim();
-    } catch (err) {
-        console.warn("[RAG Engine] Vision image description failed:", (err as Error).message);
-        return "";
+    // Try Kimi K2.5 first, fall back to Nova Pro
+    for (const modelId of [VISION_MODEL_ID, FALLBACK_VISION_MODEL_ID]) {
+        try {
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), 15_000);
+
+            const response = await _visionClient
+                .send(
+                    new ConverseCommand({
+                        modelId,
+                        messages: [{ role: "user" as const, content: contentBlocks }],
+                        inferenceConfig: { maxTokens: 1024, temperature: 0.1 },
+                    }),
+                    { abortSignal: controller.signal }
+                )
+                .finally(() => clearTimeout(timer));
+
+            const result = (
+                response.output?.message?.content
+                    ?.map((b) => ("text" in b ? b.text ?? "" : ""))
+                    .join("") ?? ""
+            ).trim();
+
+            if (result) {
+                console.info(`[RAG Engine] Vision (${modelId}) succeeded`);
+                return result;
+            }
+        } catch (err) {
+            console.warn(`[RAG Engine] Vision ${modelId} failed:`, (err as Error).message);
+            // Continue to fallback model
+        }
     }
+
+    return "";
 }
 
 // --------------- Generation Prompts ---------------
