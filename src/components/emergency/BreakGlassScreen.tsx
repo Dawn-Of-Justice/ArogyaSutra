@@ -48,6 +48,7 @@ export default function BreakGlassScreen({ onClose }: Props) {
     const [sessionId, setSessionId] = useState<string>("");
     const [error, setError] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
+    const [patientPhotoUrl, setPatientPhotoUrl] = useState<string | null>(null);
 
     const countdown = useCountdown({
         duration: 300, // 5 minutes per Req 6
@@ -124,6 +125,13 @@ export default function BreakGlassScreen({ onClose }: Props) {
             setSessionId(data.sessionId);
             setStep("data");
             countdown.start();
+
+            // Fetch patient profile photo (non-blocking)
+            const fullPatientId = `AS-${form.patientId}`.toUpperCase().trim();
+            fetch(`/api/profile/photo?userId=${encodeURIComponent(fullPatientId)}&role=patient`)
+                .then(r => r.json())
+                .then(d => { if (d.url) setPatientPhotoUrl(d.url); })
+                .catch(() => { /* non-fatal */ });
         } catch (err) {
             setError((err as Error).message);
         } finally {
@@ -289,7 +297,12 @@ export default function BreakGlassScreen({ onClose }: Props) {
                         {/* Patient header */}
                         <div className={styles.patientHeader}>
                             <div className={styles.patientAvatarLg}>
-                                {emergencyData.patientName?.[0]?.toUpperCase() || "?"}
+                                {patientPhotoUrl ? (
+                                    <img src={patientPhotoUrl} alt="Patient"
+                                        style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "inherit" }} />
+                                ) : (
+                                    emergencyData.patientName?.[0]?.toUpperCase() || "?"
+                                )}
                             </div>
                             <div className={styles.patientHeaderInfo}>
                                 <p className={styles.patientName}>

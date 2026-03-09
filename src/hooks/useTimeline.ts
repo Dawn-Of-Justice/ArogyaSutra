@@ -24,6 +24,10 @@ export function useTimeline(overridePatientId?: string) {
     const [page, setPage] = useState(1);
     const [currentFilters, setCurrentFilters] = useState<TimelineFilters>({});
 
+    // Monotonically increasing request counter — prevents stale async results
+    // from overwriting the entries set by a newer request.
+    const requestIdRef = useRef(0);
+
     // Use override → effectivePatient (handles guardian-dependent switching) → patient
     const resolvedId = overridePatientId || effectivePatient?.patientId;
 
@@ -49,6 +53,11 @@ export function useTimeline(overridePatientId?: string) {
     const loadTimeline = useCallback(
         async (filters?: TimelineFilters) => {
             if (!resolvedId) return;
+
+            // Bump request counter — any in-flight request with an older id
+            // will discard its result when it finally resolves.
+            const thisRequestId = ++requestIdRef.current;
+
             setIsLoading(true);
             setError(null);
 
@@ -60,14 +69,21 @@ export function useTimeline(overridePatientId?: string) {
                     options: { page: 1, pageSize: 20, sortOrder: "newest", groupBy: "date" },
                 };
                 const response = await timelineService.getTimeline(request, null as unknown as CryptoKey, viewerContext);
+
+                // Only apply result if this is still the latest request
+                if (thisRequestId !== requestIdRef.current) return;
+
                 setEntries(response.entries);
                 setHasMore(response.hasMore);
                 setPage(1);
                 setCurrentFilters(appliedFilters);
             } catch (e) {
+                if (thisRequestId !== requestIdRef.current) return;
                 setError((e as Error).message);
             } finally {
-                setIsLoading(false);
+                if (thisRequestId === requestIdRef.current) {
+                    setIsLoading(false);
+                }
             }
         },
         // eslint-disable-next-line react-hooks/exhaustive-deps

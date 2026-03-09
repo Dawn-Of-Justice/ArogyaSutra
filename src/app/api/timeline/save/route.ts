@@ -21,7 +21,9 @@ const creds =
         : {};
 
 const client = new DynamoDBClient({ region, ...creds });
-const db = DynamoDBDocumentClient.from(client);
+const db = DynamoDBDocumentClient.from(client, {
+    marshallOptions: { removeUndefinedValues: true },
+});
 
 const TABLE = process.env.DYNAMODB_HEALTH_RECORDS_TABLE || "arogyasutra-health-records";
 

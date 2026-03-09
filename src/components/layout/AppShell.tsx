@@ -114,7 +114,15 @@ export default function AppShell({
         const role = isDoctor ? "doctor" : "patient";
         fetch(`/api/profile/photo?userId=${userId}&role=${role}`)
             .then((r) => r.json())
-            .then((data) => { if (data.url) setPhotoUrl(data.url); })
+            .then((data) => {
+                if (data.url) {
+                    setPhotoUrl(data.url);
+                    // Cache in localStorage so Dashboard and other components can read it
+                    try { localStorage.setItem(key, data.url); } catch { /* storage full */ }
+                    // Broadcast so Dashboard picks it up immediately
+                    window.dispatchEvent(new CustomEvent("profilePhotoUpdated", { detail: { key, url: data.url } }));
+                }
+            })
             .catch(() => {/* silently use cached */ });
 
         // Keep sidebar avatar in sync when photo is uploaded from ProfileScreen

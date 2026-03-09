@@ -22,7 +22,9 @@ const creds =
         : {};
 
 const client = new DynamoDBClient({ region, ...creds });
-const db = DynamoDBDocumentClient.from(client);
+const db = DynamoDBDocumentClient.from(client, {
+    marshallOptions: { removeUndefinedValues: true },
+});
 
 const TABLE = process.env.DYNAMODB_HEALTH_RECORDS_TABLE || "arogyasutra-health-records";
 
@@ -101,6 +103,10 @@ export async function POST(req: NextRequest) {
     } catch (err) {
         const msg = (err as Error).message ?? "Unknown error";
         console.error("[/api/timeline/prescription]", msg);
-        return NextResponse.json({ error: "Failed to save prescription." }, { status: 500 });
+        const isDev = process.env.NODE_ENV === "development";
+        return NextResponse.json(
+            { error: isDev ? msg : "Failed to save prescription." },
+            { status: 500 }
+        );
     }
 }

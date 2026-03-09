@@ -438,6 +438,7 @@ export default function DoctorDashboard({ onNavigate, doctorName, onPatientVerif
         setTimelineRecords([]);
         setSelectedBodyPart(null);
         setBodyPartRecords([]);
+        setPatientAppointments([]);
     };
 
     // Active annotation for body model
@@ -447,6 +448,39 @@ export default function DoctorDashboard({ onNavigate, doctorName, onPatientVerif
     const [timelineRecords, setTimelineRecords] = useState<MedicalRecord[]>([]);
     const [selectedBodyPart, setSelectedBodyPart] = useState<string | null>(null);
     const [bodyPartRecords, setBodyPartRecords] = useState<MedicalRecord[]>([]);
+
+    // ---- Patient appointments (fetched when patient is verified) ----
+    interface PatientAppointment {
+        appointmentId: string;
+        appointmentDate: string;
+        time?: string;
+        doctorName: string;
+        specialty?: string;
+        location?: string;
+        notes?: string;
+        status: string;
+    }
+    const [patientAppointments, setPatientAppointments] = useState<PatientAppointment[]>([]);
+
+    // Fetch appointments for the current patient
+    React.useEffect(() => {
+        if (!patient?.cardId) {
+            setPatientAppointments([]);
+            return;
+        }
+        fetch(`/api/appointments?patientId=${encodeURIComponent(patient.cardId)}`)
+            .then(r => r.ok ? r.json() : null)
+            .then(data => {
+                if (!data?.appointments) return;
+                // Show only upcoming scheduled appointments, sorted by date ascending
+                const today = new Date().toISOString().split("T")[0];
+                const upcoming = (data.appointments as PatientAppointment[])
+                    .filter(a => a.status === "scheduled" && a.appointmentDate >= today)
+                    .sort((a, b) => a.appointmentDate.localeCompare(b.appointmentDate));
+                setPatientAppointments(upcoming);
+            })
+            .catch(() => { /* non-fatal */ });
+    }, [patient?.cardId]);
 
     // ---- Modal: which one is open ("none" | "appointment" | "note" | "prescription") ----
     type ModalKind = "none" | "appointment" | "note" | "prescription";
@@ -494,8 +528,17 @@ export default function DoctorDashboard({ onNavigate, doctorName, onPatientVerif
             });
             if (!res.ok) throw new Error((await res.json()).error || "Failed");
             const saved = await res.json();
-            // Append to local timeline so the body map reflects it immediately
-            setTimelineRecords(prev => [saved.entry, ...prev]);
+            // Map the raw entry to MedicalRecord shape so body-map + list show it correctly
+            const rec: MedicalRecord = {
+                entryId:           saved.entry.entryId,
+                title:             saved.entry.title,
+                date:              saved.entry.date,
+                documentType:      saved.entry.documentType,
+                summary:           saved.entry.metadata?.summary,
+                sourceInstitution: saved.entry.sourceInstitution,
+                bodyPart:          saved.entry.metadata?.bodyPart,
+            };
+            setTimelineRecords(prev => [rec, ...prev]);
             setNoteDone(true);
             setTimeout(() => {
                 closeModal();
@@ -539,7 +582,17 @@ export default function DoctorDashboard({ onNavigate, doctorName, onPatientVerif
             });
             if (!res.ok) throw new Error((await res.json()).error || "Failed");
             const saved = await res.json();
-            setTimelineRecords(prev => [saved.entry, ...prev]);
+            // Map the raw entry to MedicalRecord shape so body-map + list show it correctly
+            const rec: MedicalRecord = {
+                entryId:           saved.entry.entryId,
+                title:             saved.entry.title,
+                date:              saved.entry.date,
+                documentType:      saved.entry.documentType,
+                summary:           saved.entry.metadata?.summary,
+                sourceInstitution: saved.entry.sourceInstitution,
+                bodyPart:          saved.entry.metadata?.bodyPart,
+            };
+            setTimelineRecords(prev => [rec, ...prev]);
             setRxDone(true);
             setTimeout(() => {
                 closeModal();
@@ -599,6 +652,14 @@ export default function DoctorDashboard({ onNavigate, doctorName, onPatientVerif
                 }),
             });
             if (!res.ok) throw new Error("Failed");
+            const saved = await res.json();
+            // Add to local appointments list so it appears immediately
+            if (saved.appointment) {
+                setPatientAppointments(prev => {
+                    const updated = [...prev, saved.appointment as PatientAppointment];
+                    return updated.sort((a, b) => a.appointmentDate.localeCompare(b.appointmentDate));
+                });
+            }
             setSchedDone(true);
             setTimeout(() => {
                 setSchedOpen(false);
@@ -1140,10 +1201,54 @@ export default function DoctorDashboard({ onNavigate, doctorName, onPatientVerif
                                 )}
                             </div>
 
+                            {/* ---- Upcoming Appointments ---- */}
+                            <div className={styles.recentRecords}>
+                                <div className={styles.recentRecordsHeader}>
+                                    <span className={styles.recentRecordsTitle}>Upcoming Appointments</span>
+                                    {patientAppointments.length > 0 && (
+                                        <span className={styles.recentRecordsBadge}>{patientAppointments.length}</span>
+                                    )}
+                                </div>
+                                {patientAppointments.length === 0 ? (
+                                    <p className={styles.recentRecordsEmpty}>No upcoming appointments.</p>
+                                ) : (
+                                    <div className={styles.recentRecordsList}>
+                                        {patientAppointments.slice(0, 5).map((appt) => (
+                                            <div key={appt.appointmentId} className={styles.recentRecord}>
+                                                <span
+                                                    className={styles.recentRecordType}
+                                                    style={{ background: "#3b82f622", color: "#3b82f6" }}
+                                                >
+                                                    {appt.specialty || "Appt"}
+                                                </span>
+                                                <div className={styles.recentRecordInfo}>
+                                                    <span className={styles.recentRecordTitle}>
+                                                        {fmtDate(appt.appointmentDate)}
+                                                        {appt.time ? ` at ${appt.time}` : ""}
+                                                    </span>
+                                                    <span className={styles.recentRecordMeta}>
+                                                        Dr. {appt.doctorName}
+                                                        {appt.location ? ` · ${appt.location}` : ""}
+                                                    </span>
+                                                    {appt.notes && (
+                                                        <span className={styles.recentRecordMeta} style={{ fontStyle: "italic", opacity: 0.75 }}>
+                                                            {appt.notes}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))}
+                                        {patientAppointments.length > 5 && (
+                                            <p className={styles.recentRecordsMore}>
+                                                +{patientAppointments.length - 5} more scheduled
+                                            </p>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+
 
                         </div>
-
-                        {/* End session — go back to verify next patient */}
                         <button
                             className={`${styles.actionBtn} ${styles.endSessionBtn}`}
                             onClick={handleEndSession}

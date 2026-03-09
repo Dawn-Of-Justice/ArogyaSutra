@@ -195,12 +195,27 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     const [photoUrl, setPhotoUrl] = useState<string | null>(null);
     useEffect(() => {
         if (!effectivePatient?.patientId) return;
-        // Use localStorage cache set by AppShell's fetch — no duplicate network call
         const key = `profilePhoto_${effectivePatient.patientId}`;
+
+        // 1. Try localStorage cache first for instant display
         const cached = localStorage.getItem(key);
-        if (cached) setPhotoUrl(cached);
-        else setPhotoUrl(null);  // reset when switching to dependent
-        // Listen for AppShell's photo fetch result or any upload event
+        if (cached) {
+            setPhotoUrl(cached);
+        } else {
+            setPhotoUrl(null);
+            // 2. Fallback: fetch from S3 API when no cached photo exists
+            fetch(`/api/profile/photo?userId=${encodeURIComponent(effectivePatient.patientId)}&role=patient`)
+                .then((r) => r.json())
+                .then((data) => {
+                    if (data.url) {
+                        setPhotoUrl(data.url);
+                        try { localStorage.setItem(key, data.url); } catch { /* storage full */ }
+                    }
+                })
+                .catch(() => { /* non-fatal */ });
+        }
+
+        // 3. Listen for photo updates (upload from ProfileScreen, fetch from AppShell)
         const handleUpdate = (e: Event) => {
             const detail = (e as CustomEvent<{ key: string; url: string }>).detail;
             if (detail.key === key) setPhotoUrl(detail.url);

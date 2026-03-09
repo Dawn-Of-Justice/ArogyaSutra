@@ -104,35 +104,10 @@ export default function TimelineScreen({ onNavigate, patientId, initialEntryId, 
         }
     }, [initialEntryId, entries, onEntryOpened]);
 
-    // Build month buckets from all entries
-    const monthBuckets = useMemo<MonthBucket[]>(() => {
-        const map = new Map<string, MonthBucket>();
-        for (const entry of entries) {
-            const d = new Date(entry.date);
-            const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-            if (!map.has(key)) {
-                map.set(key, {
-                    key,
-                    label: fmtMonthYear(d),
-                    year: d.getFullYear(),
-                    month: d.getMonth(),
-                    entries: [],
-                });
-            }
-            map.get(key)!.entries.push(entry);
-        }
-        return Array.from(map.values()).sort((a, b) => a.key.localeCompare(b.key));
-    }, [entries]);
-
-    const maxBucketCount = useMemo(
-        () => Math.max(1, ...monthBuckets.map((b) => b.entries.length)),
-        [monthBuckets]
-    );
-
+    // Client-side filter — always authoritative regardless of what the
+    // service returned (handles stale cache, race conditions, etc.)
     const filteredEntries = useMemo(() => {
         let list = entries;
-        // Client-side document type filter — guarantees correctness even if
-        // the service returned stale / unfiltered cached data.
         if (activeFilter !== "ALL") {
             list = list.filter((e) => e.documentType === activeFilter);
         }
@@ -154,6 +129,38 @@ export default function TimelineScreen({ onNavigate, patientId, initialEntryId, 
         }
         return list;
     }, [entries, activeFilter, selectedMonth, searchText]);
+
+    // Build month buckets from the TYPE-filtered entries (but before
+    // month / search narrowing) so the scrubber reflects the active
+    // document-type chip correctly.
+    const typeFilteredEntries = useMemo(() => {
+        if (activeFilter === "ALL") return entries;
+        return entries.filter((e) => e.documentType === activeFilter);
+    }, [entries, activeFilter]);
+
+    const monthBuckets = useMemo<MonthBucket[]>(() => {
+        const map = new Map<string, MonthBucket>();
+        for (const entry of typeFilteredEntries) {
+            const d = new Date(entry.date);
+            const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+            if (!map.has(key)) {
+                map.set(key, {
+                    key,
+                    label: fmtMonthYear(d),
+                    year: d.getFullYear(),
+                    month: d.getMonth(),
+                    entries: [],
+                });
+            }
+            map.get(key)!.entries.push(entry);
+        }
+        return Array.from(map.values()).sort((a, b) => a.key.localeCompare(b.key));
+    }, [typeFilteredEntries]);
+
+    const maxBucketCount = useMemo(
+        () => Math.max(1, ...monthBuckets.map((b) => b.entries.length)),
+        [monthBuckets]
+    );
 
     // Group filtered entries by month key for the list view
     const groupedEntries = useMemo(() => {
