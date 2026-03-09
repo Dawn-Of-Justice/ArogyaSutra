@@ -142,13 +142,8 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
     // Doctor's own emergency data
     const [doctorEmAllergies, setDoctorEmAllergies] = useState<string[]>([]);
     const [doctorEmMeds, setDoctorEmMeds] = useState<string[]>([]);
-    // Edit mode
-    const [emergencyEditing, setEmergencyEditing] = useState(false);
     const [editEmAllergiesTxt, setEditEmAllergiesTxt] = useState("");
     const [editEmMedsTxt, setEditEmMedsTxt] = useState("");
-    const [emergencySaving, setEmergencySaving] = useState(false);
-    const [emergencySaved, setEmergencySaved] = useState(false);
-    const [emergencyError, setEmergencyError] = useState("");
     // Visibility toggles (patient only)
     const [emShowBloodGroup, setEmShowBloodGroup] = useState(true);
     const [emShowAllergies, setEmShowAllergies] = useState(true);
@@ -157,13 +152,9 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
     // Last updated timestamp (ISO string)
     const [emergencyUpdatedAt, setEmergencyUpdatedAt] = useState<string | null>(null);
 
-    // Emergency Contacts editing
-    const [contactsEditing, setContactsEditing] = useState(false);
+    // Emergency Contacts
     const [editContacts, setEditContacts] = useState<{name:string;relationship:string;phone:string}[]>([]);
     const [newContact, setNewContact] = useState({name:'',relationship:'',phone:''});
-    const [contactsSaving, setContactsSaving] = useState(false);
-    const [contactsSaved, setContactsSaved] = useState(false);
-    const [contactsError, setContactsError] = useState('');
 
     // ---- Auto-fill city + state from pincode ----
     useEffect(() => {
@@ -355,82 +346,46 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
         [userId, isDoctor, photoStorageKey]
     );
 
-    // ---- Emergency Info: open edit ----
-    const handleEditEmergency = () => {
-        if (emergencyEditing) { setEmergencyEditing(false); return; }
-        setEditEmAllergiesTxt(
-            (isDoctor ? doctorEmAllergies : emergencyAllergies).join(", ")
-        );
-        setEditEmMedsTxt(
-            (isDoctor ? doctorEmMeds : emergencyCriticalMeds).join(", ")
-        );
-        setEmergencyError("");
-        setEmergencyEditing(true);
+    // ---- Enter edit mode (initialize all form fields) ----
+    const handleStartEditing = () => {
+        setSaved(false);
+        setError(null);
+        // Init emergency text fields
+        setEditEmAllergiesTxt((isDoctor ? doctorEmAllergies : emergencyAllergies).join(", "));
+        setEditEmMedsTxt((isDoctor ? doctorEmMeds : emergencyCriticalMeds).join(", "));
+        // Init contacts
+        if (!isDoctor && patient?.emergencyContacts) {
+            setEditContacts([...patient.emergencyContacts]);
+        } else {
+            setEditContacts([]);
+        }
+        setNewContact({ name: '', relationship: '', phone: '' });
+        setEditing(true);
     };
 
-    // ---- Emergency Info: save ----
-    const handleSaveEmergency = async () => {
-        const emErr = firstError(
-            validateCommaList(editEmAllergiesTxt, "Allergies"),
-            validateCommaList(editEmMedsTxt, "Critical Medications"),
-        );
-        if (emErr) { setEmergencyError(emErr); return; }
-        setEmergencySaving(true);
-        setEmergencyError("");
-        try {
-            const toArr = (s: string) => s.split(",").map(x => x.trim()).filter(Boolean);
-            const allergiesArr = toArr(editEmAllergiesTxt);
-            const medsArr = toArr(editEmMedsTxt);
-            const nowIso = new Date().toISOString();
-            if (isDoctor) {
-                localStorage.setItem(`arogyasutra_emergency_${userId}`, JSON.stringify({
-                    allergies: editEmAllergiesTxt,
-                    criticalMeds: editEmMedsTxt,
-                    updatedAt: nowIso,
-                }));
-                setDoctorEmAllergies(allergiesArr);
-                setDoctorEmMeds(medsArr);
-            } else {
-                localStorage.setItem(`arogyasutra_emergency_${userId}`, JSON.stringify({
-                    allergies: editEmAllergiesTxt,
-                    criticalMeds: editEmMedsTxt,
-                    showBloodGroup: emShowBloodGroup,
-                    showAllergies: emShowAllergies,
-                    showMeds: emShowMeds,
-                    showContacts: emShowContacts,
-                    updatedAt: nowIso,
-                }));
-                setEmergencyAllergies(allergiesArr);
-                setEmergencyCriticalMeds(medsArr);
-                setEmergencyUpdatedAt(nowIso);
-                // Persist to Cognito + DynamoDB so emergency access and doctors can see allergies/meds
-                try {
-                    await fetch("/api/profile/update", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                            userId,
-                            role: "patient",
-                            updates: {
-                                allergies: editEmAllergiesTxt,
-                                criticalMeds: editEmMedsTxt,
-                                emergencyAllergies: editEmAllergiesTxt,
-                                emergencyCriticalMeds: editEmMedsTxt,
-                                emShowBloodGroup: String(emShowBloodGroup),
-                                emShowAllergies: String(emShowAllergies),
-                                emShowMeds: String(emShowMeds),
-                                emShowContacts: String(emShowContacts),
-                            },
-                        }),
-                    });
-                } catch { /* non-fatal — localStorage is the source of truth */ }
-            }
-            setEmergencySaved(true);
-            setTimeout(() => { setEmergencySaved(false); setEmergencyEditing(false); }, 1200);
-        } catch {
-            setEmergencyError("Failed to save. Please try again.");
-        } finally {
-            setEmergencySaving(false);
+    // ---- Cancel editing (reset all form fields) ----
+    const handleCancelEditing = () => {
+        setEditing(false);
+        setError(null);
+        // Reset profile fields from auth data
+        if (isDoctor && doctor) {
+            setEditName(doctor.fullName || "");
+            setEditPhone(doctor.phone || "");
+            setEditInstitution(doctor.institution || "");
+            setEditDesignation(doctor.designation || "");
+        } else if (!isDoctor && patient) {
+            setEditName(patient.fullName || "");
+            setEditPhone(patient.phone || "");
+            setEditCity(patient.address?.city || "");
+            setEditState(patient.address?.state || "");
+            setEditPincode(patient.address?.pincode || "");
+            setEditLine1(patient.address?.line1 || "");
+            setEditLanguage(patient.language || "en");
+            setEditDob(patient.dateOfBirth || "");
+            setEditGender(patient.gender || "other");
+            setEditHeight(patient.height || "");
+            setEditWeight(patient.weight || "");
+            setEditBloodGroup(patient.bloodGroup || "");
         }
     };
 
@@ -477,32 +432,7 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
         }
     };
 
-    // ---- Emergency Contacts: save ----
-    const handleSaveContacts = async () => {
-        setContactsSaving(true);
-        setContactsError('');
-        try {
-            const res = await fetch('/api/profile/update', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    userId,
-                    role: 'patient',
-                    updates: { emergencyContacts: JSON.stringify(editContacts) },
-                }),
-            });
-            if (!res.ok) throw new Error(`Save failed (${res.status})`);
-            updatePatient({ emergencyContacts: editContacts });
-            setContactsSaved(true);
-            setTimeout(() => { setContactsSaved(false); setContactsEditing(false); }, 1200);
-        } catch {
-            setContactsError('Failed to save. Please try again.');
-        } finally {
-            setContactsSaving(false);
-        }
-    };
-
-    // ---- Save profile edits ----
+    // ---- Save all profile edits (profile + emergency + contacts) ----
     const handleSave = async () => {
         const err = isDoctor
             ? firstError(
@@ -575,6 +505,70 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
                 throw new Error(error || `Save failed (${res.status})`);
             }
 
+            // ── Save emergency info ──
+            if (!isDoctor) {
+                const emErr = firstError(
+                    validateCommaList(editEmAllergiesTxt, "Allergies"),
+                    validateCommaList(editEmMedsTxt, "Critical Medications"),
+                );
+                if (emErr) { setError(emErr); setSaving(false); return; }
+
+                const toArr = (s: string) => s.split(",").map(x => x.trim()).filter(Boolean);
+                const allergiesArr = toArr(editEmAllergiesTxt);
+                const medsArr = toArr(editEmMedsTxt);
+                const nowIso = new Date().toISOString();
+
+                localStorage.setItem(`arogyasutra_emergency_${userId}`, JSON.stringify({
+                    allergies: editEmAllergiesTxt,
+                    criticalMeds: editEmMedsTxt,
+                    showBloodGroup: emShowBloodGroup,
+                    showAllergies: emShowAllergies,
+                    showMeds: emShowMeds,
+                    showContacts: emShowContacts,
+                    updatedAt: nowIso,
+                    _ddbSynced: true,
+                }));
+                setEmergencyAllergies(allergiesArr);
+                setEmergencyCriticalMeds(medsArr);
+                setEmergencyUpdatedAt(nowIso);
+
+                // Persist emergency data + contacts to DynamoDB in one call
+                try {
+                    await fetch("/api/profile/update", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            userId,
+                            role: "patient",
+                            updates: {
+                                allergies: editEmAllergiesTxt,
+                                criticalMeds: editEmMedsTxt,
+                                emergencyAllergies: editEmAllergiesTxt,
+                                emergencyCriticalMeds: editEmMedsTxt,
+                                emShowBloodGroup: String(emShowBloodGroup),
+                                emShowAllergies: String(emShowAllergies),
+                                emShowMeds: String(emShowMeds),
+                                emShowContacts: String(emShowContacts),
+                                emergencyContacts: JSON.stringify(editContacts),
+                            },
+                        }),
+                    });
+                } catch { /* non-fatal */ }
+
+                updatePatient({ emergencyContacts: editContacts });
+            } else {
+                // Doctor emergency info (localStorage only)
+                const toArr = (s: string) => s.split(",").map(x => x.trim()).filter(Boolean);
+                const nowIso = new Date().toISOString();
+                localStorage.setItem(`arogyasutra_emergency_${userId}`, JSON.stringify({
+                    allergies: editEmAllergiesTxt,
+                    criticalMeds: editEmMedsTxt,
+                    updatedAt: nowIso,
+                }));
+                setDoctorEmAllergies(toArr(editEmAllergiesTxt));
+                setDoctorEmMeds(toArr(editEmMedsTxt));
+            }
+
             setSaved(true);
             setEditing(false);
             setTimeout(() => setSaved(false), 3000);
@@ -645,13 +639,15 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
                             <span className={styles.idPill}>{patient?.patientId || "—"}</span>
                         )}
                     </div>
-                    <button
-                        className={`${styles.editToggle} ${editing ? styles.editToggleActive : ""}`}
-                        onClick={() => { setEditing(!editing); setSaved(false); }}
-                    >
-                        {editing ? <Check size={14} /> : <Pencil size={14} />}
-                        {editing ? "Editing…" : "Edit Profile"}
-                    </button>
+                    {!editing ? (
+                        <button className={styles.editToggle} onClick={handleStartEditing}>
+                            <Pencil size={14} /> Edit Profile
+                        </button>
+                    ) : (
+                        <div className={styles.editingIndicator}>
+                            <Check size={14} /> Editing…
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -880,6 +876,19 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
                         </div>
                     </div>
 
+                    {/* Save / Cancel — shown while editing, placed under Health & Vitals */}
+                    {editing && (
+                        <div className={styles.saveRow}>
+                            {error && <span className={styles.saveRowError}>⚠️ {error}</span>}
+                            <button className={styles.cancelBtn} onClick={handleCancelEditing}>
+                                Cancel
+                            </button>
+                            <button className={styles.saveBtn} onClick={handleSave} disabled={saving}>
+                                {saving ? "Saving…" : "Save Changes"}
+                            </button>
+                        </div>
+                    )}
+
                     {/* Emergency Info */}
                     <div className={`${styles.card} ${styles.cardFull}`}>
                         <div className={styles.emCardHeader}>
@@ -887,14 +896,9 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
                                 <span className={styles.cardTitleIcon}><AlertTriangle size={16} /></span>
                                 Emergency Info
                             </h2>
-                            {!emergencyEditing && (
-                                <button className={styles.editToggle} onClick={handleEditEmergency}>
-                                    <Pencil size={13} /> Edit
-                                </button>
-                            )}
                         </div>
 
-                        {!emergencyEditing && (
+                        {!editing && (
                             <>
                                 <p className={styles.emNote}>
                                     This information will be shown to emergency first responders
@@ -915,11 +919,8 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
                             </>
                         )}
 
-                        {emergencyEditing ? (
+                        {editing ? (
                             <div className={styles.emForm}>
-                                {emergencyError && <p className={styles.emError}>{emergencyError}</p>}
-                                {emergencySaved && <p className={styles.emSuccess}>✓ Saved</p>}
-
                                 <div className={styles.emFormGroup}>
                                     <label className={styles.emLabel}>Known Allergies <span className={styles.emLabelHint}>(comma-separated)</span></label>
                                     <textarea className={styles.emTextarea} rows={2} placeholder="e.g. Penicillin, Sulfa drugs, Peanuts" value={editEmAllergiesTxt} onChange={e => setEditEmAllergiesTxt(e.target.value)} maxLength={500} />
@@ -928,13 +929,6 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
                                 <div className={styles.emFormGroup}>
                                     <label className={styles.emLabel}>Critical Medications <span className={styles.emLabelHint}>(comma-separated)</span></label>
                                     <textarea className={styles.emTextarea} rows={2} placeholder="e.g. Warfarin 5mg daily, Insulin 10 units" value={editEmMedsTxt} onChange={e => setEditEmMedsTxt(e.target.value)} maxLength={500} />
-                                </div>
-
-                                <div className={styles.emFormActions}>
-                                    <button className={styles.emCancelBtn} onClick={() => setEmergencyEditing(false)}>Cancel</button>
-                                    <button className={styles.emSaveBtn} onClick={handleSaveEmergency} disabled={emergencySaving}>
-                                        {emergencySaving ? "Saving…" : "Save"}
-                                    </button>
                                 </div>
                             </div>
                         ) : (
@@ -991,27 +985,10 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
                                 <span className={styles.cardTitleIcon}><Shield size={16} /></span>
                                 Emergency Contacts
                             </h2>
-                            {!contactsEditing && (
-                                <button
-                                    className={styles.editToggle}
-                                    onClick={() => {
-                                        setEditContacts(patient.emergencyContacts ? [...patient.emergencyContacts] : []);
-                                        setNewContact({name:'',relationship:'',phone:''});
-                                        setContactsError('');
-                                        setContactsSaved(false);
-                                        setContactsEditing(true);
-                                    }}
-                                >
-                                    <Pencil size={14} /> Edit
-                                </button>
-                            )}
                         </div>
 
-                        {contactsEditing ? (
+                        {editing ? (
                             <div className={styles.emForm}>
-                                {contactsError && <p className={styles.emError}>{contactsError}</p>}
-                                {contactsSaved && <p className={styles.emSuccess}>✓ Saved</p>}
-
                                 {editContacts.length > 0 && (
                                     <div className={styles.contactList}>
                                         {editContacts.map((c, i) => (
@@ -1070,12 +1047,6 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
                                     >+ Add</button>
                                 </div>
 
-                                <div className={styles.emFormActions}>
-                                    <button className={styles.emCancelBtn} onClick={() => setContactsEditing(false)}>Cancel</button>
-                                    <button className={styles.emSaveBtn} onClick={handleSaveContacts} disabled={contactsSaving}>
-                                        {contactsSaving ? "Saving…" : "Save"}
-                                    </button>
-                                </div>
                             </div>
                         ) : (
                             patient.emergencyContacts && patient.emergencyContacts.length > 0 ? (
@@ -1169,21 +1140,20 @@ export default function ProfileScreen({ onNavigate }: ProfileScreenProps) {
                 </>
             )}
 
-            {/* ---- Save/Cancel bar (editing mode only) ---- */}
-            {editing && (
+            {/* Save / Cancel for doctor — shown under their cards */}
+            {isDoctor && editing && (
                 <div className={styles.saveRow}>
-                    <button className={styles.cancelBtn} onClick={() => setEditing(false)}>Cancel</button>
+                    {error && <span className={styles.saveRowError}>⚠️ {error}</span>}
+                    <button className={styles.cancelBtn} onClick={handleCancelEditing}>
+                        Cancel
+                    </button>
                     <button className={styles.saveBtn} onClick={handleSave} disabled={saving}>
                         {saving ? "Saving…" : "Save Changes"}
                     </button>
                 </div>
             )}
+
             {saved && <span className={styles.successMsg}>✓ Profile updated</span>}
-            {error && (
-                <div style={{ margin: "8px 0", padding: "10px 16px", background: "rgba(229,62,62,0.10)", border: "1px solid rgba(229,62,62,0.3)", borderRadius: 10, color: "#c53030", fontSize: 14 }}>
-                    ⚠️ {error} — <button style={{ background: "none", border: "none", color: "#c53030", cursor: "pointer", textDecoration: "underline" }} onClick={() => setError(null)}>Dismiss</button>
-                </div>
-            )}
 
             {/* ---- Logout ---- */}
             <div className={styles.logoutCard}>
