@@ -172,12 +172,40 @@ export interface ExtractionResult {
 
 // ── Image normalisation ──────────────────────────────────────────────
 
+/** Convert to JPEG at high quality for vision models (no size constraint). */
 async function toJpegBuffer(imageBytes: Buffer): Promise<Buffer> {
-    return sharp(imageBytes).jpeg({ quality: 92 }).toBuffer();
+    return sharp(imageBytes)
+        .resize({ width: 2400, height: 3200, fit: "inside", withoutEnlargement: true })
+        .jpeg({ quality: 88 })
+        .toBuffer();
+}
+
+/**
+ * Textract DetectDocumentText Bytes limit is 5 MB.
+ * Progressively reduce quality / resolution until the buffer fits.
+ */
+async function toTextractBuffer(imageBytes: Buffer): Promise<Buffer> {
+    const MAX_BYTES = 4.5 * 1024 * 1024; // 4.5 MB — leave margin below 5 MB
+    const steps: Array<{ width: number; quality: number }> = [
+        { width: 2400, quality: 85 },
+        { width: 2000, quality: 75 },
+        { width: 1600, quality: 65 },
+        { width: 1200, quality: 55 },
+        { width: 900,  quality: 45 },
+    ];
+    for (const { width, quality } of steps) {
+        const buf = await sharp(imageBytes)
+            .resize({ width, height: Math.round(width * 1.5), fit: "inside", withoutEnlargement: true })
+            .jpeg({ quality })
+            .toBuffer();
+        if (buf.byteLength <= MAX_BYTES) return buf;
+    }
+    // Last resort: tiny thumbnail — OCR quality is poor but won't crash Textract
+    return sharp(imageBytes).resize({ width: 800 }).jpeg({ quality: 40 }).toBuffer();
 }
 
 export async function extractTextFromImage(imageBytes: Buffer): Promise<string> {
-    const jpegBytes = await toJpegBuffer(imageBytes);
+    const jpegBytes = await toTextractBuffer(imageBytes);
     const result = await textractClient.send(
         new DetectDocumentTextCommand({ Document: { Bytes: jpegBytes } })
     );

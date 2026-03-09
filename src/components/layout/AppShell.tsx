@@ -16,6 +16,10 @@ import {
     Bell, Search, MoreVertical, CheckCheck, ShieldCheck, X, Users, Menu,
 } from "lucide-react";
 import { GeminiIcon } from "../common/GeminiIcon";
+import {
+    ALL_NOTIFICATIONS, applyReadIds, localReadIds, saveLocalReadIds,
+    type AppNotification,
+} from "../../lib/utils/notifications";
 
 interface NavItem {
     id: string;
@@ -190,34 +194,10 @@ export default function AppShell({
         return () => document.removeEventListener("mousedown", handleClick);
     }, [notifOpen]);
 
-    interface Notification { id: number; icon: React.ReactNode; title: string; desc: string; time: string; unread: boolean; }
-
-    const SHELL_NOTIFS: Notification[] = [
-        { id: 1, icon: <User size={14} />, title: "Welcome to ArogyaSutra!", desc: "Your health vault is ready. Start by scanning a document.", time: "Just now", unread: true },
-        { id: 2, icon: <ClipboardList size={14} />, title: "Timeline synced", desc: "All your health records are up to date.", time: "2 min ago", unread: true },
-        { id: 3, icon: <ShieldCheck size={14} />, title: "Security check passed", desc: "Your encryption keys have been verified.", time: "5 min ago", unread: false },
-    ];
-
-    function applyReadIds(base: Notification[], readIds: number[]): Notification[] {
-        const set = new Set(readIds);
-        return base.map((n) => ({ ...n, unread: !set.has(n.id) }));
-    }
-
-    function localReadIds(uid: string): number[] {
-        try {
-            const raw = localStorage.getItem(`notif_read_${uid}`);
-            return raw ? (JSON.parse(raw) as number[]) : [];
-        } catch { return []; }
-    }
-
-    function saveLocalReadIds(uid: string, readIds: number[]) {
-        try { localStorage.setItem(`notif_read_${uid}`, JSON.stringify(readIds)); } catch { /* ignore */ }
-    }
-
     // Initialise from localStorage instantly (no flicker), then hydrate from DynamoDB
-    const [notifications, setNotifications] = useState<Notification[]>(() => {
-        if (!userId || typeof window === "undefined") return SHELL_NOTIFS;
-        return applyReadIds(SHELL_NOTIFS, localReadIds(userId));
+    const [notifications, setNotifications] = useState<AppNotification[]>(() => {
+        if (!userId || typeof window === "undefined") return ALL_NOTIFICATIONS;
+        return applyReadIds(ALL_NOTIFICATIONS, localReadIds(userId));
     });
     // Only POST after the first DynamoDB GET hydration is complete — prevents spurious POSTs on mount
     const notifHydratedRef = useRef(false);
@@ -231,7 +211,7 @@ export default function AppShell({
             .then(({ readIds }) => {
                 if (!Array.isArray(readIds)) return;
                 saveLocalReadIds(userId, readIds);
-                setNotifications(applyReadIds(SHELL_NOTIFS, readIds));
+                setNotifications(applyReadIds(ALL_NOTIFICATIONS, readIds));
             })
             .catch(() => { /* silently keep localStorage state */ })
             .finally(() => { notifHydratedRef.current = true; });
@@ -665,7 +645,7 @@ export default function AppShell({
                                     </button>
                                 </div>
                                 <div className={styles.notifList}>
-                                    {notifications.map((n) => (
+                                    {notifications.slice(0, 5).map((n) => (
                                         <div
                                             key={n.id}
                                             className={`${styles.notifItem} ${n.unread ? styles.notifItemUnread : ""}`}

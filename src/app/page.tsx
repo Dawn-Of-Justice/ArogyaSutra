@@ -5,7 +5,7 @@
 
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { AuthProvider, useAuth } from "../hooks/useAuth";
 import { useLanguage, broadcastLangChange } from "../hooks/useLanguage";
 import type { SupportedLang } from "../lib/i18n/translations";
@@ -72,6 +72,20 @@ function AppRouter() {
   }, [patient?.language]);
   const [showBreakGlass, setShowBreakGlass] = useState(false);
 
+  // Intercept navigation: "entry/{id}" from citation clicks → timeline + auto-open
+  // Defined here (before any conditional returns) to satisfy Rules of Hooks
+  const handleNavigate = useCallback((target: string) => {
+    if (target.startsWith("entry/")) {
+      const entryId = target.slice("entry/".length);
+      if (entryId) setPendingEntryId(entryId);
+      setScreen("timeline");
+    } else {
+      setScreen(target);
+    }
+  // setScreen and setPendingEntryId are stable React state setters
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Wait for client-side session restoration to avoid hydration mismatch
   if (!hydrated) return null;
 
@@ -87,6 +101,10 @@ function AppRouter() {
 
   // If doctor just logged in and screen is still "dashboard", redirect to doctor dashboard
   const activeScreen = screen === "dashboard" && isDoctor ? "doctor-dashboard" : screen;
+
+  const handleRecordSelect = (entryId: string) => {
+    setPendingEntryId(entryId);
+  };
 
   const renderScreen = () => {
     switch (activeScreen) {
@@ -137,21 +155,6 @@ function AppRouter() {
     help: t("page_help"),
     notifications: t("page_notifications"),
     profile: t("page_profile"),
-  };
-
-  const handleRecordSelect = (entryId: string) => {
-    setPendingEntryId(entryId);
-  };
-
-  // Intercept navigation: "entry/{id}" from citation clicks → timeline + auto-open
-  const handleNavigate = (target: string) => {
-    if (target.startsWith("entry/")) {
-      const entryId = target.slice("entry/".length);
-      if (entryId) setPendingEntryId(entryId);
-      setScreen("timeline");
-    } else {
-      setScreen(target);
-    }
   };
 
   return (
