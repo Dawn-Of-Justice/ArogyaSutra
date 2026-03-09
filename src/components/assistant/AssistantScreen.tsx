@@ -127,19 +127,40 @@ export default function AssistantScreen({ onNavigate, doctorPatientContext }: As
 
             if (isGeneralMode) {
                 // Doctor, no patient — call general LLM endpoint
-                const res = await fetch("/api/assistant/general", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        query: input,
-                        conversationId,
-                        doctorId: doctor?.doctorId,
-                    }),
-                });
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
-                answer = data.answer || "Sorry, I couldn't process that request.";
-                newConversationId = data.conversationId;
+                const controller = new AbortController();
+                const timer = setTimeout(() => controller.abort(), 55_000);
+                let res: Response;
+                try {
+                    res = await fetch("/api/assistant/general", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            query: input,
+                            conversationId,
+                            doctorId: doctor?.doctorId,
+                        }),
+                        signal: controller.signal,
+                    });
+                } catch (fetchErr) {
+                    clearTimeout(timer);
+                    throw new Error(
+                        (fetchErr as Error).name === "AbortError"
+                            ? "The request timed out. Please try a shorter or simpler question."
+                            : "Network error — please check your connection and try again."
+                    );
+                } finally {
+                    clearTimeout(timer);
+                }
+                let data: Record<string, unknown>;
+                try {
+                    const text = await res.text();
+                    data = text.trim() ? JSON.parse(text) : {};
+                } catch {
+                    throw new Error(res.ok ? "Received an invalid response from the server. Please try again." : `Request failed (${res.status})`);
+                }
+                if (!res.ok) throw new Error((data.error as string) || `Request failed (${res.status})`);
+                answer = (data.answer as string) || "Sorry, I couldn't process that request.";
+                newConversationId = data.conversationId as string | undefined;
             } else {
                 // Patient mode OR doctor with patient context — use RAG endpoint
                 const patientId = hasPatientContext
@@ -148,18 +169,39 @@ export default function AssistantScreen({ onNavigate, doctorPatientContext }: As
                 const queryBy = hasPatientContext ? "DOCTOR" : "PATIENT";
                 const queryByUserId = hasPatientContext ? `doctor-${patientId}` : patientId;
 
-                const res = await fetch("/api/assistant/rag", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        query: input,
-                        patientId,
-                        queryBy,
-                        queryByUserId,
-                        conversationId,
-                    }),
-                });
-                const data: RAGResponse = await res.json();
+                const controller = new AbortController();
+                const timer = setTimeout(() => controller.abort(), 55_000);
+                let res: Response;
+                try {
+                    res = await fetch("/api/assistant/rag", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            query: input,
+                            patientId,
+                            queryBy,
+                            queryByUserId,
+                            conversationId,
+                        }),
+                        signal: controller.signal,
+                    });
+                } catch (fetchErr) {
+                    clearTimeout(timer);
+                    throw new Error(
+                        (fetchErr as Error).name === "AbortError"
+                            ? "The request timed out. Please try a shorter or simpler question."
+                            : "Network error — please check your connection and try again."
+                    );
+                } finally {
+                    clearTimeout(timer);
+                }
+                let data: RAGResponse;
+                try {
+                    const text = await res.text();
+                    data = text.trim() ? JSON.parse(text) : ({} as RAGResponse);
+                } catch {
+                    throw new Error(res.ok ? "Received an invalid response from the server. Please try again." : `Request failed (${res.status})`);
+                }
                 if (!res.ok) throw new Error((data as unknown as { error?: string }).error || `Request failed (${res.status})`);
                 answer = data.answer || "Sorry, I couldn't process that request.";
                 citations = data.citations;

@@ -36,8 +36,8 @@ const _inflight = new Map<string, Promise<RAGEngineResult>>();
 const _responseCache = new Map<string, { result: RAGEngineResult; ts: number }>();
 const RESPONSE_CACHE_TTL_MS = 90_000;
 const RESPONSE_CACHE_MAX    = 500;
-// Hard deadline — leave ~15 s buffer before Next.js/Lambda's 60 s maxDuration
-const PIPELINE_TIMEOUT_MS   = 45_000;
+// Hard deadline — leave ~25 s buffer before Next.js/Lambda's 60 s maxDuration
+const PIPELINE_TIMEOUT_MS   = 35_000;
 
 function _cacheKey(o: RAGEngineOptions): string {
     return `${o.patientId}||${o.queryText.trim().toLowerCase().slice(0, 120)}`;

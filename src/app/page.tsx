@@ -91,11 +91,11 @@ function AppRouter() {
   const renderScreen = () => {
     switch (activeScreen) {
       case "dashboard":
-        return <Dashboard onNavigate={setScreen} />;
+        return <Dashboard onNavigate={handleNavigate} />;
       case "doctor-dashboard":
         return (
           <DoctorDashboard
-            onNavigate={setScreen}
+            onNavigate={handleNavigate}
             doctorName={doctor?.fullName}
             onPatientVerified={setDoctorActivePatient}
             initialPatient={doctorPatientData}
@@ -103,23 +103,23 @@ function AppRouter() {
           />
         );
       case "profile":
-        return <ProfileScreen onNavigate={setScreen} />;
+        return <ProfileScreen onNavigate={handleNavigate} />;
       case "timeline":
-        return <TimelineScreen onNavigate={setScreen} patientId={doctorActivePatient?.cardId} initialEntryId={pendingEntryId} onEntryOpened={() => setPendingEntryId(null)} />;
+        return <TimelineScreen onNavigate={handleNavigate} patientId={doctorActivePatient?.cardId} initialEntryId={pendingEntryId} onEntryOpened={() => setPendingEntryId(null)} />;
       case "assistant":
         return null; // rendered persistently below
       case "settings":
-        return <SettingsScreen onNavigate={setScreen} />;
+        return <SettingsScreen onNavigate={handleNavigate} />;
       case "help":
-        return <HelpScreen onNavigate={setScreen} />;
+        return <HelpScreen onNavigate={handleNavigate} />;
       case "access":
         return <AccessLogScreen />;
       case "notifications":
-        return <NotificationsScreen onNavigate={setScreen} userId={isDoctor ? doctor?.doctorId : patient?.patientId} />;
+        return <NotificationsScreen onNavigate={handleNavigate} userId={isDoctor ? doctor?.doctorId : patient?.patientId} />;
       default:
         return isDoctor
-          ? <DoctorDashboard onNavigate={setScreen} doctorName={doctor?.fullName} onPatientVerified={setDoctorActivePatient} initialPatient={doctorPatientData} onPatientDataChange={setDoctorPatientData} />
-          : <Dashboard onNavigate={setScreen} />;
+          ? <DoctorDashboard onNavigate={handleNavigate} doctorName={doctor?.fullName} onPatientVerified={setDoctorActivePatient} initialPatient={doctorPatientData} onPatientDataChange={setDoctorPatientData} />
+          : <Dashboard onNavigate={handleNavigate} />;
     }
   };
 
@@ -143,10 +143,21 @@ function AppRouter() {
     setPendingEntryId(entryId);
   };
 
+  // Intercept navigation: "entry/{id}" from citation clicks → timeline + auto-open
+  const handleNavigate = (target: string) => {
+    if (target.startsWith("entry/")) {
+      const entryId = target.slice("entry/".length);
+      if (entryId) setPendingEntryId(entryId);
+      setScreen("timeline");
+    } else {
+      setScreen(target);
+    }
+  };
+
   return (
     <AppShell
       activeScreen={activeScreen}
-      onNavigate={setScreen}
+      onNavigate={handleNavigate}
       pageTitle={PAGE_TITLES[activeScreen] || "ArogyaSutra"}
       userName={userName}
       userRole={isDoctor ? "Doctor" : "Patient"}
@@ -157,7 +168,7 @@ function AppRouter() {
       {/* AssistantScreen stays mounted once visited — chat history survives tab switches */}
       {assistantMounted && (
         <div style={activeScreen !== "assistant" ? { display: "none" } : {}}>
-          <AssistantScreen onNavigate={setScreen} doctorPatientContext={doctorActivePatient ?? undefined} />
+          <AssistantScreen onNavigate={handleNavigate} doctorPatientContext={doctorActivePatient ?? undefined} />
         </div>
       )}
       {activeScreen !== "assistant" && renderScreen()}
