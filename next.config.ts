@@ -34,22 +34,22 @@ const nextConfig: NextConfig = withPWA({
   // the server bundle. Set APP_AWS_ACCESS_KEY_ID / APP_AWS_SECRET_ACCESS_KEY
   // only in the Amplify Console (Environment variables) so they stay server-only.
   env: {
-    APP_AWS_REGION:               process.env.APP_AWS_REGION ?? "",
+    APP_AWS_REGION: process.env.APP_AWS_REGION ?? "",
     // Credentials baked server-side so the SSR Lambda can call AWS APIs.
     // No NEXT_PUBLIC_ prefix = never sent to the browser bundle.
-    APP_AWS_ACCESS_KEY_ID:        process.env.APP_AWS_ACCESS_KEY_ID ?? "",
-    APP_AWS_SECRET_ACCESS_KEY:    process.env.APP_AWS_SECRET_ACCESS_KEY ?? "",
-    KMS_KEY_ID:                   process.env.KMS_KEY_ID ?? "",
-    ADMIN_SECRET:                 process.env.ADMIN_SECRET ?? "",
-    BEDROCK_MODEL_ID:             process.env.BEDROCK_MODEL_ID ?? "",
-    KIMI_BEDROCK_MODEL:           process.env.KIMI_BEDROCK_MODEL ?? "",
-    SNS_TOPIC_ARN:                process.env.SNS_TOPIC_ARN ?? "",
-    DYNAMODB_AUDIT_TABLE:         process.env.DYNAMODB_AUDIT_TABLE ?? "",
-    DYNAMODB_ACCESS_TABLE:        process.env.DYNAMODB_ACCESS_TABLE ?? "",
-    DYNAMODB_SESSION_TABLE:       process.env.DYNAMODB_SESSION_TABLE ?? "",
+    APP_AWS_ACCESS_KEY_ID: process.env.APP_AWS_ACCESS_KEY_ID ?? "",
+    APP_AWS_SECRET_ACCESS_KEY: process.env.APP_AWS_SECRET_ACCESS_KEY ?? "",
+    KMS_KEY_ID: process.env.KMS_KEY_ID ?? "",
+    ADMIN_SECRET: process.env.ADMIN_SECRET ?? "",
+    BEDROCK_MODEL_ID: process.env.BEDROCK_MODEL_ID ?? "",
+    KIMI_BEDROCK_MODEL: process.env.KIMI_BEDROCK_MODEL ?? "",
+    SNS_TOPIC_ARN: process.env.SNS_TOPIC_ARN ?? "",
+    DYNAMODB_AUDIT_TABLE: process.env.DYNAMODB_AUDIT_TABLE ?? "",
+    DYNAMODB_ACCESS_TABLE: process.env.DYNAMODB_ACCESS_TABLE ?? "",
+    DYNAMODB_SESSION_TABLE: process.env.DYNAMODB_SESSION_TABLE ?? "",
     DYNAMODB_HEALTH_RECORDS_TABLE: process.env.DYNAMODB_HEALTH_RECORDS_TABLE ?? "",
-    DYNAMODB_CHECKUPS_TABLE:      process.env.DYNAMODB_CHECKUPS_TABLE ?? "",
-    DYNAMODB_APPOINTMENTS_TABLE:  process.env.DYNAMODB_APPOINTMENTS_TABLE ?? "",
+    DYNAMODB_CHECKUPS_TABLE: process.env.DYNAMODB_CHECKUPS_TABLE ?? "",
+    DYNAMODB_APPOINTMENTS_TABLE: process.env.DYNAMODB_APPOINTMENTS_TABLE ?? "",
   },
 
   async headers() {
@@ -80,7 +80,7 @@ const nextConfig: NextConfig = withPWA({
         headers: [
           { key: "Cache-Control", value: "no-store" },
           // Prevent clickjacking and MIME sniffing
-          { key: "X-Frame-Options",        value: "DENY" },
+          { key: "X-Frame-Options", value: "DENY" },
           { key: "X-Content-Type-Options", value: "nosniff" },
         ],
       },

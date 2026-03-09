@@ -220,6 +220,7 @@
     line-height: 1.3;
     display: -webkit-box;
     -webkit-line-clamp: 2;
+    line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
     word-break: break-word;
@@ -273,8 +274,15 @@
 }
 
 @keyframes popoverIn {
-    from { opacity: 0; transform: translateY(6px); }
-    to   { opacity: 1; transform: translateY(0); }
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .popoverItem {
@@ -487,6 +495,7 @@
     transition: color var(--transition-fast);
     line-height: 1;
 }
+
 .searchClear:hover {
     color: var(--color-text-primary);
 }
@@ -535,6 +544,7 @@
     color: inherit;
     outline: none;
 }
+
 .searchResult:hover,
 .searchResultActive {
     background: var(--color-bg-secondary);
@@ -558,6 +568,7 @@
     flex: 1;
     min-width: 0;
 }
+
 .searchResultLabel {
     display: block;
     font-size: var(--text-sm);
@@ -567,6 +578,7 @@
     overflow: hidden;
     text-overflow: ellipsis;
 }
+
 .searchResultDesc {
     display: block;
     font-size: var(--text-xs);
@@ -665,8 +677,15 @@
 }
 
 @keyframes notifSlide {
-    from { opacity: 0; transform: translateY(-6px); }
-    to   { opacity: 1; transform: translateY(0); }
+    from {
+        opacity: 0;
+        transform: translateY(-6px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .notifHeader {
@@ -765,6 +784,7 @@
     line-height: 1.4;
     display: -webkit-box;
     -webkit-line-clamp: 2;
+    line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
 }
@@ -830,6 +850,7 @@
     grid-area: content;
     padding: var(--space-6);
     overflow-y: auto;
+    overflow-x: hidden;
     min-height: 0;
     height: calc(100vh - 70px);
 }
@@ -841,4 +862,119 @@
     overflow: hidden;
     min-height: 0;
     height: calc(100vh - 70px);
+}
+
+/* ---- Hamburger Button (mobile only, hidden on desktop) ---- */
+.hamburgerBtn {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    flex-shrink: 0;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    color: var(--color-text-primary);
+    border-radius: var(--radius-lg);
+    transition: background var(--transition-fast);
+}
+
+.hamburgerBtn:hover {
+    background: var(--color-bg-tertiary);
+}
+
+/* ---- Mobile Sidebar Overlay Backdrop ---- */
+.mobileOverlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    z-index: 350;
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+}
+
+/* ---- Sidebar open state (mobile drawer) ---- */
+.sidebarOpen {
+    transform: translateX(0) !important;
+}
+
+/* ============================================================
+   Responsive — Mobile (≤ 768px)
+   ============================================================ */
+@media (max-width: 768px) {
+
+    /* Grid: drop the sidebar column entirely */
+    .shell {
+        grid-template-columns: 1fr;
+        grid-template-rows: 60px 1fr;
+        grid-template-areas:
+            "topbar"
+            "content";
+    }
+
+    /* Sidebar becomes a fixed off-canvas drawer */
+    .sidebar {
+        position: fixed;
+        left: 0;
+        top: 0;
+        height: 100vh;
+        width: 280px;
+        z-index: 400;
+        transform: translateX(-100%);
+        transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding-bottom: 80px;
+        /* added space to reach Settings/Log out clearly */
+    }
+
+    /* Show hamburger */
+    .hamburgerBtn {
+        display: flex;
+    }
+
+    /* Hide the search bar on mobile to keep topbar clean */
+    .searchBox {
+        display: none;
+    }
+
+    /* Tighten topbar padding */
+    .topbar {
+        padding: 0 var(--space-4);
+        height: 60px;
+    }
+
+    /* Content fills full viewport below the 60px topbar */
+    .content {
+        padding: var(--space-4);
+        width: 100vw;
+        max-width: 100vw;
+        overflow-x: hidden;
+        height: calc(100vh - 60px);
+    }
+
+    .contentFlush {
+        height: calc(100vh - 60px);
+    }
+
+    /* Notification panel: constrain width and keep on screen */
+    .notifPanel {
+        width: min(360px, calc(100vw - 1.5rem));
+        right: 0;
+    }
+
+    /* Topbar left: give title some room next to the hamburger */
+    .topbarLeft {
+        gap: var(--space-2);
+        flex: 1;
+        min-width: 0;
+    }
+
+    .pageTitle {
+        font-size: var(--text-base);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
 }

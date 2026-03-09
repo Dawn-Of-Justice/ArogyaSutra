@@ -13,7 +13,7 @@ import styles from "./AppShell.module.css";
 import {
     LayoutDashboard, ClipboardList, Camera, Link2,
     HelpCircle, Settings, Hospital, User, LogOut,
-    Bell, Search, MoreVertical, CheckCheck, ShieldCheck, X, Users,
+    Bell, Search, MoreVertical, CheckCheck, ShieldCheck, X, Users, Menu,
 } from "lucide-react";
 import { GeminiIcon } from "../common/GeminiIcon";
 
@@ -137,6 +137,15 @@ export default function AppShell({
         const lang = localStorage.getItem("arogyasutra_language");
         if (lang) document.documentElement.setAttribute("lang", lang);
     }, []);
+
+    // ---- Mobile nav drawer ----
+    const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+    // Helper: navigate and close mobile drawer
+    const handleNavClick = (screen: string) => {
+        setMobileNavOpen(false);
+        onNavigate(screen);
+    };
 
     // ---- User card popover menu ----
     const [menuOpen, setMenuOpen] = useState(false);
@@ -385,12 +394,20 @@ export default function AppShell({
 
     return (
         <div className={styles.shell}>
+            {/* ---- Mobile Sidebar Overlay ---- */}
+            {mobileNavOpen && (
+                <div
+                    className={styles.mobileOverlay}
+                    onClick={() => setMobileNavOpen(false)}
+                    aria-hidden="true"
+                />
+            )}
             {/* ---- Sidebar ---- */}
-            <aside className={styles.sidebar}>
+            <aside className={`${styles.sidebar} ${mobileNavOpen ? styles.sidebarOpen : ""}`}>
                 {/* Logo */}
                 <button
                     className={styles.sidebarLogo}
-                    onClick={() => onNavigate(isDoctor ? "doctor-dashboard" : "dashboard")}
+                    onClick={() => handleNavClick(isDoctor ? "doctor-dashboard" : "dashboard")}
                     style={{ background: "none", border: "none", cursor: "pointer", width: "100%" }}
                 >
                     <span className={styles.logoName}>Arogya<span className={styles.logoAccent}>Sutra</span></span>
@@ -420,7 +437,7 @@ export default function AppShell({
                             <button
                                 key={item.id}
                                 className={`${styles.navBtn} ${activeScreen === item.id ? styles.navBtnActive : ""}`}
-                                onClick={() => onNavigate(item.id)}
+                                onClick={() => handleNavClick(item.id)}
                             >
                                 <span className={styles.navIcon}>{item.icon}</span>
                                 <span className={styles.navLabel}>{item.label}</span>
@@ -443,7 +460,7 @@ export default function AppShell({
                             <button
                                 key={item.id}
                                 className={`${styles.navBtn} ${activeScreen === item.id ? styles.navBtnActive : ""}`}
-                                onClick={() => onNavigate(item.id)}
+                                onClick={() => handleNavClick(item.id)}
                             >
                                 <span className={styles.navIcon}>{item.icon}</span>
                                 <span className={styles.navLabel}>{item.label}</span>
@@ -454,7 +471,7 @@ export default function AppShell({
 
                 {/* User card at bottom */}
                 <div className={styles.userCardWrap} ref={menuRef}>
-                    <button className={styles.userCard} onClick={() => onNavigate("profile")}>
+                    <button className={styles.userCard} onClick={() => handleNavClick("profile")}>
                         <div className={styles.userAvatar}>
                             {photoUrl ? (
                                 <img src={photoUrl} alt="Avatar" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "inherit" }} />
@@ -477,7 +494,7 @@ export default function AppShell({
 
                     {menuOpen && (
                         <div className={styles.popoverMenu}>
-                            <button className={styles.popoverItem} onClick={() => { setMenuOpen(false); onNavigate("profile"); }}>
+                            <button className={styles.popoverItem} onClick={() => { setMenuOpen(false); handleNavClick("profile"); }}>
                                 <User size={14} /> {t("my_profile")}
                             </button>
                             {/* Dependent account switcher (patients with linked cards only) */}
@@ -494,7 +511,7 @@ export default function AppShell({
                                         <button
                                             key={dep.cardId}
                                             className={`${styles.popoverItem} ${viewingAs?.patientId === dep.cardId ? styles.popoverItemActive : ""}`}
-                                            onClick={() => { switchToDependent(dep); setMenuOpen(false); onNavigate("dashboard"); }}
+                                            onClick={() => { switchToDependent(dep); setMenuOpen(false); handleNavClick("dashboard"); }}
                                         >
                                             <Users size={14} /> {dep.name}
                                         </button>
@@ -513,6 +530,13 @@ export default function AppShell({
             {/* ---- Top Bar ---- */}
             <header className={styles.topbar}>
                 <div className={styles.topbarLeft}>
+                    <button
+                        className={styles.hamburgerBtn}
+                        onClick={() => setMobileNavOpen((v) => !v)}
+                        aria-label={mobileNavOpen ? "Close menu" : "Open menu"}
+                    >
+                        {mobileNavOpen ? <X size={22} /> : <Menu size={22} />}
+                    </button>
                     <h1 className={styles.pageTitle}>{pageTitle}</h1>
                 </div>
 
