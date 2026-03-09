@@ -228,4 +228,4 @@ Upload: plaintext → AES-GCM encrypt → S3     Retrieve: S3 → AES-GCM decryp
 
 ## License
 
-This project is 
+This project is MIT Licence.
