@@ -6,6 +6,11 @@ ArogyaSutra transforms India's paper-heavy medical landscape — crumpled handwr
 
 The platform combines physical card security with **client-side AES-256 encryption** via Web Crypto API, ensuring complete patient data sovereignty. Even the ArogyaSutra team and cloud infrastructure operators **cannot access plaintext patient data**.
 
+<a href="https://www.youtube.com/watch?v=qHwM0mLhf5Q" target="_blank">
+ <img src="https://img.youtube.com/vi/qHwM0mLhf5Q/0.jpg" alt="IMAGE ALT TEXT HERE" width="480" height="360" border="10" />
+</a>
+
+
 ---
 
 ## Key Features
